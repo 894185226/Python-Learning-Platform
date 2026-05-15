@@ -173,28 +173,8 @@ function initNavigation() {
         });
     }
     
-    // 下拉菜单功能 - 使用更简单的选择器
-    const navButtons = document.querySelectorAll('a[onclick^="openNavItem"]');
-    navButtons.forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const navId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
-            const allNavs = document.querySelectorAll('.w3-dropdown-content');
-            const targetNav = document.getElementById('nav_' + navId);
-            
-            allNavs.forEach(function(nav) {
-                if (nav !== targetNav) {
-                    nav.classList.add('w3-hide');
-                }
-            });
-            
-            if (targetNav) {
-                targetNav.classList.toggle('w3-hide');
-            }
-        });
-    });
+    // 下拉菜单功能由全局 openNavItem 函数处理（HTML onclick 调用）
+    // 此处不再重复绑定事件，避免冲突
     
     // 点击页面其他地方关闭下拉菜单
     document.addEventListener('click', function(e) {
@@ -278,11 +258,6 @@ function toggleNavItem(navId) {
             targetNav.classList.add('w3-hide');
         }
     }
-}
-
-// 全局函数供 onclick 调用
-function openNavItem(navId) {
-    toggleNavItem(navId);
 }
 
 // 搜索功能

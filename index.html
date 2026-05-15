@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python变量 - 交互式教学网站</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+    <!-- 顶部导航栏 - W3Schools风格 -->
+    <div class="w3-top">
+        <div class="w3-bar w3-white w3-wide">
+            <a href="#" class="w3-bar-item w3-button w3-hover-none w3-left logo-link">
+                <span class="logo-text">🐍 Python变量探险</span>
+            </a>
+            
+            <!-- 桌面端导航菜单 -->
+            <div class="w3-bar-item w3-hide-small">
+                <a onclick="openNavItem('tutorials')" class="w3-bar-item w3-button w3-hover-green" href="javascript:void(0)">
+                    教程
+                    <i class="fa fa-caret-down"></i>
+                </a>
+                <a onclick="openNavItem('practice')" class="w3-bar-item w3-button w3-hover-green" href="javascript:void(0)">
+                    实践
+                    <i class="fa fa-caret-down"></i>
+                </a>
+                <a onclick="openNavItem('challenge')" class="w3-bar-item w3-button w3-hover-green" href="javascript:void(0)">
+                    挑战
+                    <i class="fa fa-caret-down"></i>
+                </a>
+                <a onclick="openNavItem('project')" class="w3-bar-item w3-button w3-hover-green" href="javascript:void(0)">
+                    项目
+                    <i class="fa fa-caret-down"></i>
+                </a>
+            </div>
+            
+            <!-- 搜索框 -->
+            <div class="w3-bar-item w3-right w3-hide-small search-container">
+                <form class="search-form" onsubmit="return search()">
+                    <input type="text" id="search-input" placeholder="搜索教程..." class="search-input">
+                    <button type="submit" class="search-btn">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </form>
+            </div>
+            
+            <!-- 登录按钮 -->
+            <a href="#" class="w3-bar-item w3-button w3-right w3-green w3-hover-dark-green w3-hide-small signin-btn">
+                <i class="fa fa-user"></i> 登录
+            </a>
+            
+            <!-- 移动端菜单按钮 -->
+            <button class="w3-bar-item w3-button w3-right w3-hide-medium w3-hide-large menu-icon" onclick="toggleMobileMenu()">
+                <i class="fa fa-bars"></i>
+            </button>
+        </div>
+        
+        <!-- 下拉导航菜单 -->
+        <div id="nav_tutorials" class="w3-dropdown-content w3-hide">
+            <div class="dropdown-header">📚 教程模块</div>
+            <div class="dropdown-links">
+                <a href="#intro" class="nav-link" data-module="intro">📺 情境导入</a>
+                <a href="#lesson" class="nav-link" data-module="lesson">📚 知识讲解</a>
+                <a href="#lab" class="nav-link" data-module="lab">🧪 类比实验室</a>
+            </div>
+        </div>
+        
+        <div id="nav_practice" class="w3-dropdown-content w3-hide">
+            <div class="dropdown-header">💻 实践模块</div>
+            <div class="dropdown-links">
+                <a href="#practice" class="nav-link" data-module="practice">💻 实践操作</a>
+                <a href="#judge" class="nav-link" data-module="judge">⚖️ 命名小法官</a>
+                <a href="#trace" class="nav-link" data-module="trace">🔍 值追踪挑战</a>
+            </div>
+        </div>
+        
+        <div id="nav_challenge" class="w3-dropdown-content w3-hide">
+            <div class="dropdown-header">🎯 挑战模块</div>
+            <div class="dropdown-links">
+                <a href="#debug" class="nav-link" data-module="debug">🏥 错误调试诊所</a>
+                <a href="#extend" class="nav-link" data-module="extend">🚀 扩展思维</a>
+                <a href="#test" class="nav-link" data-module="test">📝 课堂小测</a>
+            </div>
+        </div>
+        
+        <div id="nav_project" class="w3-dropdown-content w3-hide">
+            <div class="dropdown-header">🎨 项目模块</div>
+            <div class="dropdown-links">
+                <a href="#project" class="nav-link" data-module="project">🎨 创意项目</a>
+                <a href="#achievement" class="nav-link" data-module="achievement">🏆 成就墙</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 移动端菜单 -->
+    <div class="w3-modal" id="mobileMenuModal">
+        <div class="w3-modal-content w3-animate-top w3-card-4 mobile-menu-content">
+            <div class="w3-bar w3-green">
+                <span class="w3-bar-item w3-large">🐍 Python变量探险</span>
+                <button class="w3-bar-item w3-button w3-right w3-hover-red close-modal-btn" onclick="closeMobileMenu()">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="w3-container mobile-menu-items">
+                <a href="#welcome" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="welcome">🚀 开始学习</a>
+                <a href="#intro" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="intro">📺 情境导入</a>
+                <a href="#lab" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="lab">🧪 类比实验室</a>
+                <a href="#lesson" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="lesson">📚 知识讲解</a>
+                <a href="#judge" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="judge">⚖️ 命名小法官</a>
+                <a href="#practice" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="practice">💻 实践操作</a>
+                <a href="#trace" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="trace">🔍 值追踪挑战</a>
+                <a href="#debug" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="debug">🏥 错误调试诊所</a>
+                <a href="#extend" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="extend">🚀 扩展思维</a>
+                <a href="#project" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="project">🎨 创意项目</a>
+                <a href="#test" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="test">📝 课堂小测</a>
+                <a href="#achievement" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="achievement">🏆 成就墙</a>
+            </div>
+        </div>
+    </div>
+
+    <main class="main-content">
+        <!-- 0. 欢迎开始模块 - W3Schools风格 -->
+        <section id="welcome" class="module active">
+            <!-- Hero区域 - W3Schools风格 -->
+            <div class="w3-container hero-section">
+                <div class="learntocodecontent">
+                    <h1 class="learntocodeh1">Python变量探险</h1>
+                    <h3 class="learntocodeh3">
+                        <i class="fa fa-logo w3-hide" style="color:#FFC0C7!important;margin-right:20px;z-index:1;font-size:36px!important;vertical-align:bottom"></i>
+                        开启编程学习的第一步
+                    </h3>
+                    <br>
+                    <form class="hero-form" onsubmit="return search()">
+                        <input type="text" id="search-input" placeholder="搜索我们的教程，例如：变量" aria-label="搜索教程">
+                        <button type="submit"><i class="fa fa-search"></i></button>
+                    </form>
+                    <h4 class="learntocodeh4">
+                        <a href="#intro">不确定从哪里开始？</a>
+                    </h4>
+                </div>
+            </div>
+            
+            <svg style="background-color:#D9EEE1;" width="100%" height="72" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path id="wavepath" d="M0,0  L100, 0C35,150 35,0 0,100z" fill="#282A35"></path>
+            </svg>
+            
+            <!-- 特色卡片区域 -->
+            <div class="w3-container features-section ws-light-green">
+                <div class="w3-row">
+                    <div class="w3-col l4 w3-center feature-card">
+                        <div class="w3-card-4 w3-round-large w3-hover-shadow feature-card-inner">
+                            <div class="w3-container w3-green w3-round-large-top feature-card-header">
+                                <span class="feature-icon">📚</span>
+                            </div>
+                            <div class="feature-card-image">
+                                <img src="images/Python变量趣味学习插图.png" alt="趣味学习插图" class="feature-image">
+                            </div>
+                            <div class="w3-container w3-padding-24 feature-card-content">
+                                <h3 class="w3-text-green">趣味学习</h3>
+                                <p>通过有趣的动画和互动体验学习变量概念</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w3-col l4 w3-center feature-card">
+                        <div class="w3-card-4 w3-round-large w3-hover-shadow feature-card-inner">
+                            <div class="w3-container w3-green w3-round-large-top feature-card-header">
+                                <span class="feature-icon">🎮</span>
+                            </div>
+                            <div class="feature-card-image">
+                                <img src="images/Python变量互动体验插图.png" alt="互动体验插图" class="feature-image">
+                            </div>
+                            <div class="w3-container w3-padding-24 feature-card-content">
+                                <h3 class="w3-text-green">互动体验</h3>
+                                <p>拖拽、点击、编写代码，亲身体验变量的魅力</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w3-col l4 w3-center feature-card">
+                        <div class="w3-card-4 w3-round-large w3-hover-shadow feature-card-inner">
+                            <div class="w3-container w3-green w3-round-large-top feature-card-header">
+                                <span class="feature-icon">🏆</span>
+                            </div>
+                            <div class="feature-card-image">
+                                <img src="images/Python变量成就系统插图.png" alt="成就系统插图" class="feature-image">
+                            </div>
+                            <div class="w3-container w3-padding-24 feature-card-content">
+                                <h3 class="w3-text-green">成就系统</h3>
+                                <p>完成挑战获得成就徽章，记录学习成果</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 快速开始区域 -->
+            <div class="w3-container quick-start">
+                <div class="quick-start-content">
+                    <h3>💡 什么是变量？</h3>
+                    <p>
+                        <strong>变量</strong>就像一个有标签的盒子，用来存储数据。你可以给盒子贴上标签（变量名），随时放入或取出数据！
+                    </p>
+                    <div class="w3-code" style="font-size:16px;">
+                        name = "小明"<br>
+                        age = 12<br>
+                        score = 95.5
+                    </div>
+                    <a href="#lesson" class="w3-button" data-module="lesson">
+                        了解更多 →
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- 1. 情境导入模块 -->
+        <section id="intro" class="module">
+            <div class="module-header">
+                <h2>🎬 情境导入 - 会变的小盒子</h2>
+                <p>通过动画了解为什么我们需要变量</p>
+            </div>
+            <div class="intro-content">
+                <div class="story-scenes">
+                    <div class="scene active" data-scene="1">
+                        <div class="scene-animation">
+                            <div class="character">🎮 小明</div>
+                            <div class="dialogue">哎呀，游戏分数一直在变，我记不住啊！</div>
+                            <div class="counter">分数: <span class="score">0</span></div>
+                        </div>
+                    </div>
+                    <div class="scene" data-scene="2">
+                        <div class="scene-animation">
+                            <div class="character">📝 小红</div>
+                            <div class="dialogue">我需要记录不同同学的名字...</div>
+                            <div class="name-list">名字: <span class="name">张三</span></div>
+                        </div>
+                    </div>
+                    <div class="scene" data-scene="3">
+                        <div class="scene-animation">
+                            <div class="character">⏰ 小华</div>
+                            <div class="dialogue">倒计时在不断减少，怎么办？</div>
+                            <div class="timer">倒计时: <span class="countdown">10</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="scene-nav">
+                    <button class="scene-btn" data-target="1">🎮</button>
+                    <button class="scene-btn" data-target="2">📝</button>
+                    <button class="scene-btn" data-target="3">⏰</button>
+                </div>
+                <div class="intro-conclusion">
+                    <div class="box-example">
+                        <div class="box">变量盒子</div>
+                        <div class="box-label">score</div>
+                        <div class="box-value">95</div>
+                    </div>
+                    <p>💡 变量就像一个可以装东西的盒子，我们可以给它贴标签，随时放入或取出数据！</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 生活类比实验室 -->
+        <section id="lab" class="module">
+            <div class="module-header">
+                <h2>🧪 生活类比实验室</h2>
+                <p>拖拽标签和数据，体验变量的概念</p>
+            </div>
+            <div class="lab-content">
+                <div class="lab-sidebar">
+                    <h3>📋 标签库</h3>
+                    <div class="drag-items labels">
+                        <div class="drag-item label" draggable="true" data-type="label" data-value="score">score</div>
+                        <div class="drag-item label" draggable="true" data-type="label" data-value="name">name</div>
+                        <div class="drag-item label" draggable="true" data-type="label" data-value="age">age</div>
+                        <div class="drag-item label" draggable="true" data-type="label" data-value="hobby">hobby</div>
+                    </div>
+                    <h3>📦 数据物品</h3>
+                    <div class="drag-items data-items">
+                        <div class="drag-item data number" draggable="true" data-type="data" data-value="95">95</div>
+                        <div class="drag-item data number" draggable="true" data-type="data" data-value="12">12</div>
+                        <div class="drag-item data text" draggable="true" data-type="data" data-value="小明">"小明"</div>
+                        <div class="drag-item data text" draggable="true" data-type="data" data-value="编程">"编程"</div>
+                    </div>
+                </div>
+                <div class="lab-main">
+                    <div class="variable-box" id="variable-box">
+                        <div class="box-top" id="box-label-area">拖拽标签到这里</div>
+                        <div class="box-middle" id="box-value-area">拖拽数据到这里</div>
+                        <div class="box-type" id="box-type">类型: 空</div>
+                    </div>
+                    <div class="lab-code" id="lab-code">
+                        <pre># Python代码
+<span class="code-label">变量名</span> = <span class="code-value">值</span></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. 知识讲解模块 -->
+        <section id="lesson" class="module">
+            <div class="module-header">
+                <h2>📚 知识讲解</h2>
+                <p>学习变量的核心概念</p>
+            </div>
+            <div class="lesson-content">
+                <div class="lesson-card" id="card1">
+                    <h3>📖 什么是变量？</h3>
+                    <div class="card-content">
+                        <p>变量是程序中用来存储数据的容器。就像一个有标签的盒子：</p>
+                        <ul>
+                            <li><strong>变量名</strong>：盒子上的标签，用来识别这个变量</li>
+                            <li><strong>变量值</strong>：盒子里装的东西，即存储的数据</li>
+                            <li><strong>数据类型</strong>：盒子里东西的类型（数字、文字等）</li>
+                        </ul>
+                        <div class="code-example">
+                            <pre>name = "小明"  # 字符串类型
+age = 12      # 数字类型
+score = 95.5  # 浮点数类型</pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="lesson-card" id="card2">
+                    <h3>✍️ 命名规则</h3>
+                    <div class="card-content">
+                        <p>给变量起名字需要遵守以下规则：</p>
+                        <div class="rule-grid">
+                            <div class="rule valid">✅ 字母开头：<code>my_name</code></div>
+                            <div class="rule invalid">❌ 数字开头：<code>2name</code></div>
+                            <div class="rule valid">✅ 下划线连接：<code>user_name</code></div>
+                            <div class="rule invalid">❌ 空格：<code>my name</code></div>
+                            <div class="rule valid">✅ 区分大小写：<code>Name</code> ≠ <code>name</code></div>
+                            <div class="rule invalid">❌ 关键字：<code>class</code>, <code>if</code></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="lesson-card" id="card3">
+                    <h3>📌 赋值符号 =</h3>
+                    <div class="card-content">
+                        <p>在Python中，<code>=</code> 不是数学中的"等于"，而是"赋值"的意思。</p>
+                        <div class="assignment-demo">
+                            <div class="step">
+                                <code>x = 5</code>
+                                <p>把数字5放入名为x的盒子</p>
+                            </div>
+                            <div class="step">
+                                <code>x = x + 1</code>
+                                <p>取出x的值(5)，加1后(6)再放回去</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. 命名小法官 -->
+        <section id="judge" class="module">
+            <div class="module-header">
+                <h2>⚖️ 命名小法官</h2>
+                <p>判断变量名是否合法，累计星星奖励！</p>
+                <div class="judge-stars">⭐ 星星: <span id="judge-score">0</span>/10</div>
+            </div>
+            <div class="judge-content">
+                <div class="court-room">
+                    <div class="variable-name-display" id="current-variable">???</div>
+                    <div class="judge-buttons">
+                        <button class="judge-btn valid" id="btn-valid">✅ 合法</button>
+                        <button class="judge-btn invalid" id="btn-invalid">❌ 非法</button>
+                    </div>
+                    <div class="judge-feedback" id="judge-feedback"></div>
+                </div>
+                <div class="rule-book">
+                    <h3>📜 参考规则</h3>
+                    <ul>
+                        <li>只能包含字母、数字和下划线</li>
+                        <li>不能以数字开头</li>
+                        <li>不能是Python关键字</li>
+                        <li>区分大小写</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. 实践操作模块 -->
+        <section id="practice" class="module">
+            <div class="module-header">
+                <h2>💻 实践操作</h2>
+                <p>分级别练习变量的使用</p>
+                <div class="level-selector">
+                    <button class="level-btn active" data-level="1">Lv1 入门</button>
+                    <button class="level-btn" data-level="2">Lv2 进阶</button>
+                    <button class="level-btn" data-level="3">Lv3 挑战</button>
+                </div>
+            </div>
+            <div class="practice-content">
+                <div class="practice-instruction" id="practice-instruction">
+                    <h3>📝 任务说明</h3>
+                    <p id="instruction-text">补全代码：给变量赋值并打印输出</p>
+                </div>
+                <div class="practice-editor">
+                    <textarea id="code-input" class="code-input"># 在这里编写代码
+name = 
+print(name)</textarea>
+                    <button class="run-btn" id="run-code">▶️ 运行</button>
+                </div>
+                <div class="practice-output" id="output-area">
+                    <h3>📊 输出结果</h3>
+                    <div id="output-content"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. 值追踪挑战 -->
+        <section id="trace" class="module">
+            <div class="module-header">
+                <h2>🔍 值追踪挑战</h2>
+                <p>追踪变量值的变化，测试你的理解！</p>
+            </div>
+            <div class="trace-content">
+                <div class="trace-code" id="trace-code">
+                    <pre>x = 5
+y = x + 2
+x = 10
+z = x + y</pre>
+                </div>
+                <div class="variable-tracker" id="variable-tracker">
+                    <div class="variable-item" id="var-x">
+                        <span class="var-name">x</span>
+                        <span class="var-value" id="value-x">?</span>
+                    </div>
+                    <div class="variable-item" id="var-y">
+                        <span class="var-name">y</span>
+                        <span class="var-value" id="value-y">?</span>
+                    </div>
+                    <div class="variable-item" id="var-z">
+                        <span class="var-name">z</span>
+                        <span class="var-value" id="value-z">?</span>
+                    </div>
+                </div>
+                <div class="trace-controls">
+                    <button class="trace-btn" id="step-forward">▶️ 执行下一步</button>
+                    <button class="trace-btn" id="reset-trace">🔄 重置</button>
+                </div>
+                <div class="trace-feedback" id="trace-feedback"></div>
+            </div>
+        </section>
+
+        <!-- 7. 错误调试诊所 -->
+        <section id="debug" class="module">
+            <div class="module-header">
+                <h2>🏥 错误调试诊所</h2>
+                <p>找出代码中的bug并修复它们！</p>
+                <div class="debug-medal" id="debug-medal">🏆 修复勋章: <span>0</span>/5</div>
+            </div>
+            <div class="debug-content">
+                <div class="bug-display" id="bug-display">
+                    <pre id="bug-code"></pre>
+                </div>
+                <div class="debug-options" id="debug-options">
+                    <p>请选择正确的修复方案：</p>
+                </div>
+                <div class="debug-feedback" id="debug-feedback"></div>
+                <div class="debug-nav">
+                    <button class="debug-btn" id="prev-bug">⬅️ 上一个</button>
+                    <button class="debug-btn" id="next-bug">➡️ 下一个</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8. 扩展思维模块 -->
+        <section id="extend" class="module">
+            <div class="module-header">
+                <h2>🚀 扩展思维</h2>
+                <p>挑战更高难度的变量操作</p>
+                <div class="extend-challenges">
+                    <button class="challenge-btn active" data-challenge="swap">🧪 变量交换</button>
+                    <button class="challenge-btn" data-challenge="combine">📝 句子拼接</button>
+                </div>
+            </div>
+            <div class="extend-content">
+                <div class="swap-challenge" id="swap-challenge">
+                    <h3>挑战1：两杯水互换</h3>
+                    <div class="water-glasses">
+                        <div class="glass" id="glass-a">A: <span>🍎</span></div>
+                        <div class="glass" id="glass-b">B: <span>🍊</span></div>
+                        <div class="glass" id="glass-temp">临时: <span>空</span></div>
+                    </div>
+                    <div class="swap-code">
+                        <pre># 如何交换A和B的值？
+a = "苹果"
+b = "橙子"
+# 需要引入临时变量
+temp = a
+a = b
+b = temp</pre>
+                    </div>
+                </div>
+                <div class="combine-challenge" id="combine-challenge" style="display: none;">
+                    <h3>挑战2：句子拼接</h3>
+                    <div class="combine-inputs">
+                        <label>姓名：<input type="text" id="combine-name" value="小明"></label>
+                        <label>年龄：<input type="text" id="combine-age" value="12"></label>
+                        <label>爱好：<input type="text" id="combine-hobby" value="编程"></label>
+                    </div>
+                    <button class="combine-btn" id="generate-sentence">生成句子</button>
+                    <div class="combine-output" id="combine-output"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 9. 创意迷你项目 -->
+        <section id="project" class="module">
+            <div class="module-header">
+                <h2>🎨 创意迷你项目</h2>
+                <p>制作你的自我介绍名片！</p>
+            </div>
+            <div class="project-content">
+                <div class="project-input">
+                    <h3>填写你的信息</h3>
+                    <div class="input-group">
+                        <label>姓名：<input type="text" id="card-name" value="小明"></label>
+                        <label>年龄：<input type="text" id="card-age" value="12"></label>
+                        <label>爱好：<input type="text" id="card-hobby" value="编程"></label>
+                        <label>梦想：<input type="text" id="card-dream" value="成为程序员"></label>
+                    </div>
+                    <button class="project-btn" id="generate-card">生成名片</button>
+                </div>
+                <div class="card-preview" id="card-preview">
+                    <div class="digital-card">
+                        <div class="card-header">🌟 我的电子名片 🌟</div>
+                        <div class="card-body">
+                            <p>👤 姓名：<span id="preview-name">小明</span></p>
+                            <p>🎂 年龄：<span id="preview-age">12</span></p>
+                            <p>🎯 爱好：<span id="preview-hobby">编程</span></p>
+                            <p>💭 梦想：<span id="preview-dream">成为程序员</span></p>
+                        </div>
+                        <div class="card-footer">Made with Python ❤️</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 10. 课堂小测 -->
+        <section id="test" class="module">
+            <div class="module-header">
+                <h2>📝 课堂小测</h2>
+                <p>检验你的学习成果！</p>
+                <div class="test-progress">进度: <span id="test-progress">1</span>/5</div>
+            </div>
+            <div class="test-content">
+                <div class="question-container" id="question-container">
+                    <h3 id="question-text"></h3>
+                    <div class="options" id="options-container"></div>
+                </div>
+                <div class="test-controls">
+                    <button class="test-btn" id="prev-question">⬅️ 上一题</button>
+                    <button class="test-btn" id="next-question">➡️ 下一题</button>
+                    <button class="test-btn" id="submit-test">📤 提交答案</button>
+                </div>
+                <div class="test-result" id="test-result" style="display: none;">
+                    <h3>🎉 测试完成！</h3>
+                    <div class="radar-chart">
+                        <canvas id="radar-canvas"></canvas>
+                    </div>
+                    <div class="score-summary">
+                        <p>得分: <span id="final-score">0</span>/5</p>
+                        <p>评级: <span id="final-grade"></span></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 11. 回顾与成就墙 -->
+        <section id="achievement" class="module">
+            <div class="module-header">
+                <h2>🏆 回顾与成就墙</h2>
+                <p>查看你的学习成果！</p>
+            </div>
+            <div class="achievement-content">
+                <div class="exploration-map">
+                    <h3>🗺️ 变量岛探险地图</h3>
+                    <div class="map-grid">
+                        <div class="map-item completed">1. 情境导入 ✅</div>
+                        <div class="map-item completed">2. 类比实验室 ✅</div>
+                        <div class="map-item completed">3. 知识讲解 ✅</div>
+                        <div class="map-item completed">4. 命名小法官 ✅</div>
+                        <div class="map-item completed">5. 实践操作 ✅</div>
+                        <div class="map-item completed">6. 值追踪 ✅</div>
+                        <div class="map-item completed">7. 错误调试 ✅</div>
+                        <div class="map-item completed">8. 扩展思维 ✅</div>
+                        <div class="map-item completed">9. 创意项目 ✅</div>
+                        <div class="map-item completed">10. 课堂小测 ✅</div>
+                    </div>
+                </div>
+                <div class="achievements">
+                    <h3>🏅 获得成就</h3>
+                    <div class="achievement-list">
+                        <div class="achievement-item">⭐ 入门之星 - 完成基础学习</div>
+                        <div class="achievement-item">⚖️ 公正小法官 - 通过命名测试</div>
+                        <div class="achievement-item">🔧 调试能手 - 修复所有bug</div>
+                        <div class="achievement-item">🎨 创意达人 - 制作电子名片</div>
+                        <div class="achievement-item">🏆 全能学霸 - 通过所有测试</div>
+                    </div>
+                </div>
+                <div class="recap">
+                    <h3>📝 核心口诀</h3>
+                    <div class="mnemonic">
+                        <p>变量是个盒，标签我来贴，</p>
+                        <p>数据放进去，用谁拿谁！</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>📚 学习资源</h3>
+                <ul>
+                    <li><a href="#intro">情境导入</a></li>
+                    <li><a href="#lesson">知识讲解</a></li>
+                    <li><a href="#practice">实践操作</a></li>
+                    <li><a href="#test">课堂小测</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>🎮 互动模块</h3>
+                <ul>
+                    <li><a href="#lab">类比实验室</a></li>
+                    <li><a href="#judge">命名小法官</a></li>
+                    <li><a href="#trace">值追踪挑战</a></li>
+                    <li><a href="#debug">错误调试诊所</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>🚀 扩展内容</h3>
+                <ul>
+                    <li><a href="#extend">扩展思维</a></li>
+                    <li><a href="#project">创意项目</a></li>
+                    <li><a href="#achievement">成就墙</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>📧 联系我们</h3>
+                <p>邮箱：support@python-variable.com</p>
+                <p>电话：400-123-4567</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2024 Python变量探险 | 让编程学习更有趣</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

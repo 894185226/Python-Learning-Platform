@@ -1,0 +1,30 @@
+# 临时文件
+*.tmp
+*.temp
+
+# 日志文件
+*.log
+
+# 编辑器配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 操作系统文件
+Thumbs.db
+.DS_Store
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 备份文件
+*.bak
+*.backup

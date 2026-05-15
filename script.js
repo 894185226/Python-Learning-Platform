@@ -133,20 +133,25 @@ function initWelcomeModule() {
 
 // 导航模块 - W3Schools风格下拉菜单
 function initNavigation() {
-    // 下拉菜单功能
-    const navItems = document.querySelectorAll('[onclick^="openNavItem"]');
-    navItems.forEach(item => {
-        item.addEventListener('click', function(e) {
+    // 下拉菜单功能 - 使用更简单的选择器
+    const navButtons = document.querySelectorAll('a[onclick^="openNavItem"]');
+    navButtons.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
             e.preventDefault();
+            e.stopPropagation();
+            
             const navId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
             const allNavs = document.querySelectorAll('.w3-dropdown-content');
-            allNavs.forEach(nav => nav.classList.add('w3-hide'));
+            const targetNav = document.getElementById('nav_' + navId);
             
-            const targetNav = document.getElementById(`nav_${navId}`);
-            if (targetNav.classList.contains('w3-hide')) {
-                targetNav.classList.remove('w3-hide');
-            } else {
-                targetNav.classList.add('w3-hide');
+            allNavs.forEach(function(nav) {
+                if (nav !== targetNav) {
+                    nav.classList.add('w3-hide');
+                }
+            });
+            
+            if (targetNav) {
+                targetNav.classList.toggle('w3-hide');
             }
         });
     });
@@ -182,6 +187,42 @@ function initNavigation() {
             allNavs.forEach(nav => nav.classList.add('w3-hide'));
         });
     });
+    
+    // 页脚链接
+    const footerLinks = document.querySelectorAll('.footer-section a[href^="#"]');
+    footerLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const moduleId = this.getAttribute('href').substring(1);
+            switchModule(moduleId);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    });
+}
+
+// 切换下拉菜单
+function toggleNavItem(navId) {
+    const allNavs = document.querySelectorAll('.w3-dropdown-content');
+    const targetNav = document.getElementById(`nav_${navId}`);
+    
+    if (targetNav) {
+        allNavs.forEach(nav => {
+            if (nav.id !== `nav_${navId}`) {
+                nav.classList.add('w3-hide');
+            }
+        });
+        
+        if (targetNav.classList.contains('w3-hide')) {
+            targetNav.classList.remove('w3-hide');
+        } else {
+            targetNav.classList.add('w3-hide');
+        }
+    }
+}
+
+// 全局函数供 onclick 调用
+function openNavItem(navId) {
+    toggleNavItem(navId);
 }
 
 // 搜索功能
@@ -232,8 +273,15 @@ function closeMobileMenu() {
 
 function switchModule(moduleId) {
     const modules = document.querySelectorAll('.module');
+    const targetModule = document.getElementById(moduleId);
+    
+    if (!targetModule) {
+        console.error('Module not found:', moduleId);
+        return;
+    }
+    
     modules.forEach(module => module.classList.remove('active'));
-    document.getElementById(moduleId).classList.add('active');
+    targetModule.classList.add('active');
     state.currentModule = moduleId;
 }
 

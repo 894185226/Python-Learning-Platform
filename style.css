@@ -211,8 +211,11 @@ body {
     color: white;
     padding: 0;
     z-index: 999;
-    display: none;
     border-top: 1px solid #444;
+}
+
+.w3-dropdown-content.w3-hide {
+    display: none;
 }
 
 .w3-dropdown-content .dropdown-header {

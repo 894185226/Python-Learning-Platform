@@ -1705,3 +1705,214 @@ body {
     0%, 50% { opacity: 1; }
     51%, 100% { opacity: 0; }
 }
+
+/* ===== 登录/注册弹窗样式 ===== */
+.login-modal-content {
+    max-width: 420px;
+    margin: 80px auto;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+    color: #333;
+}
+
+.form-group label i {
+    color: var(--w3-green, #4CAF50);
+    margin-right: 4px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: border-color 0.3s;
+    box-sizing: border-box;
+}
+
+.form-input:focus {
+    border-color: var(--w3-green, #4CAF50);
+    outline: none;
+}
+
+.form-error {
+    background: #ffebee;
+    color: #c62828;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.form-submit-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--w3-green, #4CAF50);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.form-submit-btn:hover {
+    background: var(--w3-hover-green, #45a049);
+}
+
+.form-switch {
+    text-align: center;
+    margin-top: 16px;
+    color: #666;
+    font-size: 14px;
+}
+
+.form-switch a {
+    color: var(--w3-green, #4CAF50);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.form-switch a:hover {
+    text-decoration: underline;
+}
+
+/* ===== 导航栏用户信息 ===== */
+.signin-btn {
+    transition: all 0.3s;
+}
+
+.signin-btn.logged-in {
+    background-color: #2E7D32;
+}
+
+/* ===== 成就墙 - 探险地图 ===== */
+.map-item {
+    padding: 12px 16px;
+    background: #f5f5f5;
+    border-radius: 8px;
+    border-left: 4px solid #ddd;
+    transition: all 0.3s;
+    font-size: 14px;
+}
+
+.map-item.completed {
+    background: #e8f5e9;
+    border-left-color: #4CAF50;
+    color: #2E7D32;
+    font-weight: bold;
+}
+
+.map-item.completed::after {
+    content: " ✅";
+}
+
+.progress-summary {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 15px;
+    color: #555;
+    font-weight: bold;
+}
+
+.progress-bar-container {
+    margin: 10px 0 20px;
+    height: 24px;
+}
+
+.progress-bar {
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* ===== 成就墙 - 成就徽章 ===== */
+.achievement-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    transition: all 0.3s;
+}
+
+.achievement-item.earned {
+    background: #fffde7;
+    border-left: 4px solid #FFC107;
+}
+
+.achievement-item.locked {
+    opacity: 0.5;
+    filter: grayscale(80%);
+}
+
+.achievement-item .ach-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+}
+
+.achievement-item .ach-info h4 {
+    margin: 0 0 4px;
+    color: #333;
+    font-size: 15px;
+}
+
+.achievement-item .ach-info p {
+    margin: 0;
+    color: #888;
+    font-size: 12px;
+}
+
+.achievement-date {
+    margin-left: auto;
+    font-size: 11px;
+    color: #999;
+    white-space: nowrap;
+}
+
+/* ===== 学习统计 ===== */
+.stats-grid {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    text-align: center;
+    background: #f5f5f5;
+    border-radius: 12px;
+    padding: 20px 30px;
+    min-width: 100px;
+}
+
+.stat-number {
+    display: block;
+    font-size: 36px;
+    font-weight: bold;
+    color: var(--w3-green, #4CAF50);
+}
+
+.stat-label {
+    display: block;
+    font-size: 13px;
+    color: #888;
+    margin-top: 4px;
+}

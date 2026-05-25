@@ -1,4 +1,365 @@
-// 全局状态管理
+// ===== 数据库层（基于 localStorage） =====
+// 数据结构说明：
+// localStorage['python_var_users'] = JSON数组：[{username, password, displayName, registeredAt}, ...]
+// localStorage['python_var_current_user'] = {username: "xxx"}
+// localStorage['python_var_progress_{username}'] = {modules: {moduleId: "date"}, achievements: {achId: "date"}, loginDates: ["date"]}
+
+const DB = {
+    // 获取所有用户
+    getUsers() {
+        const data = localStorage.getItem('python_var_users');
+        return data ? JSON.parse(data) : [];
+    },
+    // 保存所有用户
+    saveUsers(users) {
+        localStorage.setItem('python_var_users', JSON.stringify(users));
+    },
+    // 根据用户名查找用户
+    findUser(username) {
+        return this.getUsers().find(u => u.username === username);
+    },
+    // 注册新用户
+    register(username, password, displayName) {
+        const users = this.getUsers();
+        if (this.findUser(username)) {
+            return { success: false, error: '用户名已存在！' };
+        }
+        users.push({
+            username: username,
+            password: password,  // 实际项目中应加密，此处为教学演示
+            displayName: displayName,
+            registeredAt: new Date().toISOString()
+        });
+        this.saveUsers(users);
+        return { success: true };
+    },
+    // 获取当前登录用户
+    getCurrentUser() {
+        const data = localStorage.getItem('python_var_current_user');
+        return data ? JSON.parse(data) : null;
+    },
+    // 设置当前登录用户
+    setCurrentUser(username) {
+        if (username) {
+            localStorage.setItem('python_var_current_user', JSON.stringify({ username: username }));
+        } else {
+            localStorage.removeItem('python_var_current_user');
+        }
+    },
+    // 获取用户学习进度
+    getProgress(username) {
+        const key = 'python_var_progress_' + username;
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : { modules: {}, achievements: {}, loginDates: [] };
+    },
+    // 保存用户学习进度
+    saveProgress(username, progress) {
+        const key = 'python_var_progress_' + username;
+        localStorage.setItem(key, JSON.stringify(progress));
+    },
+    // 记录今天登录
+    recordLogin(username) {
+        const progress = this.getProgress(username);
+        const today = new Date().toISOString().split('T')[0];
+        if (!progress.loginDates.includes(today)) {
+            progress.loginDates.push(today);
+        }
+        this.saveProgress(username, progress);
+    },
+    // 标记模块已完成
+    markModuleCompleted(username, moduleId) {
+        const progress = this.getProgress(username);
+        if (!progress.modules[moduleId]) {
+            progress.modules[moduleId] = new Date().toISOString();
+        }
+        this.saveProgress(username, progress);
+    },
+    // 颁发成就
+    awardAchievement(username, achId) {
+        const progress = this.getProgress(username);
+        if (!progress.achievements[achId]) {
+            progress.achievements[achId] = new Date().toISOString();
+            this.saveProgress(username, progress);
+            return true; // 新获得
+        }
+        return false; // 已获得
+    },
+    // 获取所有用户的学习统计（供教师查看）
+    getAllStats() {
+        const users = this.getUsers();
+        return users.map(u => {
+            const progress = this.getProgress(u.username);
+            return {
+                username: u.username,
+                displayName: u.displayName,
+                completedModules: Object.keys(progress.modules).length,
+                totalAchievements: Object.keys(progress.achievements).length,
+                studyDays: progress.loginDates.length,
+                registeredAt: u.registeredAt
+            };
+        });
+    }
+};
+
+// 成就定义
+const ACHIEVEMENTS = [
+    { id: 'beginner', icon: '⭐', name: '入门之星', desc: '完成情境导入和知识讲解', check: (p) => p.modules['intro'] && p.modules['lesson'] },
+    { id: 'judge', icon: '⚖️', name: '公正小法官', desc: '在命名小法官中获得8分以上', check: (p) => p.modules['judge'] },
+    { id: 'debugger', icon: '🔧', name: '调试能手', desc: '修复所有bug（完成错误调试诊所）', check: (p) => p.modules['debug'] },
+    { id: 'creator', icon: '🎨', name: '创意达人', desc: '完成创意项目制作', check: (p) => p.modules['project'] },
+    { id: 'champion', icon: '🏆', name: '全能学霸', desc: '完成全部10个模块', check: (p) => Object.keys(p.modules).length >= 10 },
+    { id: 'tracer', icon: '🔍', name: '追踪大师', desc: '完成值追踪挑战', check: (p) => p.modules['trace'] },
+    { id: 'explorer', icon: '🧪', name: '实验先锋', desc: '完成类比实验室', check: (p) => p.modules['lab'] },
+    { id: 'coder', icon: '💻', name: '编程新星', desc: '完成实践操作', check: (p) => p.modules['practice'] }
+];
+
+// ===== 用户认证系统 =====
+function openLoginModal() {
+    const currentUser = DB.getCurrentUser();
+    if (currentUser) {
+        // 已登录，询问是否退出
+        const user = DB.findUser(currentUser.username);
+        if (confirm(user.displayName + '，你要退出登录吗？')) {
+            DB.setCurrentUser(null);
+            updateLoginUI();
+        }
+        return;
+    }
+    document.getElementById('loginModal').style.display = 'block';
+    document.getElementById('loginForm').classList.remove('w3-hide');
+    document.getElementById('registerForm').classList.add('w3-hide');
+    document.getElementById('loginModalTitle').textContent = '🐍 学生登录';
+}
+
+function closeLoginModal() {
+    document.getElementById('loginModal').style.display = 'none';
+}
+
+function switchToRegister() {
+    document.getElementById('loginForm').classList.add('w3-hide');
+    document.getElementById('registerForm').classList.remove('w3-hide');
+    document.getElementById('loginError').classList.add('w3-hide');
+    document.getElementById('loginModalTitle').textContent = '📝 注册新账号';
+}
+
+function switchToLogin() {
+    document.getElementById('registerForm').classList.add('w3-hide');
+    document.getElementById('loginForm').classList.remove('w3-hide');
+    document.getElementById('registerError').classList.add('w3-hide');
+    document.getElementById('loginModalTitle').textContent = '🐍 学生登录';
+}
+
+function handleLogin(event) {
+    event.preventDefault();
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    const errorEl = document.getElementById('loginError');
+
+    const user = DB.findUser(username);
+    if (!user) {
+        errorEl.textContent = '用户名不存在，请先注册！';
+        errorEl.classList.remove('w3-hide');
+        return false;
+    }
+    if (user.password !== password) {
+        errorEl.textContent = '密码错误，请重试！';
+        errorEl.classList.remove('w3-hide');
+        return false;
+    }
+
+    // 登录成功
+    DB.setCurrentUser(username);
+    DB.recordLogin(username);
+    closeLoginModal();
+    updateLoginUI();
+    document.getElementById('loginUsername').value = '';
+    document.getElementById('loginPassword').value = '';
+    errorEl.classList.add('w3-hide');
+    
+    // 刷新成就墙
+    renderAchievementWall();
+    
+    return false;
+}
+
+function handleRegister(event) {
+    event.preventDefault();
+    const username = document.getElementById('regUsername').value.trim();
+    const password = document.getElementById('regPassword').value.trim();
+    const displayName = document.getElementById('regDisplayName').value.trim();
+    const errorEl = document.getElementById('registerError');
+
+    if (username.length < 2) {
+        errorEl.textContent = '用户名至少需要2个字符！';
+        errorEl.classList.remove('w3-hide');
+        return false;
+    }
+    if (password.length < 4) {
+        errorEl.textContent = '密码至少需要4个字符！';
+        errorEl.classList.remove('w3-hide');
+        return false;
+    }
+
+    const result = DB.register(username, password, displayName);
+    if (!result.success) {
+        errorEl.textContent = result.error;
+        errorEl.classList.remove('w3-hide');
+        return false;
+    }
+
+    // 注册成功，自动登录
+    DB.setCurrentUser(username);
+    DB.recordLogin(username);
+    closeLoginModal();
+    updateLoginUI();
+    document.getElementById('regUsername').value = '';
+    document.getElementById('regPassword').value = '';
+    document.getElementById('regDisplayName').value = '';
+    renderAchievementWall();
+    
+    return false;
+}
+
+function updateLoginUI() {
+    const currentUser = DB.getCurrentUser();
+    const btnText = document.getElementById('loginBtnText');
+    const btn = document.querySelector('.signin-btn');
+    
+    if (currentUser) {
+        const user = DB.findUser(currentUser.username);
+        if (user) {
+            btnText.textContent = user.displayName;
+        }
+        btn.classList.add('logged-in');
+        btn.title = '点击退出登录';
+    } else {
+        btnText.textContent = '登录';
+        btn.classList.remove('logged-in');
+        btn.title = '';
+    }
+}
+
+// ===== 学习进度追踪 =====
+function markModuleCompleted(moduleId) {
+    const currentUser = DB.getCurrentUser();
+    if (!currentUser) return; // 未登录不记录
+    
+    DB.markModuleCompleted(currentUser.username, moduleId);
+    
+    // 检查并颁发成就
+    const newAch = checkAndAwardAchievements(currentUser.username);
+    if (newAch.length > 0) {
+        // 有新的成就获得
+        console.log('新成就：', newAch);
+    }
+}
+
+function checkAndAwardAchievements(username) {
+    const progress = DB.getProgress(username);
+    const newAchievements = [];
+    
+    ACHIEVEMENTS.forEach(ach => {
+        if (ach.check(progress)) {
+            const earned = DB.awardAchievement(username, ach.id);
+            if (earned) {
+                newAchievements.push(ach);
+            }
+        }
+    });
+    
+    return newAchievements;
+}
+
+// ===== 成就墙渲染 =====
+function renderAchievementWall() {
+    const currentUser = DB.getCurrentUser();
+    const userNameEl = document.getElementById('achievementUserName');
+    const mapGrid = document.getElementById('mapGrid');
+    const progressSummary = document.getElementById('progressSummary');
+    const progressBar = document.getElementById('progressBar');
+    const achievementList = document.getElementById('achievementList');
+    const learningStats = document.getElementById('learningStats');
+
+    if (!currentUser) {
+        // 未登录状态
+        if (userNameEl) userNameEl.textContent = '请先登录以查看学习成果！';
+        if (learningStats) learningStats.style.display = 'none';
+        // 重置地图
+        updateMapGrid(null);
+        // 清空成就
+        if (achievementList) achievementList.innerHTML = '<p style="text-align:center;color:#999;">登录后可查看成就</p>';
+        if (progressSummary) progressSummary.textContent = '总进度：请先登录';
+        if (progressBar) {
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+        }
+        return;
+    }
+
+    const user = DB.findUser(currentUser.username);
+    const progress = DB.getProgress(currentUser.username);
+    
+    if (userNameEl && user) {
+        userNameEl.textContent = user.displayName + ' 的学习成果';
+    }
+    
+    // 更新探险地图
+    updateMapGrid(progress);
+    
+    // 更新进度条
+    const completedCount = Object.keys(progress.modules).length;
+    const totalModules = 10;
+    const percent = Math.round((completedCount / totalModules) * 100);
+    
+    if (progressSummary) {
+        progressSummary.textContent = `总进度：${completedCount}/${totalModules} 模块完成 (${percent}%)`;
+    }
+    if (progressBar) {
+        progressBar.style.width = percent + '%';
+        progressBar.textContent = percent + '%';
+    }
+    
+    // 更新成就列表
+    if (achievementList) {
+        achievementList.innerHTML = ACHIEVEMENTS.map(ach => {
+            const earnedDate = progress.achievements[ach.id];
+            const earned = !!earnedDate;
+            const dateStr = earnedDate ? new Date(earnedDate).toLocaleDateString('zh-CN') : '';
+            return `
+                <div class="achievement-item ${earned ? 'earned' : 'locked'}">
+                    <span class="ach-icon">${ach.icon}</span>
+                    <div class="ach-info">
+                        <h4>${ach.icon} ${ach.name}</h4>
+                        <p>${ach.desc}</p>
+                    </div>
+                    ${earned ? `<span class="achievement-date">${dateStr}</span>` : '<span class="achievement-date">未获得</span>'}
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // 更新学习统计
+    if (learningStats) {
+        learningStats.style.display = 'block';
+        document.getElementById('statCompleted').textContent = completedCount;
+        document.getElementById('statAchievements').textContent = Object.keys(progress.achievements).length;
+        document.getElementById('statDays').textContent = progress.loginDates.length;
+    }
+}
+
+function updateMapGrid(progress) {
+    const mapItems = document.querySelectorAll('.map-item[data-module-id]');
+    if (!mapItems.length) return;
+    
+    mapItems.forEach(item => {
+        const moduleId = item.getAttribute('data-module-id');
+        if (progress && progress.modules[moduleId]) {
+            item.classList.add('completed');
+        } else {
+            item.classList.remove('completed');
+        }
+    });
+}
 const state = {
     currentModule: 'welcome',
     judgeScore: 0,
@@ -104,6 +465,9 @@ const state = {
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
+    // 初始化用户登录UI
+    updateLoginUI();
+    
     initWelcomeModule();
     initNavigation();
     initIntroModule();
@@ -117,6 +481,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initTestModule();
     initTypewriterEffect();
     initScrollReveal();
+    
+    // 如果在成就墙模块，刷新显示
+    renderAchievementWall();
 });
 
 // 欢迎模块
@@ -318,6 +685,16 @@ function switchModule(moduleId) {
     modules.forEach(module => module.classList.remove('active'));
     targetModule.classList.add('active');
     state.currentModule = moduleId;
+    
+    // 排除welcome页，避免首次加载就记录
+    if (moduleId !== 'welcome') {
+        markModuleCompleted(moduleId);
+    }
+    
+    // 如果切换到成就墙页面，刷新显示
+    if (moduleId === 'achievement') {
+        renderAchievementWall();
+    }
 }
 
 // 情境导入模块
@@ -462,6 +839,10 @@ function initJudgeModule() {
 
         setTimeout(() => {
             state.currentJudgeIndex = (state.currentJudgeIndex + 1) % state.judgeQuestions.length;
+            // 完成一轮（10题）后记录
+            if (state.currentJudgeIndex === 0 && state.judgeScore > 0) {
+                markModuleCompleted('judge');
+            }
             showCurrentQuestion();
         }, 1500);
     }
@@ -587,6 +968,8 @@ function initTraceModule() {
         } else {
             feedback.textContent = '🎉 执行完成！最终结果: x=10, y=7, z=17';
             feedback.style.color = '#667eea';
+            // 记录值追踪完成
+            markModuleCompleted('trace');
         }
     });
 
@@ -633,6 +1016,11 @@ function initDebugModule() {
             feedback.style.color = '#28a745';
             state.debugMedals++;
             medalCount.textContent = state.debugMedals;
+            
+            // 所有bug修复完成
+            if (state.debugMedals >= state.bugs.length) {
+                markModuleCompleted('debug');
+            }
         } else {
             feedback.textContent = '❌ 修复失败，再试试吧！';
             feedback.style.color = '#dc3545';
@@ -704,6 +1092,9 @@ function initProjectModule() {
         document.getElementById('preview-age').textContent = age;
         document.getElementById('preview-hobby').textContent = hobby;
         document.getElementById('preview-dream').textContent = dream;
+        
+        // 记录项目完成
+        markModuleCompleted('project');
     });
 }
 
@@ -791,6 +1182,9 @@ function initTestModule() {
         questionContainer.style.display = 'none';
         testControls.style.display = 'none';
         testResult.style.display = 'block';
+        
+        // 记录测试完成
+        markModuleCompleted('test');
 
         // 绘制雷达图
         drawRadarChart(score);

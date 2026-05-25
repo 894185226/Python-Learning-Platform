@@ -46,8 +46,8 @@
             </div>
             
             <!-- 登录按钮 -->
-            <a href="#" class="w3-bar-item w3-button w3-right w3-green w3-hover-dark-green w3-hide-small signin-btn">
-                <i class="fa fa-user"></i> 登录
+            <a href="javascript:void(0)" class="w3-bar-item w3-button w3-right w3-green w3-hover-dark-green w3-hide-small signin-btn" onclick="openLoginModal()">
+                <i class="fa fa-user"></i> <span id="loginBtnText">登录</span>
             </a>
             
             <!-- 移动端菜单按钮 -->
@@ -115,6 +115,60 @@
                 <a href="#project" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="project">🎨 创意项目</a>
                 <a href="#test" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="test">📝 课堂小测</a>
                 <a href="#achievement" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="achievement">🏆 成就墙</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录/注册弹窗 -->
+    <div class="w3-modal" id="loginModal">
+        <div class="w3-modal-content w3-animate-zoom w3-card-4 login-modal-content">
+            <div class="w3-bar w3-green">
+                <span class="w3-bar-item w3-large" id="loginModalTitle">🐍 学生登录</span>
+                <button class="w3-bar-item w3-button w3-right w3-hover-red" onclick="closeLoginModal()">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="w3-container w3-padding-24">
+                <!-- 登录表单 -->
+                <form id="loginForm" onsubmit="return handleLogin(event)">
+                    <div class="form-group">
+                        <label><i class="fa fa-user"></i> 用户名</label>
+                        <input type="text" id="loginUsername" class="form-input" placeholder="请输入用户名" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa fa-lock"></i> 密码</label>
+                        <input type="password" id="loginPassword" class="form-input" placeholder="请输入密码" required>
+                    </div>
+                    <div id="loginError" class="form-error w3-hide"></div>
+                    <button type="submit" class="form-submit-btn">
+                        <i class="fa fa-sign-in"></i> 登录
+                    </button>
+                    <p class="form-switch">
+                        还没有账号？<a href="javascript:void(0)" onclick="switchToRegister()">立即注册</a>
+                    </p>
+                </form>
+                <!-- 注册表单 -->
+                <form id="registerForm" class="w3-hide" onsubmit="return handleRegister(event)">
+                    <div class="form-group">
+                        <label><i class="fa fa-id-card"></i> 真实姓名</label>
+                        <input type="text" id="regDisplayName" class="form-input" placeholder="请输入你的姓名" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa fa-user"></i> 用户名</label>
+                        <input type="text" id="regUsername" class="form-input" placeholder="请输入用户名" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa fa-lock"></i> 密码</label>
+                        <input type="password" id="regPassword" class="form-input" placeholder="请输入密码（至少4位）" required minlength="4">
+                    </div>
+                    <div id="registerError" class="form-error w3-hide"></div>
+                    <button type="submit" class="form-submit-btn">
+                        <i class="fa fa-user-plus"></i> 注册
+                    </button>
+                    <p class="form-switch">
+                        已有账号？<a href="javascript:void(0)" onclick="switchToLogin()">返回登录</a>
+                    </p>
+                </form>
             </div>
         </div>
     </div>
@@ -571,32 +625,51 @@ b = temp</pre>
         <section id="achievement" class="module">
             <div class="module-header">
                 <h2>🏆 回顾与成就墙</h2>
-                <p>查看你的学习成果！</p>
+                <p id="achievementUserName">查看你的学习成果！</p>
             </div>
             <div class="achievement-content">
                 <div class="exploration-map">
                     <h3>🗺️ 变量岛探险地图</h3>
-                    <div class="map-grid">
-                        <div class="map-item completed">1. 情境导入 ✅</div>
-                        <div class="map-item completed">2. 类比实验室 ✅</div>
-                        <div class="map-item completed">3. 知识讲解 ✅</div>
-                        <div class="map-item completed">4. 命名小法官 ✅</div>
-                        <div class="map-item completed">5. 实践操作 ✅</div>
-                        <div class="map-item completed">6. 值追踪 ✅</div>
-                        <div class="map-item completed">7. 错误调试 ✅</div>
-                        <div class="map-item completed">8. 扩展思维 ✅</div>
-                        <div class="map-item completed">9. 创意项目 ✅</div>
-                        <div class="map-item completed">10. 课堂小测 ✅</div>
+                    <div class="map-grid" id="mapGrid">
+                        <div class="map-item" data-module-id="intro">1. 情境导入</div>
+                        <div class="map-item" data-module-id="lab">2. 类比实验室</div>
+                        <div class="map-item" data-module-id="lesson">3. 知识讲解</div>
+                        <div class="map-item" data-module-id="judge">4. 命名小法官</div>
+                        <div class="map-item" data-module-id="practice">5. 实践操作</div>
+                        <div class="map-item" data-module-id="trace">6. 值追踪挑战</div>
+                        <div class="map-item" data-module-id="debug">7. 错误调试诊所</div>
+                        <div class="map-item" data-module-id="extend">8. 扩展思维</div>
+                        <div class="map-item" data-module-id="project">9. 创意项目</div>
+                        <div class="map-item" data-module-id="test">10. 课堂小测</div>
+                    </div>
+                    <div class="progress-summary" id="progressSummary">
+                        总进度：0/10 模块完成 (0%)
+                    </div>
+                    <div class="w3-light-grey w3-round progress-bar-container">
+                        <div class="w3-container w3-green w3-round progress-bar" id="progressBar" style="width:0%">0%</div>
                     </div>
                 </div>
                 <div class="achievements">
                     <h3>🏅 获得成就</h3>
-                    <div class="achievement-list">
-                        <div class="achievement-item">⭐ 入门之星 - 完成基础学习</div>
-                        <div class="achievement-item">⚖️ 公正小法官 - 通过命名测试</div>
-                        <div class="achievement-item">🔧 调试能手 - 修复所有bug</div>
-                        <div class="achievement-item">🎨 创意达人 - 制作电子名片</div>
-                        <div class="achievement-item">🏆 全能学霸 - 通过所有测试</div>
+                    <div class="achievement-list" id="achievementList">
+                        <!-- 动态填充 -->
+                    </div>
+                </div>
+                <div class="learning-stats" id="learningStats" style="display:none">
+                    <h3>📊 学习统计</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-number" id="statCompleted">0</span>
+                            <span class="stat-label">完成模块</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="statAchievements">0</span>
+                            <span class="stat-label">获得成就</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="statDays">0</span>
+                            <span class="stat-label">学习天数</span>
+                        </div>
                     </div>
                 </div>
                 <div class="recap">

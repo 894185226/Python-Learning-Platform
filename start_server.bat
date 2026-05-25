@@ -1,14 +1,16 @@
 @echo off
 cls
 echo ==============================================
-echo     Python Variable Adventure - Server
+echo   Python Variable Adventure - Server
 echo ==============================================
 echo.
-echo Starting HTTP Server...
-echo Server Address: http://localhost:8000
+echo Starting Node.js server with MySQL database...
+echo Website: http://localhost:3000
 echo.
 echo Press Ctrl+C to stop the server
+echo ==============================================
 echo.
 
 cd /d "C:\Users\Public\PythonVariableLesson"
-python -m http.server 8000
+"C:\Users\89418\.trae-cn\binaries\node\versions\24.15.0\node.exe" server.js
+pause

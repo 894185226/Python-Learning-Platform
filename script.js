@@ -1,105 +1,63 @@
-// ===== 数据库层（基于 localStorage） =====
-// 数据结构说明：
-// localStorage['python_var_users'] = JSON数组：[{username, password, displayName, registeredAt}, ...]
-// localStorage['python_var_current_user'] = {username: "xxx"}
-// localStorage['python_var_progress_{username}'] = {modules: {moduleId: "date"}, achievements: {achId: "date"}, loginDates: ["date"]}
+// ===== API 层（连接后端 MySQL 数据库） =====
+// 后端地址配置
+const API_BASE = 'http://localhost:3000/api';
 
-const DB = {
-    // 获取所有用户
-    getUsers() {
-        const data = localStorage.getItem('python_var_users');
-        return data ? JSON.parse(data) : [];
-    },
-    // 保存所有用户
-    saveUsers(users) {
-        localStorage.setItem('python_var_users', JSON.stringify(users));
-    },
-    // 根据用户名查找用户
-    findUser(username) {
-        return this.getUsers().find(u => u.username === username);
-    },
-    // 注册新用户
-    register(username, password, displayName) {
-        const users = this.getUsers();
-        if (this.findUser(username)) {
-            return { success: false, error: '用户名已存在！' };
-        }
-        users.push({
-            username: username,
-            password: password,  // 实际项目中应加密，此处为教学演示
-            displayName: displayName,
-            registeredAt: new Date().toISOString()
+const API = {
+    // 注册
+    async register(username, password, displayName) {
+        const res = await fetch(API_BASE + '/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, displayName })
         });
-        this.saveUsers(users);
-        return { success: true };
+        return await res.json();
     },
-    // 获取当前登录用户
-    getCurrentUser() {
-        const data = localStorage.getItem('python_var_current_user');
-        return data ? JSON.parse(data) : null;
-    },
-    // 设置当前登录用户
-    setCurrentUser(username) {
-        if (username) {
-            localStorage.setItem('python_var_current_user', JSON.stringify({ username: username }));
-        } else {
-            localStorage.removeItem('python_var_current_user');
-        }
+    // 登录
+    async login(username, password) {
+        const res = await fetch(API_BASE + '/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        return await res.json();
     },
     // 获取用户学习进度
-    getProgress(username) {
-        const key = 'python_var_progress_' + username;
-        const data = localStorage.getItem(key);
-        return data ? JSON.parse(data) : { modules: {}, achievements: {}, loginDates: [] };
+    async getProgress(username) {
+        const res = await fetch(API_BASE + '/progress/' + encodeURIComponent(username));
+        return await res.json();
     },
-    // 保存用户学习进度
-    saveProgress(username, progress) {
-        const key = 'python_var_progress_' + username;
-        localStorage.setItem(key, JSON.stringify(progress));
-    },
-    // 记录今天登录
-    recordLogin(username) {
-        const progress = this.getProgress(username);
-        const today = new Date().toISOString().split('T')[0];
-        if (!progress.loginDates.includes(today)) {
-            progress.loginDates.push(today);
-        }
-        this.saveProgress(username, progress);
-    },
-    // 标记模块已完成
-    markModuleCompleted(username, moduleId) {
-        const progress = this.getProgress(username);
-        if (!progress.modules[moduleId]) {
-            progress.modules[moduleId] = new Date().toISOString();
-        }
-        this.saveProgress(username, progress);
+    // 标记模块完成
+    async markModuleCompleted(username, moduleId, score) {
+        const res = await fetch(API_BASE + '/progress/mark', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, moduleId, score })
+        });
+        return await res.json();
     },
     // 颁发成就
-    awardAchievement(username, achId) {
-        const progress = this.getProgress(username);
-        if (!progress.achievements[achId]) {
-            progress.achievements[achId] = new Date().toISOString();
-            this.saveProgress(username, progress);
-            return true; // 新获得
-        }
-        return false; // 已获得
-    },
-    // 获取所有用户的学习统计（供教师查看）
-    getAllStats() {
-        const users = this.getUsers();
-        return users.map(u => {
-            const progress = this.getProgress(u.username);
-            return {
-                username: u.username,
-                displayName: u.displayName,
-                completedModules: Object.keys(progress.modules).length,
-                totalAchievements: Object.keys(progress.achievements).length,
-                studyDays: progress.loginDates.length,
-                registeredAt: u.registeredAt
-            };
+    async awardAchievement(username, achievementId) {
+        const res = await fetch(API_BASE + '/achievement/award', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, achievementId })
         });
+        return await res.json();
     }
 };
+
+// 会话管理（仅存当前用户名，敏感操作走后端）
+function getCurrentUser() {
+    const data = sessionStorage.getItem('pv_current_user');
+    return data ? JSON.parse(data) : null;
+}
+function setCurrentUser(user) {
+    if (user) {
+        sessionStorage.setItem('pv_current_user', JSON.stringify(user));
+    } else {
+        sessionStorage.removeItem('pv_current_user');
+    }
+}
 
 // 成就定义
 const ACHIEVEMENTS = [
@@ -115,12 +73,11 @@ const ACHIEVEMENTS = [
 
 // ===== 用户认证系统 =====
 function openLoginModal() {
-    const currentUser = DB.getCurrentUser();
+    const currentUser = getCurrentUser();
     if (currentUser) {
         // 已登录，询问是否退出
-        const user = DB.findUser(currentUser.username);
-        if (confirm(user.displayName + '，你要退出登录吗？')) {
-            DB.setCurrentUser(null);
+        if (confirm(currentUser.displayName + '，你要退出登录吗？')) {
+            setCurrentUser(null);
             updateLoginUI();
         }
         return;
@@ -149,27 +106,21 @@ function switchToLogin() {
     document.getElementById('loginModalTitle').textContent = '🐍 学生登录';
 }
 
-function handleLogin(event) {
+async function handleLogin(event) {
     event.preventDefault();
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
     const errorEl = document.getElementById('loginError');
 
-    const user = DB.findUser(username);
-    if (!user) {
-        errorEl.textContent = '用户名不存在，请先注册！';
-        errorEl.classList.remove('w3-hide');
-        return false;
-    }
-    if (user.password !== password) {
-        errorEl.textContent = '密码错误，请重试！';
+    const result = await API.login(username, password);
+    if (!result.success) {
+        errorEl.textContent = result.error;
         errorEl.classList.remove('w3-hide');
         return false;
     }
 
     // 登录成功
-    DB.setCurrentUser(username);
-    DB.recordLogin(username);
+    setCurrentUser(result.user);
     closeLoginModal();
     updateLoginUI();
     document.getElementById('loginUsername').value = '';
@@ -182,7 +133,7 @@ function handleLogin(event) {
     return false;
 }
 
-function handleRegister(event) {
+async function handleRegister(event) {
     event.preventDefault();
     const username = document.getElementById('regUsername').value.trim();
     const password = document.getElementById('regPassword').value.trim();
@@ -200,7 +151,7 @@ function handleRegister(event) {
         return false;
     }
 
-    const result = DB.register(username, password, displayName);
+    const result = await API.register(username, password, displayName);
     if (!result.success) {
         errorEl.textContent = result.error;
         errorEl.classList.remove('w3-hide');
@@ -208,8 +159,7 @@ function handleRegister(event) {
     }
 
     // 注册成功，自动登录
-    DB.setCurrentUser(username);
-    DB.recordLogin(username);
+    setCurrentUser({ username, displayName });
     closeLoginModal();
     updateLoginUI();
     document.getElementById('regUsername').value = '';
@@ -221,15 +171,12 @@ function handleRegister(event) {
 }
 
 function updateLoginUI() {
-    const currentUser = DB.getCurrentUser();
+    const currentUser = getCurrentUser();
     const btnText = document.getElementById('loginBtnText');
     const btn = document.querySelector('.signin-btn');
     
     if (currentUser) {
-        const user = DB.findUser(currentUser.username);
-        if (user) {
-            btnText.textContent = user.displayName;
-        }
+        btnText.textContent = currentUser.displayName;
         btn.classList.add('logged-in');
         btn.title = '点击退出登录';
     } else {
@@ -240,39 +187,39 @@ function updateLoginUI() {
 }
 
 // ===== 学习进度追踪 =====
-function markModuleCompleted(moduleId) {
-    const currentUser = DB.getCurrentUser();
+async function markModuleCompleted(moduleId) {
+    const currentUser = getCurrentUser();
     if (!currentUser) return; // 未登录不记录
     
-    DB.markModuleCompleted(currentUser.username, moduleId);
+    await API.markModuleCompleted(currentUser.username, moduleId);
     
     // 检查并颁发成就
-    const newAch = checkAndAwardAchievements(currentUser.username);
+    const newAch = await checkAndAwardAchievements(currentUser.username);
     if (newAch.length > 0) {
-        // 有新的成就获得
         console.log('新成就：', newAch);
     }
 }
 
-function checkAndAwardAchievements(username) {
-    const progress = DB.getProgress(username);
+async function checkAndAwardAchievements(username) {
+    const progress = await API.getProgress(username);
     const newAchievements = [];
     
-    ACHIEVEMENTS.forEach(ach => {
+    for (const ach of ACHIEVEMENTS) {
         if (ach.check(progress)) {
-            const earned = DB.awardAchievement(username, ach.id);
-            if (earned) {
+            if (!progress.achievements[ach.id]) {
+                // 后端会忽略重复颁发，但先检查减少请求
+                await API.awardAchievement(username, ach.id);
                 newAchievements.push(ach);
             }
         }
-    });
+    }
     
     return newAchievements;
 }
 
 // ===== 成就墙渲染 =====
-function renderAchievementWall() {
-    const currentUser = DB.getCurrentUser();
+async function renderAchievementWall() {
+    const currentUser = getCurrentUser();
     const userNameEl = document.getElementById('achievementUserName');
     const mapGrid = document.getElementById('mapGrid');
     const progressSummary = document.getElementById('progressSummary');
@@ -284,9 +231,7 @@ function renderAchievementWall() {
         // 未登录状态
         if (userNameEl) userNameEl.textContent = '请先登录以查看学习成果！';
         if (learningStats) learningStats.style.display = 'none';
-        // 重置地图
         updateMapGrid(null);
-        // 清空成就
         if (achievementList) achievementList.innerHTML = '<p style="text-align:center;color:#999;">登录后可查看成就</p>';
         if (progressSummary) progressSummary.textContent = '总进度：请先登录';
         if (progressBar) {
@@ -296,11 +241,10 @@ function renderAchievementWall() {
         return;
     }
 
-    const user = DB.findUser(currentUser.username);
-    const progress = DB.getProgress(currentUser.username);
+    const progress = await API.getProgress(currentUser.username);
     
-    if (userNameEl && user) {
-        userNameEl.textContent = user.displayName + ' 的学习成果';
+    if (userNameEl) {
+        userNameEl.textContent = currentUser.displayName + ' 的学习成果';
     }
     
     // 更新探险地图

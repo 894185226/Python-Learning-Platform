@@ -71,6 +71,10 @@ const ACHIEVEMENTS = [
     { id: 'coder', icon: '💻', name: '编程新星', desc: '完成实践操作', check: (p) => p.modules['practice'] }
 ];
 
+// 受保护的模块（需要登录才能访问，welcome 和 achievement 除外）
+const PROTECTED_MODULES = ['intro', 'lesson', 'judge', 'debug', 'practice', 'trace', 'lab', 'extend', 'project', 'test'];
+let pendingModuleId = null; // 登录后要跳转的目标模块
+
 // ===== 用户认证系统 =====
 function openLoginModal() {
     const currentUser = getCurrentUser();
@@ -79,31 +83,37 @@ function openLoginModal() {
         if (confirm(currentUser.displayName + '，你要退出登录吗？')) {
             setCurrentUser(null);
             updateLoginUI();
+            // 退出后刷新页面，回到未登录状态（仅显示基础介绍）
+            location.reload();
         }
         return;
     }
     document.getElementById('loginModal').style.display = 'block';
-    document.getElementById('loginForm').classList.remove('w3-hide');
-    document.getElementById('registerForm').classList.add('w3-hide');
-    document.getElementById('loginModalTitle').textContent = '🐍 学生登录';
 }
 
 function closeLoginModal() {
     document.getElementById('loginModal').style.display = 'none';
+    pendingModuleId = null;
 }
 
-function switchToRegister() {
-    document.getElementById('loginForm').classList.add('w3-hide');
-    document.getElementById('registerForm').classList.remove('w3-hide');
-    document.getElementById('loginError').classList.add('w3-hide');
-    document.getElementById('loginModalTitle').textContent = '📝 注册新账号';
+function openRegisterModal() {
+    document.getElementById('registerModal').style.display = 'block';
 }
 
-function switchToLogin() {
-    document.getElementById('registerForm').classList.add('w3-hide');
-    document.getElementById('loginForm').classList.remove('w3-hide');
-    document.getElementById('registerError').classList.add('w3-hide');
-    document.getElementById('loginModalTitle').textContent = '🐍 学生登录';
+function closeRegisterModal() {
+    document.getElementById('registerModal').style.display = 'none';
+    pendingModuleId = null;
+}
+
+function closeAllModals() {
+    document.getElementById('loginModal').style.display = 'none';
+    document.getElementById('registerModal').style.display = 'none';
+    pendingModuleId = null;
+}
+
+// 保留兼容旧调用
+function closeLoginModal_old() {
+    closeAllModals();
 }
 
 async function handleLogin(event) {
@@ -129,6 +139,13 @@ async function handleLogin(event) {
     
     // 刷新成就墙
     renderAchievementWall();
+
+    // 如果有待跳转的目标模块，自动跳转
+    if (pendingModuleId) {
+        const target = pendingModuleId;
+        pendingModuleId = null;
+        switchModule(target);
+    }
     
     return false;
 }
@@ -160,12 +177,19 @@ async function handleRegister(event) {
 
     // 注册成功，自动登录
     setCurrentUser({ username, displayName });
-    closeLoginModal();
+    closeRegisterModal();
     updateLoginUI();
     document.getElementById('regUsername').value = '';
     document.getElementById('regPassword').value = '';
     document.getElementById('regDisplayName').value = '';
     renderAchievementWall();
+
+    // 如果有待跳转的目标模块，自动跳转
+    if (pendingModuleId) {
+        const target = pendingModuleId;
+        pendingModuleId = null;
+        switchModule(target);
+    }
     
     return false;
 }
@@ -197,6 +221,7 @@ async function markModuleCompleted(moduleId) {
     const newAch = await checkAndAwardAchievements(currentUser.username);
     if (newAch.length > 0) {
         console.log('新成就：', newAch);
+        newAch.forEach(ach => showAchievementToast(ach));
     }
 }
 
@@ -215,6 +240,35 @@ async function checkAndAwardAchievements(username) {
     }
     
     return newAchievements;
+}
+
+// ===== 成就弹出提示 =====
+function showAchievementToast(achievement) {
+    const container = document.getElementById('achievementToastContainer');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'achievement-toast';
+    toast.innerHTML = `
+        <div class="achievement-toast-icon">${achievement.icon}</div>
+        <div class="achievement-toast-body">
+            <div class="achievement-toast-title">🏆 成就达成</div>
+            <div class="achievement-toast-name">${achievement.name}</div>
+            <div class="achievement-toast-desc">${achievement.desc}</div>
+        </div>
+    `;
+
+    container.appendChild(toast);
+
+    // 2.5秒后播放消失动画，3秒后移除元素
+    setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 400);
+    }, 2500);
 }
 
 // ===== 成就墙渲染 =====
@@ -415,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initWelcomeModule();
     initNavigation();
     initIntroModule();
+    initLessonModule();
     initLabModule();
     initJudgeModule();
     initPracticeModule();
@@ -432,37 +487,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 欢迎模块
 function initWelcomeModule() {
-    // 搜索功能
-    const searchForm = document.querySelector('.hero-form');
-    const searchInput = document.getElementById('search-input');
-    
-    if (searchForm) {
-        searchForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            
-            if (searchTerm) {
-                const modules = document.querySelectorAll('.module');
-                let found = false;
-                
-                modules.forEach(module => {
-                    const moduleId = module.id;
-                    const moduleName = module.querySelector('h2')?.textContent.toLowerCase() || '';
-                    const moduleContent = module.textContent.toLowerCase();
-                    
-                    if (moduleName.includes(searchTerm) || moduleContent.includes(searchTerm)) {
-                        switchModule(moduleId);
-                        found = true;
-                    }
-                });
-                
-                if (!found) {
-                    alert(`未找到与"${searchTerm}"相关的内容`);
-                }
-            }
-        });
-    }
-    
     const startBtn = document.getElementById('start-learning');
     
     if (startBtn) {
@@ -571,42 +595,126 @@ function toggleNavItem(navId) {
     }
 }
 
-// 搜索功能
-function search() {
-    const input = document.getElementById('search-input');
-    const searchTerm = input.value.toLowerCase().trim();
+// ===== 搜索关键词映射 =====
+const SEARCH_KEYWORDS = [
+    { keywords: ['变量', 'variable', '盒子', '情境', '场景', '导入', '介绍'], moduleId: 'intro', name: '情境导入', icon: '🎬', desc: '了解为什么需要变量' },
+    { keywords: ['实验室', '拖拽', '标签', '数据', '拖动', '类比'], moduleId: 'lab', name: '生活类比实验室', icon: '🧪', desc: '拖拽体验变量概念' },
+    { keywords: ['知识', '讲解', '概念', '命名', '规则', '赋值', '赋值符号', '学习', '教程'], moduleId: 'lesson', name: '知识讲解', icon: '📚', desc: '学习变量核心概念' },
+    { keywords: ['法官', '合法', '非法', '判断', '命名规则', '判断题'], moduleId: 'judge', name: '命名小法官', icon: '⚖️', desc: '判断变量名合法性' },
+    { keywords: ['实践', '操作', '代码', '运行', '编程', '练习', '写代码'], moduleId: 'practice', name: '实践操作', icon: '💻', desc: '动手编写变量代码' },
+    { keywords: ['追踪', '值', '跟踪', '变量值', '变化'], moduleId: 'trace', name: '值追踪挑战', icon: '🔍', desc: '追踪变量值变化' },
+    { keywords: ['错误', 'bug', '调试', '修复', '诊所', '纠错', '改错'], moduleId: 'debug', name: '错误调试诊所', icon: '🏥', desc: '找出并修复代码bug' },
+    { keywords: ['扩展', '思维', '挑战', '交换', '拼接', '句子'], moduleId: 'extend', name: '扩展思维', icon: '🚀', desc: '高阶变量操作挑战' },
+    { keywords: ['创意', '项目', '名片', '制作', '生成'], moduleId: 'project', name: '创意迷你项目', icon: '🎨', desc: '制作个人电子名片' },
+    { keywords: ['测验', '测试', '考试', '小测', '题目', '选择题'], moduleId: 'test', name: '课堂小测', icon: '📝', desc: '检验学习成果' },
+    { keywords: ['成就', '进度', '成果', '墙', '学习记录', '探险地图'], moduleId: 'achievement', name: '成就墙', icon: '🏆', desc: '查看学习成果与成就' }
+];
+
+// 根据输入文本匹配模块
+function matchModules(searchTerm) {
+    if (!searchTerm) return SEARCH_KEYWORDS.map(m => ({ ...m, score: 0 }));
+    const term = searchTerm.toLowerCase();
+    const results = [];
     
-    if (searchTerm) {
-        // 简单搜索实现
-        const modules = document.querySelectorAll('.module');
-        let found = false;
-        
-        modules.forEach(module => {
-            const moduleId = module.id;
-            const moduleName = module.querySelector('h2')?.textContent.toLowerCase() || '';
-            const moduleContent = module.textContent.toLowerCase();
-            
-            if (moduleName.includes(searchTerm) || moduleContent.includes(searchTerm)) {
-                switchModule(moduleId);
-                found = true;
-                
-                // 高亮显示搜索结果
-                const content = module.innerHTML;
-                const highlighted = content.replace(
-                    new RegExp(`(${searchTerm})`, 'gi'),
-                    '<span class="search-highlight">$1</span>'
-                );
-                module.innerHTML = highlighted;
+    SEARCH_KEYWORDS.forEach(entry => {
+        let maxScore = 0;
+        entry.keywords.forEach(kw => {
+            const lowerKw = kw.toLowerCase();
+            if (lowerKw === term) {
+                maxScore = Math.max(maxScore, 100); // 完全匹配
+            } else if (lowerKw.startsWith(term)) {
+                maxScore = Math.max(maxScore, 80); // 前缀匹配
+            } else if (lowerKw.includes(term)) {
+                maxScore = Math.max(maxScore, 50); // 包含匹配
+            } else {
+                // 模糊匹配：计算最长公共子序列
+                const lcsLen = longestCommonSubseq(term, lowerKw);
+                const ratio = lcsLen / Math.max(term.length, lowerKw.length);
+                if (ratio > 0.5) {
+                    maxScore = Math.max(maxScore, Math.round(ratio * 30));
+                }
             }
         });
-        
-        if (!found) {
-            alert(`未找到与"${searchTerm}"相关的内容`);
+        if (maxScore > 0 || !searchTerm) {
+            results.push({ ...entry, score: maxScore });
+        }
+    });
+    
+    results.sort((a, b) => b.score - a.score);
+    return results;
+}
+
+// 最长公共子序列长度
+function longestCommonSubseq(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
         }
     }
-    
+    return dp[m][n];
+}
+
+// 搜索建议下拉
+function showSearchSuggestions(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const searchTerm = input.value.trim();
+    const results = matchModules(searchTerm).slice(0, 6);
+
+    // 找到对应的建议容器
+    const suggestionsId = inputId === 'hero-search-input' ? 'hero-search-suggestions' : 'search-suggestions';
+    const suggestionsEl = document.getElementById(suggestionsId);
+    if (!suggestionsEl) return;
+
+    if (results.length === 0 || !searchTerm) {
+        suggestionsEl.classList.remove('active');
+    } else {
+        suggestionsEl.innerHTML = results.map(r => `
+            <div class="search-suggestion-item" onclick="navigateToModule('${r.moduleId}')">
+                <span class="search-suggestion-icon">${r.icon}</span>
+                <div>
+                    <div class="search-suggestion-text">${r.name}</div>
+                    <div class="search-suggestion-desc">${r.desc}</div>
+                </div>
+            </div>
+        `).join('');
+        suggestionsEl.classList.add('active');
+    }
+}
+
+// 跳转到模块
+function navigateToModule(moduleId) {
+    // 隐藏所有建议下拉
+    document.querySelectorAll('.search-suggestions').forEach(el => el.classList.remove('active'));
+    switchModule(moduleId);
+}
+
+// 搜索功能（提交时调用）
+function search(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    const searchTerm = input.value.trim();
+    if (!searchTerm) return false;
+
+    const results = matchModules(searchTerm);
+    if (results.length > 0) {
+        // 隐藏建议下拉
+        document.querySelectorAll('.search-suggestions').forEach(el => el.classList.remove('active'));
+        switchModule(results[0].moduleId);
+    } else {
+        alert(`未找到与"${searchTerm}"相关的内容，请尝试：变量、代码、调试、测验等关键词`);
+    }
     return false;
 }
+
+// 点击其他地方关闭搜索建议
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.search-container') && !e.target.closest('.hero-form')) {
+        document.querySelectorAll('.search-suggestions').forEach(el => el.classList.remove('active'));
+    }
+});
 
 // 移动端菜单控制
 function toggleMobileMenu() {
@@ -625,31 +733,52 @@ function switchModule(moduleId) {
         console.error('Module not found:', moduleId);
         return;
     }
+
+    // 检查是否需要登录
+    if (PROTECTED_MODULES.includes(moduleId)) {
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            // 未登录：记录目标模块，弹出登录弹窗
+            pendingModuleId = moduleId;
+            openLoginModal();
+            return;
+        }
+    }
     
     modules.forEach(module => module.classList.remove('active'));
     targetModule.classList.add('active');
     state.currentModule = moduleId;
-    
-    // 排除welcome页，避免首次加载就记录
-    if (moduleId !== 'welcome') {
-        markModuleCompleted(moduleId);
-    }
+
+    // 注意：不再在此处自动标记模块完成
+    // 各模块需在用户实际完成交互后才调用 markModuleCompleted()
     
     // 如果切换到成就墙页面，刷新显示
     if (moduleId === 'achievement') {
         renderAchievementWall();
+    }
+    // 如果切换到知识讲解，刷新按钮状态
+    if (moduleId === 'lesson') {
+        refreshLessonButton();
     }
 }
 
 // 情境导入模块
 function initIntroModule() {
     const sceneButtons = document.querySelectorAll('.scene-btn');
+    const visitedScenes = new Set();
+
     sceneButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const targetScene = btn.dataset.target;
             const scenes = document.querySelectorAll('.scene');
             scenes.forEach(scene => scene.classList.remove('active'));
             document.querySelector(`.scene[data-scene="${targetScene}"]`).classList.add('active');
+
+            // 追踪场景访问，三个场景都看过才算完成
+            visitedScenes.add(targetScene);
+            if (visitedScenes.size >= 3) {
+                markModuleCompleted('intro');
+            }
         });
     });
 
@@ -662,10 +791,10 @@ function initIntroModule() {
 function animateScore() {
     const scoreSpan = document.querySelector('.score');
     let score = 0;
-    const interval = setInterval(() => {
+    setInterval(() => {
         score += Math.floor(Math.random() * 10) + 1;
         scoreSpan.textContent = score;
-        if (score >= 100) clearInterval(interval);
+        if (score >= 100) score = 0;
     }, 200);
 }
 
@@ -691,6 +820,39 @@ function animateCountdown() {
     }, 1000);
 }
 
+// 知识讲解模块
+function initLessonModule() {
+    const completeBtn = document.getElementById('lesson-complete-btn');
+    if (!completeBtn) return;
+
+    completeBtn.addEventListener('click', async () => {
+        await markModuleCompleted('lesson');
+        completeBtn.textContent = '✅ 已学完';
+        completeBtn.disabled = true;
+        completeBtn.style.opacity = '0.6';
+    });
+
+    // 检查是否已完成，更新按钮状态
+    refreshLessonButton();
+}
+
+async function refreshLessonButton() {
+    const completeBtn = document.getElementById('lesson-complete-btn');
+    if (!completeBtn) return;
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+    try {
+        const progress = await API.getProgress(currentUser.username);
+        if (progress.modules['lesson']) {
+            completeBtn.textContent = '✅ 已学完';
+            completeBtn.disabled = true;
+            completeBtn.style.opacity = '0.6';
+        }
+    } catch (e) {
+        // 静默处理
+    }
+}
+
 // 生活类比实验室模块
 function initLabModule() {
     const dragItems = document.querySelectorAll('.drag-item');
@@ -704,6 +866,14 @@ function initLabModule() {
     let currentLabel = '';
     let currentValue = '';
     let currentValueType = '';
+    let labLabelDropped = false;
+    let labValueDropped = false;
+
+    function checkLabComplete() {
+        if (labLabelDropped && labValueDropped) {
+            markModuleCompleted('lab');
+        }
+    }
 
     dragItems.forEach(item => {
         item.addEventListener('dragstart', (e) => {
@@ -736,11 +906,13 @@ function initLabModule() {
 
         if (type === 'label') {
             currentLabel = value;
+            labLabelDropped = true;
             boxLabelArea.textContent = value;
             codeLabel.textContent = value;
             variableBox.style.borderColor = '#667eea';
         } else if (type === 'data') {
             currentValue = value;
+            labValueDropped = true;
             currentValueType = dataType;
             boxValueArea.textContent = value;
             codeValue.textContent = dataType === 'text' ? `"${value}"` : value;
@@ -753,6 +925,7 @@ function initLabModule() {
                 boxType.textContent = '类型: 文字';
             }
         }
+        checkLabComplete();
     });
 }
 
@@ -762,37 +935,84 @@ function initJudgeModule() {
     const invalidBtn = document.getElementById('btn-invalid');
     const feedback = document.getElementById('judge-feedback');
     const scoreDisplay = document.getElementById('judge-score');
+    const answeredDisplay = document.getElementById('judge-answered');
+    const resetBtn = document.getElementById('judge-reset-btn');
+
+    let judgeAnswered = 0;
+    let judgeScore = 0;
+    let judgeQuestions = [...state.judgeQuestions]; // 副本，用于打乱
+
+    function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    // 初始打乱
+    shuffleArray(judgeQuestions);
+
+    function resetJudge() {
+        judgeAnswered = 0;
+        judgeScore = 0;
+        scoreDisplay.textContent = '0';
+        answeredDisplay.textContent = '0';
+        shuffleArray(judgeQuestions);
+        state.currentJudgeIndex = 0;
+        feedback.textContent = '';
+        validBtn.disabled = false;
+        invalidBtn.disabled = false;
+        resetBtn.style.display = 'none';
+        showCurrentQuestion();
+    }
 
     function showCurrentQuestion() {
-        const current = state.judgeQuestions[state.currentJudgeIndex];
+        const current = judgeQuestions[state.currentJudgeIndex];
         document.getElementById('current-variable').textContent = current.name;
         feedback.textContent = '';
     }
 
     function checkAnswer(isValid) {
-        const current = state.judgeQuestions[state.currentJudgeIndex];
+        if (validBtn.disabled) return; // 10题已答完
+
+        const current = judgeQuestions[state.currentJudgeIndex];
         if (isValid === current.valid) {
             feedback.textContent = `✅ 回答正确！${current.reason}`;
             feedback.style.color = '#28a745';
-            state.judgeScore++;
-            scoreDisplay.textContent = state.judgeScore;
+            judgeScore++;
+            scoreDisplay.textContent = judgeScore;
+
+            // 达到8分立即标记完成
+            if (judgeScore >= 8) {
+                markModuleCompleted('judge');
+            }
         } else {
             feedback.textContent = `❌ 回答错误！${current.reason}`;
             feedback.style.color = '#dc3545';
         }
 
         setTimeout(() => {
-            state.currentJudgeIndex = (state.currentJudgeIndex + 1) % state.judgeQuestions.length;
-            // 完成一轮（10题）后记录
-            if (state.currentJudgeIndex === 0 && state.judgeScore > 0) {
-                markModuleCompleted('judge');
+            judgeAnswered++;
+            answeredDisplay.textContent = judgeAnswered;
+
+            state.currentJudgeIndex = (state.currentJudgeIndex + 1) % judgeQuestions.length;
+
+            if (judgeAnswered >= 10) {
+                // 10题答完，禁用按钮，显示重置
+                validBtn.disabled = true;
+                invalidBtn.disabled = true;
+                resetBtn.style.display = 'block';
+                return;
             }
+
             showCurrentQuestion();
         }, 1500);
     }
 
     validBtn.addEventListener('click', () => checkAnswer(true));
     invalidBtn.addEventListener('click', () => checkAnswer(false));
+    resetBtn.addEventListener('click', resetJudge);
 
     showCurrentQuestion();
 }
@@ -804,6 +1024,7 @@ function initPracticeModule() {
     const codeInput = document.getElementById('code-input');
     const runBtn = document.getElementById('run-code');
     const outputContent = document.getElementById('output-content');
+    let practiceCompleted = false;
 
     const levels = {
         1: {
@@ -874,6 +1095,10 @@ function initPracticeModule() {
             
             outputContent.textContent = output || '无输出';
             outputContent.style.color = '#a6e22e';
+            if (!practiceCompleted) {
+                practiceCompleted = true;
+                markModuleCompleted('practice');
+            }
         } catch (e) {
             outputContent.textContent = '错误: ' + e.message;
             outputContent.style.color = '#f92672';
@@ -996,6 +1221,16 @@ function initExtendModule() {
     const generateSentenceBtn = document.getElementById('generate-sentence');
     const combineOutput = document.getElementById('combine-output');
 
+    let extendSwapDone = false;
+    let extendSentenceDone = false;
+
+    function checkExtendComplete() {
+        if (extendSwapDone && extendSentenceDone) {
+            markModuleCompleted('extend');
+        }
+    }
+
+    // 挑战切换
     challengeButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const challenge = btn.dataset.challenge;
@@ -1012,14 +1247,92 @@ function initExtendModule() {
         });
     });
 
-    generateSentenceBtn.addEventListener('click', () => {
-        const name = document.getElementById('combine-name').value;
-        const age = document.getElementById('combine-age').value;
-        const hobby = document.getElementById('combine-hobby').value;
-        
-        const sentence = `大家好！我叫${name}，今年${age}岁，我喜欢${hobby}。`;
-        combineOutput.textContent = sentence;
-    });
+    // ---------- 挑战1：变量交换交互 ----------
+    const swapStepBtn = document.getElementById('swap-step-btn');
+    const swapResetBtn = document.getElementById('swap-reset-btn');
+    const swapStepText = document.getElementById('swap-step-text');
+    const glassASpan = document.querySelector('#glass-a .glass-content');
+    const glassBSpan = document.querySelector('#glass-b .glass-content');
+    const glassTempSpan = document.querySelector('#glass-temp .glass-content');
+
+    let swapStep = 0;
+    const swapData = { a: '🍎', b: '🍊', temp: '' };
+
+    function highlightCodeLine(step) {
+        document.querySelectorAll('#swap-code-block .code-line[data-step]').forEach(el => {
+            el.classList.remove('active');
+            if (parseInt(el.dataset.step) === step) {
+                el.classList.add('active');
+            }
+        });
+    }
+
+    function updateSwapDisplay() {
+        glassASpan.textContent = swapData.a || '空';
+        glassBSpan.textContent = swapData.b || '空';
+        glassTempSpan.textContent = swapData.temp || '空';
+    }
+
+    if (swapStepBtn) {
+        swapStepBtn.addEventListener('click', () => {
+            swapStep++;
+
+            if (swapStep === 1) {
+                // Step 1: temp = a
+                swapData.temp = swapData.a;
+                swapData.a = '';
+                swapStepText.textContent = '步骤 1/3：temp = a  →  🍎 移到了"临时"杯';
+                highlightCodeLine(1);
+                updateSwapDisplay();
+            } else if (swapStep === 2) {
+                // Step 2: a = b
+                swapData.a = swapData.b;
+                swapData.b = '';
+                swapStepText.textContent = '步骤 2/3：a = b  →  🍊 移到了 A 杯';
+                highlightCodeLine(2);
+                updateSwapDisplay();
+            } else if (swapStep === 3) {
+                // Step 3: b = temp
+                swapData.b = swapData.temp;
+                swapData.temp = '';
+                swapStepText.textContent = '步骤 3/3：b = temp  →  🍎 移到了 B 杯，交换完成！';
+                highlightCodeLine(3);
+                swapStepBtn.disabled = true;
+                swapStepBtn.textContent = '✓ 交换完成';
+                updateSwapDisplay();
+                extendSwapDone = true;
+                checkExtendComplete();
+            }
+        });
+    }
+
+    if (swapResetBtn) {
+        swapResetBtn.addEventListener('click', () => {
+            swapStep = 0;
+            swapData.a = '🍎';
+            swapData.b = '🍊';
+            swapData.temp = '';
+            swapStepBtn.disabled = false;
+            swapStepBtn.textContent = '▶ 开始交换';
+            swapStepText.textContent = '点击"开始交换"观察变量交换过程';
+            highlightCodeLine(0);
+            updateSwapDisplay();
+        });
+    }
+
+    // ---------- 挑战2：句子拼接 ----------
+    if (generateSentenceBtn) {
+        generateSentenceBtn.addEventListener('click', () => {
+            const name = document.getElementById('combine-name').value;
+            const age = document.getElementById('combine-age').value;
+            const hobby = document.getElementById('combine-hobby').value;
+            
+            const sentence = `大家好！我叫${name}，今年${age}岁，我喜欢${hobby}。`;
+            combineOutput.textContent = sentence;
+            extendSentenceDone = true;
+            checkExtendComplete();
+        });
+    }
 }
 
 // 创意迷你项目模块

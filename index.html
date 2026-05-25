@@ -37,12 +37,13 @@
             
             <!-- 搜索框 -->
             <div class="w3-bar-item w3-right w3-hide-small search-container">
-                <form class="search-form" onsubmit="return search()">
-                    <input type="text" id="search-input" placeholder="搜索教程..." class="search-input">
+                <form class="search-form" onsubmit="return search('search-input')">
+                    <input type="text" id="search-input" placeholder="搜索教程..." class="search-input" autocomplete="off" oninput="showSearchSuggestions('search-input')" onfocus="showSearchSuggestions('search-input')">
                     <button type="submit" class="search-btn">
                         <i class="fa fa-search"></i>
                     </button>
                 </form>
+                <div class="search-suggestions" id="search-suggestions"></div>
             </div>
             
             <!-- 登录按钮 -->
@@ -120,16 +121,16 @@
     </div>
 
     <!-- 登录/注册弹窗 -->
+    <!-- 登录弹窗 -->
     <div class="w3-modal" id="loginModal">
         <div class="w3-modal-content w3-animate-zoom w3-card-4 login-modal-content">
             <div class="w3-bar w3-green">
-                <span class="w3-bar-item w3-large" id="loginModalTitle">🐍 学生登录</span>
-                <button class="w3-bar-item w3-button w3-right w3-hover-red" onclick="closeLoginModal()">
+                <span class="w3-bar-item w3-large">🐍 学生登录</span>
+                <button class="w3-bar-item w3-button w3-right w3-hover-red" onclick="closeAllModals()">
                     <i class="fa fa-times"></i>
                 </button>
             </div>
             <div class="w3-container w3-padding-24">
-                <!-- 登录表单 -->
                 <form id="loginForm" onsubmit="return handleLogin(event)">
                     <div class="form-group">
                         <label><i class="fa fa-user"></i> 用户名</label>
@@ -144,11 +145,24 @@
                         <i class="fa fa-sign-in"></i> 登录
                     </button>
                     <p class="form-switch">
-                        还没有账号？<a href="javascript:void(0)" onclick="switchToRegister()">立即注册</a>
+                        还没有账号？<a href="javascript:void(0)" onclick="closeLoginModal(); openRegisterModal();">立即注册</a>
                     </p>
                 </form>
-                <!-- 注册表单 -->
-                <form id="registerForm" class="w3-hide" onsubmit="return handleRegister(event)">
+            </div>
+        </div>
+    </div>
+
+    <!-- 注册弹窗 -->
+    <div class="w3-modal" id="registerModal">
+        <div class="w3-modal-content w3-animate-zoom w3-card-4 login-modal-content">
+            <div class="w3-bar w3-green">
+                <span class="w3-bar-item w3-large">📝 注册新账号</span>
+                <button class="w3-bar-item w3-button w3-right w3-hover-red" onclick="closeAllModals()">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="w3-container w3-padding-24">
+                <form id="registerForm" onsubmit="return handleRegister(event)">
                     <div class="form-group">
                         <label><i class="fa fa-id-card"></i> 真实姓名</label>
                         <input type="text" id="regDisplayName" class="form-input" placeholder="请输入你的姓名" required>
@@ -166,7 +180,7 @@
                         <i class="fa fa-user-plus"></i> 注册
                     </button>
                     <p class="form-switch">
-                        已有账号？<a href="javascript:void(0)" onclick="switchToLogin()">返回登录</a>
+                        已有账号？<a href="javascript:void(0)" onclick="closeRegisterModal(); openLoginModal();">返回登录</a>
                     </p>
                 </form>
             </div>
@@ -185,12 +199,13 @@
                         开启编程学习的第一步
                     </h3>
                     <br>
-                    <form class="hero-form" onsubmit="return search()">
-                        <input type="text" id="search-input" placeholder="搜索我们的教程，例如：变量" aria-label="搜索教程">
+                    <form class="hero-form" onsubmit="return search('hero-search-input')" style="position:relative">
+                        <input type="text" id="hero-search-input" placeholder="搜索我们的教程，例如：变量" aria-label="搜索教程" autocomplete="off" oninput="showSearchSuggestions('hero-search-input')" onfocus="showSearchSuggestions('hero-search-input')">
                         <button type="submit"><i class="fa fa-search"></i></button>
+                    <div class="search-suggestions" id="hero-search-suggestions"></div>
                     </form>
                     <h4 class="learntocodeh4">
-                        <a href="#intro">不确定从哪里开始？</a>
+                        <a href="javascript:void(0)" onclick="switchModule('intro')">不确定从哪里开始？</a>
                     </h4>
                 </div>
             </div>
@@ -307,6 +322,7 @@
                         <div class="box-value">95</div>
                     </div>
                     <p>💡 变量就像一个可以装东西的盒子，我们可以给它贴标签，随时放入或取出数据！</p>
+                    <button class="intro-next-btn" onclick="markModuleCompleted('intro'); switchModule('lesson')">📚 进入知识讲解 →</button>
                 </div>
             </div>
         </section>
@@ -401,6 +417,9 @@ score = 95.5  # 浮点数类型</pre>
                         </div>
                     </div>
                 </div>
+                <div class="lesson-complete">
+                    <button class="complete-btn" id="lesson-complete-btn">✅ 完成学习</button>
+                </div>
             </div>
         </section>
 
@@ -419,6 +438,8 @@ score = 95.5  # 浮点数类型</pre>
                         <button class="judge-btn invalid" id="btn-invalid">❌ 非法</button>
                     </div>
                     <div class="judge-feedback" id="judge-feedback"></div>
+                    <div class="judge-progress">已答: <span id="judge-answered">0</span>/10</div>
+                    <button class="judge-reset-btn" id="judge-reset-btn" style="display:none">🔄 重新做题</button>
                 </div>
                 <div class="rule-book">
                     <h3>📜 参考规则</h3>
@@ -531,19 +552,25 @@ z = x + y</pre>
             <div class="extend-content">
                 <div class="swap-challenge" id="swap-challenge">
                     <h3>挑战1：两杯水互换</h3>
+                    <p class="swap-desc">点击按钮，观察程序中变量值的交换过程：</p>
                     <div class="water-glasses">
-                        <div class="glass" id="glass-a">A: <span>🍎</span></div>
-                        <div class="glass" id="glass-b">B: <span>🍊</span></div>
-                        <div class="glass" id="glass-temp">临时: <span>空</span></div>
+                        <div class="glass" id="glass-a">A: <span class="glass-content">🍎</span></div>
+                        <div class="glass" id="glass-b">B: <span class="glass-content">🍊</span></div>
+                        <div class="glass" id="glass-temp">临时: <span class="glass-content"></span></div>
                     </div>
-                    <div class="swap-code">
-                        <pre># 如何交换A和B的值？
-a = "苹果"
-b = "橙子"
-# 需要引入临时变量
-temp = a
-a = b
-b = temp</pre>
+                    <div class="swap-controls">
+                        <button class="swap-btn" id="swap-step-btn">▶ 开始交换</button>
+                        <button class="swap-btn swap-reset" id="swap-reset-btn">↺ 重置</button>
+                    </div>
+                    <div class="swap-step-indicator" id="swap-step-text">点击"开始交换"观察变量交换过程</div>
+                    <div class="swap-code" id="swap-code-block">
+                        <pre><code># 初始状态
+<span class="code-line" data-step="0">a = "苹果"</span>
+<span class="code-line" data-step="0">b = "橙子"</span>
+<span class="code-line code-comment"># 需要引入临时变量</span>
+<span class="code-line" data-step="1">temp = a</span>
+<span class="code-line" data-step="2">a = b</span>
+<span class="code-line" data-step="3">b = temp</span></code></pre>
                     </div>
                 </div>
                 <div class="combine-challenge" id="combine-challenge" style="display: none;">
@@ -683,6 +710,9 @@ b = temp</pre>
         </section>
     </main>
 
+    <!-- 成就弹出提示 -->
+    <div class="achievement-toast-container" id="achievementToastContainer"></div>
+
     <!-- 页脚 -->
     <footer class="footer">
         <div class="footer-content">
@@ -714,12 +744,12 @@ b = temp</pre>
             </div>
             <div class="footer-section">
                 <h3>📧 联系我们</h3>
-                <p>邮箱：support@python-variable.com</p>
-                <p>电话：400-123-4567</p>
+                <p>邮箱：894185226@qq.com</p>
+                <p>电话：10086</p>
             </div>
         </div>
         <div class="footer-bottom">
-            <p>© 2024 Python变量探险 | 让编程学习更有趣</p>
+            <p>© 2026 Python变量探险 | 让编程学习更有趣</p>
         </div>
     </footer>
 

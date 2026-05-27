@@ -2,7 +2,7 @@
   "name": "pythonvariablelesson",
   "version": "1.0.0",
   "description": "Python变量探险教学网站",
-  "main": "script.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

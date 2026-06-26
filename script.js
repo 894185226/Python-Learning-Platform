@@ -1,6 +1,6 @@
 // ===== API 层（连接后端 MySQL 数据库） =====
 // 后端地址配置
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = '/api';
 
 // 调试开关：生产环境设为 false
 const DEBUG = false;
@@ -76,6 +76,10 @@ function updateThemeIcon(isDark) {
     if (icon) {
         icon.className = isDark ? 'fas fa-sun' : 'far fa-moon';
     }
+    const mobileIcon = document.getElementById('mobileThemeIcon');
+    if (mobileIcon) {
+        mobileIcon.className = isDark ? 'fas fa-sun' : 'far fa-moon';
+    }
 }
 
 // 图片懒加载渐入
@@ -89,7 +93,23 @@ function initLazyImages() {
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
     initLazyImages();
+    initScrollProgress();
+    initNavScrollBehavior();
+    initClassDropdown();
 });
+
+// 初始化班级下拉框（1-20班）
+function initClassDropdown() {
+    const select = document.getElementById('regClassNum');
+    if (!select) return;
+    // 保留"请选择班级"选项，追加1-20
+    for (let i = 1; i <= 20; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = i + '班';
+        select.appendChild(opt);
+    }
+}
 
 const API = {
     // 通用 fetch 封装
@@ -109,16 +129,24 @@ const API = {
     },
 
     // 注册
-    async register(username, password, displayName) {
+    async register(username, password, displayName, grade, classNum) {
         return await this._fetch(API_BASE + '/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password, displayName })
+            body: JSON.stringify({ username, password, displayName, grade, classNum })
         });
     },
     // 登录
     async login(username, password) {
         return await this._fetch(API_BASE + '/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+    },
+    // 管理员登录
+    async adminLogin(username, password) {
+        return await this._fetch(API_BASE + '/admin/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -301,9 +329,13 @@ async function handleLogin(event) {
     const submitBtn = document.querySelector('#loginForm .form-submit-btn');
 
     setButtonLoading(submitBtn, true);
+
+    // 检测是否为管理员登录（用户名以 admin 开头）
+    const isAdmin = username.toLowerCase() === 'admin';
+
     let result;
     try {
-        result = await API.login(username, password);
+        result = isAdmin ? await API.adminLogin(username, password) : await API.login(username, password);
     } catch (e) {
         errorEl.textContent = e.message || '网络错误，请稍后重试';
         errorEl.classList.remove('w3-hide');
@@ -319,6 +351,13 @@ async function handleLogin(event) {
     }
 
     // 登录成功
+    if (isAdmin) {
+        // 管理员登录 -> 跳转到管理后台
+        sessionStorage.setItem('pv_admin_user', JSON.stringify(result.user));
+        window.location.href = 'admin.html';
+        return false;
+    }
+
     setCurrentUser(result.user);
     closeLoginModal();
     updateLoginUI();
@@ -347,6 +386,8 @@ async function handleRegister(event) {
     const username = document.getElementById('regUsername').value.trim();
     const password = document.getElementById('regPassword').value.trim();
     const displayName = document.getElementById('regDisplayName').value.trim();
+    const grade = document.getElementById('regGrade').value;
+    const classNum = parseInt(document.getElementById('regClassNum').value) || 0;
     const errorEl = document.getElementById('registerError');
     const submitBtn = document.querySelector('#registerForm .form-submit-btn');
 
@@ -360,11 +401,21 @@ async function handleRegister(event) {
         errorEl.classList.remove('w3-hide');
         return false;
     }
+    if (!grade) {
+        errorEl.textContent = '请选择年级！';
+        errorEl.classList.remove('w3-hide');
+        return false;
+    }
+    if (classNum < 1 || classNum > 20) {
+        errorEl.textContent = '请选择班级！';
+        errorEl.classList.remove('w3-hide');
+        return false;
+    }
 
     setButtonLoading(submitBtn, true);
     let result;
     try {
-        result = await API.register(username, password, displayName);
+        result = await API.register(username, password, displayName, grade, classNum);
     } catch (e) {
         errorEl.textContent = e.message || '网络错误，请稍后重试';
         errorEl.classList.remove('w3-hide');
@@ -380,12 +431,14 @@ async function handleRegister(event) {
     }
 
     // 注册成功，自动登录
-    setCurrentUser({ username, displayName });
+    setCurrentUser({ username, displayName, grade, classNum });
     closeRegisterModal();
     updateLoginUI();
     document.getElementById('regUsername').value = '';
     document.getElementById('regPassword').value = '';
     document.getElementById('regDisplayName').value = '';
+    document.getElementById('regGrade').value = '';
+    document.getElementById('regClassNum').value = '';
     renderAchievementWall();
 
     // 如果有待跳转的目标模块，自动跳转
@@ -411,6 +464,12 @@ function updateLoginUI() {
         btnText.textContent = '登录';
         btn.classList.remove('logged-in');
         btn.title = '';
+    }
+    
+    // 同步移动端登录按钮
+    const mobileBtn = document.getElementById('mobileLoginBtnText');
+    if (mobileBtn) {
+        mobileBtn.textContent = btnText.textContent;
     }
 }
 
@@ -530,8 +589,41 @@ function showAchievementToast(achievement) {
     }, 2500);
 }
 
+function escHtml(s) {
+    if (s == null) return '';
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+}
+
+// ===== 加载公告 =====
+async function loadNotices() {
+    try {
+        const res = await fetch('/api/notices');
+        const data = await res.json();
+        const board = document.getElementById('noticeBoard');
+        const content = document.getElementById('noticeBoardContent');
+        if (!board || !content) return;
+        if (!data.success || !data.notices || data.notices.length === 0) {
+            board.style.display = 'none';
+            return;
+        }
+        board.style.display = 'block';
+        content.innerHTML = data.notices.map(n => `
+            <div class="notice-card">
+                <div class="notice-card-header">
+                    <strong>${escHtml(n.title)}</strong>
+                    <span class="notice-card-time">${new Date(n.created_at).toLocaleDateString('zh-CN')}</span>
+                </div>
+                <div class="notice-card-body">${escHtml(n.content)}</div>
+            </div>
+        `).join('');
+    } catch (e) { /* 静默失败 */ }
+}
+
 // ===== 成就墙渲染 =====
 async function renderAchievementWall() {
+    loadNotices();
     const currentUser = getCurrentUser();
     const userNameEl = document.getElementById('achievementUserName');
     const mapGrid = document.getElementById('mapGrid');
@@ -1069,11 +1161,33 @@ document.addEventListener('click', function(e) {
 function toggleMobileMenu() {
     document.getElementById('mobileMenuModal').style.display = 'block';
     document.body.style.overflow = 'hidden'; // 锁定背景滚动
+    // 同步移动端主题图标
+    syncMobileThemeIcon();
+    // 同步移动端登录按钮文字
+    syncMobileLoginBtn();
 }
 
 function closeMobileMenu() {
     document.getElementById('mobileMenuModal').style.display = 'none';
     document.body.style.overflow = ''; // 恢复滚动
+}
+
+// 同步移动端主题图标
+function syncMobileThemeIcon() {
+    const mobileIcon = document.getElementById('mobileThemeIcon');
+    if (mobileIcon) {
+        const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+        mobileIcon.className = isDark ? 'far fa-moon' : 'far fa-sun';
+    }
+}
+
+// 同步移动端登录按钮文字
+function syncMobileLoginBtn() {
+    const mobileBtn = document.getElementById('mobileLoginBtnText');
+    const loginBtn = document.getElementById('loginBtnText');
+    if (mobileBtn && loginBtn) {
+        mobileBtn.textContent = loginBtn.textContent;
+    }
 }
 
 function switchModule(moduleId) {
@@ -1104,6 +1218,15 @@ function switchModule(moduleId) {
     modules.forEach(module => module.classList.remove('active'));
     targetModule.classList.add('active');
     state.currentModule = moduleId;
+
+    // 模块切换淡入动画
+    targetModule.style.opacity = '0';
+    targetModule.style.transform = 'translateY(12px)';
+    requestAnimationFrame(() => {
+        targetModule.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+        targetModule.style.opacity = '1';
+        targetModule.style.transform = 'translateY(0)';
+    });
 
     // 更新 URL hash（用于书签和浏览器前进后退）
     window.location.hash = '#' + moduleId;
@@ -2268,6 +2391,65 @@ function initScrollReveal() {
 // 回到顶部
 function scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 页面滚动进度条
+function initScrollProgress() {
+    const bar = document.getElementById('scrollProgressBar');
+    if (!bar) return;
+
+    function updateProgress() {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        bar.style.width = Math.min(progress, 100) + '%';
+    }
+
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+}
+
+// ================================================================
+//   导航栏滚动感知 - Scroll-Aware Navbar
+// ================================================================
+function initNavScrollBehavior() {
+    const navbar = document.querySelector('.w3-bar');
+    const topBar = document.querySelector('.w3-top');
+    if (!navbar) return;
+
+    let lastScrollY = 0;
+    let ticking = false;
+
+    function updateNavState() {
+        const scrollY = window.scrollY;
+        
+        // 滚动超过 50px 后添加 scrolled 类
+        if (scrollY > 50) {
+            navbar.classList.add('scrolled');
+        } else {
+            navbar.classList.remove('scrolled');
+        }
+        
+        // 向下滚动超过 200px 时隐藏导航栏，向上滚动时显示
+        if (scrollY > 200 && scrollY > lastScrollY) {
+            if (topBar) topBar.classList.add('nav-hidden');
+        } else {
+            if (topBar) topBar.classList.remove('nav-hidden');
+        }
+        
+        lastScrollY = scrollY;
+        ticking = false;
+    }
+
+    window.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(updateNavState);
+            ticking = true;
+        }
+    }, { passive: true });
+
+    // 初始状态
+    updateNavState();
 }
 
 // ================================================================

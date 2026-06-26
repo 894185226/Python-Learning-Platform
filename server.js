@@ -108,9 +108,12 @@ async function initializeDatabase() {
                 username    VARCHAR(50)  NOT NULL UNIQUE COMMENT '登录用户名',
                 password    VARCHAR(64)  NOT NULL COMMENT '密码（SHA256 哈希）',
                 display_name VARCHAR(50) NOT NULL COMMENT '真实姓名/显示名称',
-                class_name  VARCHAR(50)  DEFAULT '' COMMENT '班级',
+                grade       VARCHAR(20)  DEFAULT '' COMMENT '年级',
+                class_num   INT          DEFAULT 0 COMMENT '班级编号',
+                status      VARCHAR(20)  DEFAULT 'active' COMMENT '状态: active/graduated',
                 created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
-                INDEX idx_username (username)
+                INDEX idx_username (username),
+                INDEX idx_grade_class (grade, class_num)
             ) ENGINE=InnoDB COMMENT='学生用户信息表'
         `);
 
@@ -152,7 +155,58 @@ async function initializeDatabase() {
             ) ENGINE=InnoDB COMMENT='学生登录日志表'
         `);
 
+        // 管理员表
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS admins (
+                id          INT AUTO_INCREMENT PRIMARY KEY COMMENT '管理员编号',
+                username    VARCHAR(50)  NOT NULL UNIQUE COMMENT '登录用户名',
+                password    VARCHAR(64)  NOT NULL COMMENT '密码（SHA256 哈希）',
+                display_name VARCHAR(50) NOT NULL DEFAULT '管理员' COMMENT '显示名称',
+                created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+            ) ENGINE=InnoDB COMMENT='管理员账号表'
+        `);
+
+        // 系统公告表
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS notices (
+                id          INT AUTO_INCREMENT PRIMARY KEY COMMENT '公告编号',
+                title       VARCHAR(200) NOT NULL COMMENT '公告标题',
+                content     TEXT         NOT NULL COMMENT '公告内容',
+                created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+                updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+            ) ENGINE=InnoDB COMMENT='系统公告表'
+        `);
+
         console.log('[初始化] 所有数据表就绪');
+
+        // 兼容旧表结构：添加新字段（如果不存在）
+        const newCols = [
+            { name: 'grade', sql: "ALTER TABLE students ADD COLUMN grade VARCHAR(20) DEFAULT '' AFTER display_name" },
+            { name: 'class_num', sql: "ALTER TABLE students ADD COLUMN class_num INT DEFAULT 0 AFTER grade" },
+            { name: 'status', sql: "ALTER TABLE students ADD COLUMN status VARCHAR(20) DEFAULT 'active' AFTER class_num" }
+        ];
+        for (const col of newCols) {
+            try { await dbPool.execute(col.sql); console.log(`[迁移] 已添加字段 ${col.name}`); }
+            catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
+        }
+        // 迁移旧 class_name 数据到新字段
+        try {
+            await dbPool.execute("UPDATE students SET grade = '七年级' WHERE grade = '' AND class_name LIKE '初一%'");
+            await dbPool.execute("UPDATE students SET grade = '八年级' WHERE grade = '' AND class_name LIKE '初二%'");
+            await dbPool.execute("UPDATE students SET class_num = CAST(REPLACE(REPLACE(REPLACE(class_name, '初一(', ''), '初二(', ''), ')班', '') AS UNSIGNED) WHERE class_num = 0 AND class_name != '' AND class_name REGEXP '[0-9]+'");
+        } catch (e) { /* 迁移失败不阻塞启动 */ }
+
+        // 插入默认管理员账号
+        const [adminExist] = await dbPool.execute(
+            'SELECT COUNT(*) AS cnt FROM admins WHERE username = ?', ['admin']
+        );
+        if (adminExist[0].cnt === 0) {
+            await dbPool.execute(
+                'INSERT INTO admins (username, password, display_name) VALUES (?, SHA2(?, 256), ?)',
+                ['admin', 'admin123', '教师管理员']
+            );
+            console.log('[初始化] 已创建默认管理员账号 (admin / admin123)');
+        }
 
         // 插入测试账号（仅在新环境首次运行时）
         const [existing] = await dbPool.execute(
@@ -161,9 +215,9 @@ async function initializeDatabase() {
         );
         if (existing[0].cnt === 0) {
             await dbPool.execute(
-                `INSERT INTO students (username, password, display_name, class_name) VALUES
-                 ('test001', SHA2('1234', 256), '张三', '初一(3)班'),
-                 ('test002', SHA2('1234', 256), '李四', '初一(3)班')`
+                `INSERT INTO students (username, password, display_name, grade, class_num) VALUES
+                 ('test001', SHA2('1234', 256), '张三', '七年级', 3),
+                 ('test002', SHA2('1234', 256), '李四', '七年级', 3)`
             );
             console.log('[初始化] 已插入测试账号 (test001 / test002, 密码: 1234)');
         }
@@ -197,7 +251,7 @@ function hashPassword(password) {
 // ---------- 用户注册 ----------
 app.post('/api/register', async (req, res) => {
     try {
-        const { username, password, displayName } = req.body;
+        const { username, password, displayName, grade, classNum } = req.body;
 
         // 服务端输入校验
         const errMsg = validateInput({ username, password, displayName });
@@ -208,11 +262,21 @@ app.post('/api/register', async (req, res) => {
         if (username.length < 2) {
             return res.json({ success: false, error: '用户名至少2位' });
         }
+        // 年级校验
+        const validGrades = ['七年级', '八年级'];
+        if (grade && !validGrades.includes(grade)) {
+            return res.json({ success: false, error: '无效的年级' });
+        }
+        // 班级校验
+        const cn = parseInt(classNum) || 0;
+        if (cn < 1 || cn > 20) {
+            return res.json({ success: false, error: '班级必须为1-20' });
+        }
 
         const hashed = hashPassword(password);
         await pool.execute(
-            'INSERT INTO students (username, password, display_name) VALUES (?, ?, ?)',
-            [username.trim(), hashed, displayName.trim()]
+            'INSERT INTO students (username, password, display_name, grade, class_num) VALUES (?, ?, ?, ?, ?)',
+            [username.trim(), hashed, displayName.trim(), grade || '', cn]
         );
         res.json({ success: true });
     } catch (err) {
@@ -236,7 +300,7 @@ app.post('/api/login', async (req, res) => {
 
         const hashed = hashPassword(password);
         const [rows] = await pool.execute(
-            'SELECT id, username, display_name FROM students WHERE username = ? AND password = ?',
+            'SELECT id, username, display_name, grade, class_num, status FROM students WHERE username = ? AND password = ?',
             [username.trim(), hashed]
         );
 
@@ -245,6 +309,11 @@ app.post('/api/login', async (req, res) => {
         }
 
         const student = rows[0];
+
+        // 检查学生状态
+        if (student.status === 'graduated') {
+            return res.json({ success: false, error: '该账号已毕业，无法登录' });
+        }
 
         // 记录登录日志
         const ip = req.ip || req.connection.remoteAddress || '';
@@ -257,7 +326,9 @@ app.post('/api/login', async (req, res) => {
             success: true,
             user: {
                 username: student.username,
-                displayName: student.display_name
+                displayName: student.display_name,
+                grade: student.grade || '',
+                classNum: student.class_num || 0
             }
         });
     } catch (err) {
@@ -398,6 +469,484 @@ app.post('/api/achievement/award', async (req, res) => {
 });
 
 // ===================================================
+// 管理员 API
+// ===================================================
+
+// ---------- 管理员登录 ----------
+app.post('/api/admin/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const errMsg = validateInput({ username, password });
+        if (errMsg) return res.json({ success: false, error: errMsg });
+
+        const hashed = hashPassword(password);
+        const [rows] = await pool.execute(
+            'SELECT id, username, display_name FROM admins WHERE username = ? AND password = ?',
+            [username.trim(), hashed]
+        );
+
+        if (rows.length === 0) {
+            return res.json({ success: false, error: '管理员账号或密码错误' });
+        }
+
+        const admin = rows[0];
+        res.json({
+            success: true,
+            user: {
+                username: admin.username,
+                displayName: admin.display_name,
+                role: 'admin'
+            }
+        });
+    } catch (err) {
+        console.error('管理员登录错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 获取所有学生列表（含统计数据）----------
+app.get('/api/admin/students', async (req, res) => {
+    try {
+        const [rows] = await pool.execute(`
+            SELECT 
+                s.id, s.username, s.display_name, s.grade, s.class_num, s.status, s.created_at,
+                COALESCE(lp.module_count, 0) AS completed_modules,
+                COALESCE(ach.ach_count, 0) AS achievement_count,
+                COALESCE(ll.login_days, 0) AS login_days,
+                ll.last_login
+            FROM students s
+            LEFT JOIN (
+                SELECT student_id, COUNT(DISTINCT module_id) AS module_count
+                FROM learning_progress WHERE completed = 1 GROUP BY student_id
+            ) lp ON s.id = lp.student_id
+            LEFT JOIN (
+                SELECT student_id, COUNT(*) AS ach_count
+                FROM achievements GROUP BY student_id
+            ) ach ON s.id = ach.student_id
+            LEFT JOIN (
+                SELECT student_id, COUNT(DISTINCT DATE(login_time)) AS login_days,
+                       MAX(login_time) AS last_login
+                FROM login_logs GROUP BY student_id
+            ) ll ON s.id = ll.student_id
+            ORDER BY s.created_at DESC
+        `);
+        res.json({ success: true, students: rows });
+    } catch (err) {
+        console.error('获取学生列表错误:', err);
+        res.json({ success: false, error: '服务器错误: ' + err.message });
+    }
+});
+
+// ---------- 获取单个学生详细数据 ----------
+app.get('/api/admin/student/:id', async (req, res) => {
+    try {
+        const studentId = parseInt(req.params.id);
+        if (isNaN(studentId)) return res.json({ success: false, error: '无效的学生ID' });
+
+        // 学生基本信息
+        const [students] = await pool.execute(
+            'SELECT id, username, display_name, grade, class_num, status, created_at FROM students WHERE id = ?',
+            [studentId]
+        );
+        if (students.length === 0) return res.json({ success: false, error: '学生不存在' });
+
+        // 模块进度
+        const [modules] = await pool.execute(
+            'SELECT module_id, score, completed_at FROM learning_progress WHERE student_id = ? AND completed = 1 ORDER BY completed_at',
+            [studentId]
+        );
+
+        // 成就
+        const [achievements] = await pool.execute(
+            'SELECT achievement_id, earned_at FROM achievements WHERE student_id = ? ORDER BY earned_at',
+            [studentId]
+        );
+
+        // 登录日志
+        const [logs] = await pool.execute(
+            'SELECT login_time, ip_address FROM login_logs WHERE student_id = ? ORDER BY login_time DESC LIMIT 50',
+            [studentId]
+        );
+
+        res.json({
+            success: true,
+            student: students[0],
+            modules,
+            achievements,
+            loginLogs: logs
+        });
+    } catch (err) {
+        console.error('获取学生详情错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 获取全局统计数据 ----------
+app.get('/api/admin/stats', async (req, res) => {
+    try {
+        const [[{ totalStudents }]] = await pool.execute('SELECT COUNT(*) AS totalStudents FROM students');
+        const [[{ totalCompleted }]] = await pool.execute('SELECT COUNT(*) AS totalCompleted FROM learning_progress WHERE completed = 1');
+        const [[{ totalAchievements }]] = await pool.execute('SELECT COUNT(*) AS totalAchievements FROM achievements');
+        const [[{ totalLogins }]] = await pool.execute('SELECT COUNT(*) AS totalLogins FROM login_logs');
+
+        // 各模块完成人数
+        const [moduleStats] = await pool.execute(`
+            SELECT module_id, COUNT(*) AS count 
+            FROM learning_progress WHERE completed = 1 
+            GROUP BY module_id ORDER BY count DESC
+        `);
+
+        // 最近登录
+        const [recentLogins] = await pool.execute(`
+            SELECT s.display_name, s.username, ll.login_time
+            FROM login_logs ll
+            JOIN students s ON ll.student_id = s.id
+            ORDER BY ll.login_time DESC LIMIT 10
+        `);
+
+        res.json({
+            success: true,
+            stats: {
+                totalStudents,
+                totalCompleted,
+                totalAchievements,
+                totalLogins,
+                moduleStats,
+                recentLogins
+            }
+        });
+    } catch (err) {
+        console.error('获取统计数据错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 删除学生 ----------
+app.delete('/api/admin/student/:id', async (req, res) => {
+    try {
+        const studentId = parseInt(req.params.id);
+        if (isNaN(studentId)) return res.json({ success: false, error: '无效的学生ID' });
+
+        await pool.execute('DELETE FROM students WHERE id = ?', [studentId]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('删除学生错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 批量导入学生 ----------
+app.post('/api/admin/students/import', async (req, res) => {
+    try {
+        const { students } = req.body;
+        if (!Array.isArray(students) || students.length === 0) {
+            return res.json({ success: false, error: '导入数据为空' });
+        }
+        if (students.length > 500) {
+            return res.json({ success: false, error: '单次最多导入500条' });
+        }
+
+        const validGrades = ['七年级', '八年级'];
+        const results = { success: 0, failed: 0, errors: [] };
+        const conn = await pool.getConnection();
+
+        try {
+            await conn.beginTransaction();
+            for (const s of students) {
+                const username = (s.username || '').trim();
+                const displayName = (s.displayName || '').trim();
+                const password = (s.password || '123456').trim();
+                const grade = (s.grade || '').trim();
+                const classNum = parseInt(s.classNum) || 0;
+
+                if (!username || !displayName || password.length < 4) {
+                    results.failed++;
+                    results.errors.push(`${displayName || username}: 信息不完整`);
+                    continue;
+                }
+                if (!validGrades.includes(grade)) {
+                    results.failed++;
+                    results.errors.push(`${displayName}: 年级无效`);
+                    continue;
+                }
+                if (classNum < 1 || classNum > 20) {
+                    results.failed++;
+                    results.errors.push(`${displayName}: 班级无效`);
+                    continue;
+                }
+
+                try {
+                    const hashed = hashPassword(password);
+                    await conn.execute(
+                        'INSERT INTO students (username, password, display_name, grade, class_num) VALUES (?, ?, ?, ?, ?)',
+                        [username, hashed, displayName, grade, classNum]
+                    );
+                    results.success++;
+                } catch (e) {
+                    results.failed++;
+                    results.errors.push(`${displayName}: ${e.code === 'ER_DUP_ENTRY' ? '用户名已存在' : '插入失败'}`);
+                }
+            }
+            await conn.commit();
+        } catch (e) {
+            await conn.rollback();
+            throw e;
+        } finally {
+            conn.release();
+        }
+
+        res.json({ success: true, results });
+    } catch (err) {
+        console.error('批量导入错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 批量修改学生信息（转班/毕业/改密）----------
+app.put('/api/admin/students/batch', async (req, res) => {
+    try {
+        const { ids, action, value } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.json({ success: false, error: '请选择学生' });
+        }
+        if (ids.length > 200) {
+            return res.json({ success: false, error: '单次最多操作200人' });
+        }
+
+        const placeholders = ids.map(() => '?').join(',');
+        const conn = await pool.getConnection();
+
+        try {
+            await conn.beginTransaction();
+
+            switch (action) {
+                case 'transfer': {
+                    // value = { grade, classNum }
+                    const { grade, classNum } = value || {};
+                    const validGrades = ['七年级', '八年级'];
+                    if (!validGrades.includes(grade)) {
+                        await conn.rollback();
+                        return res.json({ success: false, error: '无效的年级' });
+                    }
+                    const cn = parseInt(classNum) || 0;
+                    if (cn < 1 || cn > 20) {
+                        await conn.rollback();
+                        return res.json({ success: false, error: '班级必须为1-20' });
+                    }
+                    await conn.execute(
+                        `UPDATE students SET grade = ?, class_num = ? WHERE id IN (${placeholders})`,
+                        [grade, cn, ...ids]
+                    );
+                    break;
+                }
+                case 'graduate': {
+                    await conn.execute(
+                        `UPDATE students SET status = 'graduated' WHERE id IN (${placeholders})`,
+                        ids
+                    );
+                    break;
+                }
+                case 'activate': {
+                    await conn.execute(
+                        `UPDATE students SET status = 'active' WHERE id IN (${placeholders})`,
+                        ids
+                    );
+                    break;
+                }
+                case 'resetPassword': {
+                    const newPassword = (value || '123456').trim();
+                    if (newPassword.length < 4) {
+                        await conn.rollback();
+                        return res.json({ success: false, error: '密码至少4位' });
+                    }
+                    const hashed = hashPassword(newPassword);
+                    await conn.execute(
+                        `UPDATE students SET password = ? WHERE id IN (${placeholders})`,
+                        [hashed, ...ids]
+                    );
+                    break;
+                }
+                case 'delete': {
+                    await conn.execute(
+                        `DELETE FROM students WHERE id IN (${placeholders})`,
+                        ids
+                    );
+                    break;
+                }
+                default:
+                    await conn.rollback();
+                    return res.json({ success: false, error: '无效的操作' });
+            }
+
+            await conn.commit();
+        } catch (e) {
+            await conn.rollback();
+            throw e;
+        } finally {
+            conn.release();
+        }
+
+        res.json({ success: true, affected: ids.length });
+    } catch (err) {
+        console.error('批量操作错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 系统公告 ----------
+// 获取公告列表（学生端）
+app.get('/api/notices', async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT id, title, content, created_at FROM notices ORDER BY created_at DESC LIMIT 10');
+        res.json({ success: true, notices: rows });
+    } catch (err) {
+        console.error('获取公告错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 管理端获取公告
+app.get('/api/admin/notices', async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT id, title, content, created_at, updated_at FROM notices ORDER BY created_at DESC');
+        res.json({ success: true, notices: rows });
+    } catch (err) {
+        console.error('获取公告错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 管理端发布公告
+app.post('/api/admin/notices', async (req, res) => {
+    try {
+        const { title, content } = req.body;
+        if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
+        if (!content || !content.trim()) return res.json({ success: false, error: '内容不能为空' });
+        await pool.execute('INSERT INTO notices (title, content) VALUES (?, ?)', [title.trim(), content.trim()]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('发布公告错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 管理端删除公告
+app.delete('/api/admin/notices/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.json({ success: false, error: '无效的公告ID' });
+        await pool.execute('DELETE FROM notices WHERE id = ?', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('删除公告错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 按班级统计 ----------
+app.get('/api/admin/stats/class', async (req, res) => {
+    try {
+        const [rows] = await pool.execute(`
+            SELECT 
+                s.grade, s.class_num,
+                COUNT(*) AS total,
+                SUM(CASE WHEN s.status = 'active' THEN 1 ELSE 0 END) AS active,
+                SUM(CASE WHEN s.status = 'graduated' THEN 1 ELSE 0 END) AS graduated,
+                COALESCE(AVG(completed_modules.cnt), 0) AS avg_modules
+            FROM students s
+            LEFT JOIN (
+                SELECT student_id, COUNT(*) AS cnt FROM learning_progress WHERE completed = 1 GROUP BY student_id
+            ) completed_modules ON s.id = completed_modules.student_id
+            WHERE s.grade != ''
+            GROUP BY s.grade, s.class_num
+            ORDER BY s.grade, s.class_num
+        `);
+        // 确保 avg_modules 是数字类型
+        const classStats = rows.map(r => ({
+            ...r,
+            avg_modules: Number(r.avg_modules) || 0,
+            active: Number(r.active) || 0,
+            graduated: Number(r.graduated) || 0,
+            total: Number(r.total) || 0
+        }));
+        res.json({ success: true, classStats });
+    } catch (err) {
+        console.error('班级统计错误:', err);
+        res.json({ success: false, error: '服务器错误: ' + err.message });
+    }
+});
+
+// ---------- 工具函数 ----------
+function fmtDate(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    const pad = n => String(n).padStart(2, '0');
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
+// ---------- 数据导出（CSV）----------
+app.get('/api/admin/export', async (req, res) => {
+    try {
+        const [rows] = await pool.execute(`
+            SELECT 
+                s.display_name, s.username, s.grade, s.class_num, s.status,
+                s.created_at,
+                COALESCE(lp.module_count, 0) AS module_count,
+                COALESCE(ach.ach_count, 0) AS ach_count,
+                COALESCE(ll.login_days, 0) AS login_days,
+                ll.last_login
+            FROM students s
+            LEFT JOIN (
+                SELECT student_id, COUNT(DISTINCT module_id) AS module_count
+                FROM learning_progress WHERE completed = 1 GROUP BY student_id
+            ) lp ON s.id = lp.student_id
+            LEFT JOIN (
+                SELECT student_id, COUNT(*) AS ach_count
+                FROM achievements GROUP BY student_id
+            ) ach ON s.id = ach.student_id
+            LEFT JOIN (
+                SELECT student_id, COUNT(DISTINCT DATE(login_time)) AS login_days,
+                       MAX(login_time) AS last_login
+                FROM login_logs GROUP BY student_id
+            ) ll ON s.id = ll.student_id
+            ORDER BY s.grade, s.class_num, s.display_name
+        `);
+
+        // 生成 CSV（BOM 解决中文乱码）
+        const BOM = '\uFEFF';
+        const headers = ['姓名', '用户名', '年级', '班级', '状态', '完成模块数', '成就数', '登录天数', '最后登录', '注册时间'];
+        let csv = BOM + headers.join(',') + '\n';
+        for (const row of rows) {
+            const values = [
+                row.display_name,
+                row.username,
+                row.grade || '',
+                row.class_num ? row.class_num + '班' : '',
+                row.status === 'graduated' ? '已毕业' : '在读',
+                row.module_count,
+                row.ach_count,
+                row.login_days,
+                row.last_login ? fmtDate(row.last_login) : '',
+                row.created_at ? fmtDate(row.created_at) : ''
+            ];
+            const vals = values.map(v => {
+                let s = v != null ? String(v) : '';
+                s = s.replace(/"/g, '""');
+                return /[,"\n]/.test(s) ? `"${s}"` : s;
+            });
+            csv += vals.join(',') + '\n';
+        }
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename=学生数据_' + new Date().toISOString().split('T')[0] + '.csv');
+        res.send(csv);
+    } catch (err) {
+        console.error('导出错误:', err);
+        res.status(500).json({ success: false, error: '服务器错误: ' + err.message });
+    }
+});
+
+// ===================================================
 // 全局错误处理
 // ===================================================
 app.use((err, req, res, next) => {
@@ -432,10 +981,25 @@ app.use((err, req, res, next) => {
         process.exit(1);
     }
 
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
+        const os = require('os');
+        const networkInterfaces = os.networkInterfaces();
+        const localIPs = [];
+        for (const iface of Object.values(networkInterfaces)) {
+            for (const info of iface) {
+                if (info.family === 'IPv4' && !info.internal) {
+                    localIPs.push(info.address);
+                }
+            }
+        }
         console.log('===========================================');
         console.log(`  Python 变量学习平台已启动`);
-        console.log(`  地址：http://localhost:${PORT}`);
+        console.log(`  本机访问：http://localhost:${PORT}`);
+        if (localIPs.length > 0) {
+            console.log(`  局域网访问：http://${localIPs[0]}:${PORT}`);
+        }
+        console.log(`  管理后台：http://localhost:${PORT}/admin.html`);
+        console.log(`  管理员账号：admin / admin123`);
         console.log(`  数据库：MySQL -> python_var_lesson`);
         console.log(`  关闭：Ctrl + C`);
         console.log('===========================================');

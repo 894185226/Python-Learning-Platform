@@ -27,7 +27,7 @@
     <div class="w3-top">
         <div class="w3-bar w3-white w3-wide">
             <a href="#" class="w3-bar-item w3-button w3-hover-none w3-left logo-link">
-                <span class="logo-text">🐍 Python变量探险</span>
+                <span class="logo-text"><span class="logo-emoji">🐍</span> Python变量探险</span>
             </a>
             
             <!-- 桌面端导航菜单 -->
@@ -137,6 +137,14 @@
                 <a href="#test" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="test">📝 课堂小测</a>
                 <a href="#achievement" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" data-module="achievement">🏆 成就墙</a>
             </div>
+            <div class="mobile-menu-footer">
+                <a href="javascript:void(0)" class="w3-button theme-btn" onclick="toggleTheme()">
+                    <i class="far fa-moon" id="mobileThemeIcon"></i> 主题
+                </a>
+                <a href="javascript:void(0)" class="w3-button signin-btn" onclick="openLoginModal()">
+                    <span id="mobileLoginBtnText">登录</span>
+                </a>
+            </div>
         </div>
     </div>
 
@@ -145,7 +153,7 @@
     <div class="w3-modal" id="loginModal">
         <div class="w3-modal-content w3-animate-zoom w3-card-4 login-modal-content">
             <div class="w3-bar w3-green">
-                <span class="w3-bar-item w3-large">🐍 学生登录</span>
+                <span class="w3-bar-item w3-large">🐍 登录</span>
                 <button class="w3-bar-item w3-button w3-right w3-hover-red" onclick="closeAllModals()">
                     <i class="fas fa-times"></i>
                 </button>
@@ -194,6 +202,20 @@
                     <div class="form-group">
                         <label><i class="fas fa-lock"></i> 密码</label>
                         <input type="password" id="regPassword" class="form-input" placeholder="请输入密码（至少4位）" required minlength="4">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-graduation-cap"></i> 年级</label>
+                        <select id="regGrade" class="form-input" required>
+                            <option value="">请选择年级</option>
+                            <option value="七年级">七年级</option>
+                            <option value="八年级">八年级</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-users"></i> 班级</label>
+                        <select id="regClassNum" class="form-input" required>
+                            <option value="">请选择班级</option>
+                        </select>
                     </div>
                     <div id="registerError" class="form-error w3-hide"></div>
                     <button type="submit" class="form-submit-btn">
@@ -867,6 +889,11 @@ z = x + y</pre>
                 <p id="achievementUserName">查看你的学习成果！</p>
             </div>
             <div class="achievement-content">
+                <!-- 系统公告 -->
+                <div class="notice-board reveal" id="noticeBoard" style="display:none;">
+                    <h3>📢 系统公告</h3>
+                    <div id="noticeBoardContent"></div>
+                </div>
                 <div class="exploration-map reveal">
                     <h3>🗺️ 变量岛探险地图</h3>
                     <div class="map-grid" id="mapGrid">
@@ -884,8 +911,8 @@ z = x + y</pre>
                     <div class="progress-summary" id="progressSummary">
                         总进度：0/10 模块完成 (0%)
                     </div>
-                    <div class="w3-light-grey w3-round progress-bar-container">
-                        <div class="w3-container w3-green w3-round progress-bar" id="progressBar" style="width:0%">0%</div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progressBar" style="width:0%">0%</div>
                     </div>
                 </div>
                 <div class="achievements reveal">
@@ -924,6 +951,9 @@ z = x + y</pre>
 
     <!-- 成就弹出提示 -->
     <div class="achievement-toast-container" id="achievementToastContainer"></div>
+
+    <!-- 页面滚动进度条 -->
+    <div class="scroll-progress-bar" id="scrollProgressBar"></div>
 
     <!-- 回到顶部按钮 -->
     <button class="back-to-top" id="backToTopBtn" onclick="scrollToTop()" title="回到顶部">

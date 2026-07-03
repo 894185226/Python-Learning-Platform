@@ -16,7 +16,7 @@ USE python_var_lesson;
 CREATE TABLE IF NOT EXISTS students (
     id          INT AUTO_INCREMENT PRIMARY KEY COMMENT '学生唯一编号',
     username    VARCHAR(50)  NOT NULL UNIQUE COMMENT '登录用户名',
-    password    VARCHAR(64)  NOT NULL COMMENT '密码（SHA256 哈希）',
+    password    VARCHAR(60)  NOT NULL COMMENT '密码（bcrypt 哈希，兼容旧 SHA256）',
     display_name VARCHAR(50) NOT NULL COMMENT '真实姓名/显示名称',
     class_name  VARCHAR(50)  DEFAULT '' COMMENT '班级',
     created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
@@ -62,8 +62,56 @@ CREATE TABLE IF NOT EXISTS login_logs (
 ) ENGINE=InnoDB COMMENT='学生登录日志表';
 
 -- ===================================================
--- 6. 插入测试数据（可选）
+-- 6. 管理员账号表
 -- ===================================================
-INSERT IGNORE INTO students (username, password, display_name, class_name) VALUES
-  ('test001', SHA2('1234', 256), '张三', '初一(3)班'),
-  ('test002', SHA2('1234', 256), '李四', '初一(3)班');
+CREATE TABLE IF NOT EXISTS admins (
+    id          INT AUTO_INCREMENT PRIMARY KEY COMMENT '管理员编号',
+    username    VARCHAR(50)  NOT NULL UNIQUE COMMENT '登录用户名',
+    password    VARCHAR(60)  NOT NULL COMMENT '密码（bcrypt 哈希）',
+    display_name VARCHAR(50) NOT NULL DEFAULT '管理员' COMMENT '显示名称',
+    created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+) ENGINE=InnoDB COMMENT='管理员账号表';
+
+-- ===================================================
+-- 7. 系统公告表
+-- ===================================================
+CREATE TABLE IF NOT EXISTS notices (
+    id          INT AUTO_INCREMENT PRIMARY KEY COMMENT '公告编号',
+    title       VARCHAR(200) NOT NULL COMMENT '公告标题',
+    content     TEXT         NOT NULL COMMENT '公告内容',
+    created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+    updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) ENGINE=InnoDB COMMENT='系统公告表';
+
+-- ===================================================
+-- 8. 操作日志表
+-- ===================================================
+CREATE TABLE IF NOT EXISTS admin_logs (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    admin_name  VARCHAR(50)  NOT NULL COMMENT '管理员用户名',
+    action      VARCHAR(50)  NOT NULL COMMENT '操作类型',
+    detail      VARCHAR(500) DEFAULT '' COMMENT '操作详情',
+    created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB COMMENT='管理员操作日志表';
+
+-- ===================================================
+-- 9. 兼容旧表结构：添加新字段（如果不存在）
+-- ===================================================
+ALTER TABLE students ADD COLUMN IF NOT EXISTS grade VARCHAR(20) DEFAULT '' AFTER display_name;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS class_num INT DEFAULT 0 AFTER grade;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active' AFTER class_num;
+ALTER TABLE students ADD INDEX IF NOT EXISTS idx_grade_class (grade, class_num);
+
+-- ===================================================
+-- 10. 插入测试数据（可选）
+-- ===================================================
+INSERT IGNORE INTO students (username, password, display_name, class_name, grade, class_num, status) VALUES
+  ('test001', SHA2('1234', 256), '张三', '初一(3)班', '七年级', 3, 'active'),
+  ('test002', SHA2('1234', 256), '李四', '初一(3)班', '七年级', 3, 'active');
+
+-- ===================================================
+-- 11. 插入默认管理员账号
+-- ===================================================
+INSERT IGNORE INTO admins (username, password, display_name) VALUES
+  ('admin', SHA2('admin123', 256), '教师管理员');

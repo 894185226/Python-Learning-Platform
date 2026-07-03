@@ -1,10 +1,45 @@
 // ===== API 层（连接后端 MySQL 数据库） =====
-// 后端地址配置
 const API_BASE = '/api';
 
-// 调试开关：生产环境设为 false
 const DEBUG = false;
 const log = { log: DEBUG ? console.log.bind(console) : () => {}, warn: console.warn.bind(console), error: console.error.bind(console) };
+
+let dbReady = false;
+
+async function checkDBStatus() {
+    try {
+        const res = await fetch(API_BASE + '/status');
+        const data = await res.json();
+        dbReady = data.dbReady;
+        if (!dbReady) {
+            showOfflineWarning();
+        }
+    } catch (e) {
+        dbReady = false;
+        showOfflineWarning();
+    }
+}
+
+function showOfflineWarning() {
+    const existing = document.getElementById('offline-warning');
+    if (existing) return;
+    
+    const warning = document.createElement('div');
+    warning.id = 'offline-warning';
+    warning.style.cssText = `
+        position: fixed; top: 60px; left: 0; right: 0; z-index: 1000;
+        background: #ff9800; color: white; padding: 12px; text-align: center;
+        font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    `;
+    warning.innerHTML = `
+        <i class="fas fa-database"></i>
+        <span>数据库未连接，学习进度无法保存。请启动 MySQL 服务后刷新页面。</span>
+        <button onclick="this.parentElement.remove()" style="margin-left: 10px; padding: 4px 12px; border: none; border-radius: 4px; background: rgba(255,255,255,0.3); color: white; cursor: pointer;">
+            关闭
+        </button>
+    `;
+    document.body.appendChild(warning);
+}
 
 // 通用错误提示条
 function showToast(message, type = 'error') {
@@ -74,11 +109,11 @@ function toggleTheme() {
 function updateThemeIcon(isDark) {
     const icon = document.getElementById('themeIcon');
     if (icon) {
-        icon.className = isDark ? 'fas fa-sun' : 'far fa-moon';
+        icon.className = isDark ? 'far fa-moon' : 'fas fa-sun';
     }
     const mobileIcon = document.getElementById('mobileThemeIcon');
     if (mobileIcon) {
-        mobileIcon.className = isDark ? 'fas fa-sun' : 'far fa-moon';
+        mobileIcon.className = isDark ? 'far fa-moon' : 'fas fa-sun';
     }
 }
 
@@ -96,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollProgress();
     initNavScrollBehavior();
     initClassDropdown();
+    checkDBStatus();
 });
 
 // 初始化班级下拉框（1-20班）
@@ -112,17 +148,27 @@ function initClassDropdown() {
 }
 
 const API = {
-    // 通用 fetch 封装
     async _fetch(url, options = {}) {
         try {
-            const res = await fetch(url, options);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            const res = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(timeout);
             if (!res.ok) {
                 throw new Error(`服务器错误 (${res.status})`);
             }
-            return await res.json();
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                throw new Error('服务器返回格式错误');
+            }
         } catch (e) {
             if (e.name === 'TypeError' && e.message.includes('fetch')) {
                 throw new Error('无法连接服务器，请确认后端已启动');
+            }
+            if (e.name === 'AbortError') {
+                throw new Error('请求超时，请检查网络连接');
             }
             throw e;
         }
@@ -1177,7 +1223,7 @@ function syncMobileThemeIcon() {
     const mobileIcon = document.getElementById('mobileThemeIcon');
     if (mobileIcon) {
         const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-        mobileIcon.className = isDark ? 'far fa-moon' : 'far fa-sun';
+        mobileIcon.className = isDark ? 'far fa-moon' : 'fas fa-sun';
     }
 }
 

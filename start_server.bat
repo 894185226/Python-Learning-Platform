@@ -2,39 +2,36 @@
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 title Python Variable Adventure - Setup
-chcp 65001 >nul 2>&1
 
-:: ============================================================
-::  Admin check
-:: ============================================================
-:: fltmc is the most reliable admin check on all Windows versions
-:: It requires admin privileges and has ZERO service dependencies
+set "SYSTEM32=%SystemRoot%\system32"
+set "SYSTEM=%SystemRoot%"
+set "WBEM=%SystemRoot%\System32\Wbem"
+set "POWERSHELL=%SystemRoot%\System32\WindowsPowerShell\v1.0"
+set "PATH=%SYSTEM32%;%SYSTEM%;%WBEM%;%POWERSHELL%;%PATH%"
+
 fltmc >nul 2>&1
 if not errorlevel 1 goto :admin_ok
 
-:: fallback: whoami (checks for High Mandatory Level SID)
 whoami /groups 2>nul | findstr /c:"S-1-16-12288" >nul 2>&1
 if not errorlevel 1 goto :admin_ok
 
-    echo ==============================================
-    echo   Requesting administrator privileges...
-    echo   If UAC prompt appears, click [Yes]
-    echo ==============================================
-    powershell -Command "Start-Process '%~f0' -Verb RunAs -WorkingDirectory '%~dp0'" 2>nul
-    if errorlevel 1 (
-        echo [ERROR] Failed to elevate. Please run as Administrator.
-        echo Right-click this file ^> [Run as administrator]
-        echo(
-        echo If the above doesn't work, try this:
-        echo   1. Press Win+R, type: cmd
-        echo   2. Press Ctrl+Shift+Enter ^(Run as Admin^)
-        echo   3. Type: cd /d "%~dp0" ^&^& "%~nx0"
-        pause
-        exit /b 1
-    )
-    echo Auto-elevating... this window will close.
-    timeout /t 2 /nobreak >nul
-    exit /b
+echo ==============================================
+echo   Requesting administrator privileges...
+echo ==============================================
+echo(
+echo Please click [Yes] in the UAC dialog that appears.
+echo(
+powershell -Command "Start-Process '%~f0' -Verb RunAs -WorkingDirectory '%~dp0'" 2>nul
+if errorlevel 1 (
+    echo [ERROR] Failed to elevate. Please manually run as Administrator.
+    echo Right-click this file -> Run as administrator
+    echo(
+    pause
+    exit /b 1
+)
+echo Elevating... this window will close.
+timeout /t 2 /nobreak >nul
+exit /b
 
 :admin_ok
 echo ==============================================
@@ -42,29 +39,24 @@ echo   Python Variable Adventure - One-Click Setup
 echo ==============================================
 echo(
 echo This script will:
-echo   1. Install Node.js ^(if needed^)
+echo   1. Install Node.js (if needed)
 echo   2. Install npm dependencies
-echo   3. Install MySQL ^(if needed^)
+echo   3. Install MySQL (if needed)
 echo   4. Configure MySQL
 echo   5. Initialize database
 echo   6. Start web server at http://localhost:3000
 echo ==============================================
 echo(
 
-:: ============================================================
-::  Phase 1: Node.js - detect
-:: ============================================================
 call :detect_nodejs
 if "!NODE_OK!"=="1" goto :nodejs_ready
 
-:: not found, try winget
 call :detect_winget
 if "!WINGET_OK!"=="1" (
     call :install_nodejs_winget
     if "!NODE_OK!"=="1" goto :nodejs_ready
 )
 
-:: last resort: PowerShell download
 call :install_nodejs_powershell
 if "!NODE_OK!"=="1" goto :nodejs_ready
 
@@ -84,21 +76,26 @@ echo [OK] Node.js is ready
 node --version
 echo(
 
-:: refresh PATH from registry
 for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PATH 2^>nul ^| find "PATH"') do set "PATH=%%b;!PATH!"
 
-:: ============================================================
-::  Phase 2: npm install
-:: ============================================================
 echo [Phase 2/6] Installing npm dependencies...
 if not exist "node_modules\" (
-    call npm install 2>nul
+    call npm install 2>&1
     if errorlevel 1 (
         echo [INFO] Trying mirror registry...
-        call npm install --registry=https://registry.npmmirror.com 2>nul
+        call npm install --registry=https://registry.npmmirror.com 2>&1
     )
     if errorlevel 1 (
+        echo(
+        echo ==============================================
         echo [ERROR] npm install failed!
+        echo ==============================================
+        echo(
+        echo Please try these steps manually:
+        echo   1. Open Command Prompt as Administrator
+        echo   2. Navigate to this folder: cd /d "%~dp0"
+        echo   3. Run: npm install --registry=https://registry.npmmirror.com
+        echo(
         pause
         exit /b 1
     )
@@ -108,13 +105,9 @@ if not exist "node_modules\" (
 )
 echo(
 
-:: ============================================================
-::  Phase 3: MySQL - detect
-:: ============================================================
 call :detect_mysql
 if "!MYSQL_OK!"=="1" goto :mysql_ready
 
-:: not found, try winget
 if "!WINGET_OK!"=="1" (
     call :install_mysql_winget
     if "!MYSQL_OK!"=="1" goto :mysql_ready
@@ -129,18 +122,13 @@ goto :skip_mysql_install
 echo [OK] MySQL is ready: !MYSQL_BIN!
 echo(
 
-:: ============================================================
-::  Phase 4: MySQL - configure
-:: ============================================================
 call :configure_mysql
 
-:: verify MySQL is actually accessible after configure
 echo(
 echo [Phase 5/6] Initializing database...
 mysql -u root -e "SELECT 1" 2>nul
 if not errorlevel 1 goto :db_init_ok
 
-:: MySQL is NOT accessible — show error and exit
 echo(
 echo ==============================================
 echo [ERROR] MySQL is installed but cannot connect!
@@ -150,8 +138,8 @@ echo MySQL was detected at: !MYSQL_BIN!
 echo But the server could not be started or connected to.
 echo(
 echo Please try these fixes manually:
-echo   1. Open Services ^(services.msc^), find MySQL, click Start
-echo   2. If service won^'t start, try re-initializing:
+echo   1. Open Services (services.msc), find MySQL, click Start
+echo   2. If service won't start, try re-initializing:
 echo      rmdir /s /q "!DATA_DIR!"
 echo      Then run this script again.
 echo   3. If root password is not empty, edit server.js
@@ -162,7 +150,6 @@ pause >nul
 exit /b 1
 
 :db_init_ok
-:: MySQL is accessible — initialize database
 mysql -u root -e "CREATE DATABASE IF NOT EXISTS python_var_lesson CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>nul
 if exist "database.sql" (
     mysql -u root python_var_lesson < database.sql 2>nul
@@ -174,9 +161,6 @@ goto :start_server
 :skip_mysql_install
 echo(
 
-:: ============================================================
-::  Phase 5: Database init (MySQL may not be available)
-:: ============================================================
 echo [Phase 5/6] Initializing database...
 mysql -u root -e "SELECT 1" 2>nul
 if not errorlevel 1 (
@@ -188,7 +172,6 @@ if not errorlevel 1 (
     goto :start_server
 )
 
-:: MySQL not accessible and not installed — warn but try server.js anyway
 echo [WARN] MySQL not accessible
 echo [INFO] server.js will create database on startup if MySQL is running
 echo(
@@ -197,12 +180,8 @@ echo If MySQL is not running, the website will show an error.
 echo(
 
 :start_server
-:: ============================================================
-::  Phase 6: Start server
-:: ============================================================
 echo [Phase 6/6] Starting web server...
 
-:: check port 3000
 netstat -ano 2>nul | findstr ":3000 " | findstr "LISTENING" >nul 2>&1
 if not errorlevel 1 (
     echo [INFO] Port 3000 is in use, attempting to free...
@@ -215,12 +194,11 @@ if not errorlevel 1 (
 echo(
 echo   Website: http://localhost:3000
 echo   Press Ctrl+C to stop the server
-echo   ^(Browser will open automatically^)
+echo   (Browser will open automatically)
 echo(
 echo ==============================================
 echo(
 
-:: auto-open browser
 start "" /B cmd /c "timeout /t 2 /nobreak >nul && start http://localhost:3000"
 
 node server.js
@@ -232,10 +210,9 @@ pause
 exit /b
 
 :: ============================================================
-::   SUBROUTINES
+:: SUBROUTINES
 :: ============================================================
 
-:: ---- detect_nodejs ----
 :detect_nodejs
 echo [Phase 1/6] Checking Node.js...
 set "NODE_OK=0"
@@ -254,7 +231,6 @@ if not errorlevel 1 (
     exit /b
 )
 
-:: search common directories
 for %%d in (
     "C:\Program Files\nodejs"
     "C:\Program Files (x86)\nodejs"
@@ -271,7 +247,6 @@ for %%d in (
 if "!NODE_OK!"=="0" echo [INFO] Node.js not found
 exit /b
 
-:: ---- detect_winget ----
 :detect_winget
 set "WINGET_OK=0"
 
@@ -287,7 +262,6 @@ if exist "%LOCALAPPDATA%\Microsoft\WindowsApps\winget.exe" (
     exit /b
 )
 
-:: search user profiles (for admin context)
 for /d %%u in ("C:\Users\*") do (
     if exist "%%u\AppData\Local\Microsoft\WindowsApps\winget.exe" (
         set "WINGET_OK=1"
@@ -297,7 +271,6 @@ for /d %%u in ("C:\Users\*") do (
 )
 exit /b
 
-:: ---- install_nodejs_winget ----
 :install_nodejs_winget
 echo [INFO] Installing Node.js via winget...
 winget install OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements 2>&1
@@ -307,10 +280,8 @@ if errorlevel 1 (
 
 timeout /t 5 /nobreak >nul
 
-:: refresh PATH
 for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PATH 2^>nul ^| find "PATH"') do set "PATH=%%b;!PATH!"
 
-:: search again
 for %%d in (
     "C:\Program Files\nodejs"
     "C:\Program Files (x86)\nodejs"
@@ -326,7 +297,6 @@ for %%d in (
 echo [WARN] winget install completed but Node.js not found
 exit /b
 
-:: ---- install_nodejs_powershell ----
 :install_nodejs_powershell
 echo [INFO] Downloading Node.js via PowerShell...
 set "INSTALLER=%TEMP%\nodejs_installer.msi"
@@ -349,7 +319,6 @@ set "INSTALLER=%TEMP%\nodejs_installer.msi"
 powershell -ExecutionPolicy Bypass -File "%TEMP%\install_nodejs.ps1" 2>&1
 del "%TEMP%\install_nodejs.ps1" 2>nul
 
-:: search
 for %%d in (
     "C:\Program Files\nodejs"
     "C:\Program Files (x86)\nodejs"
@@ -365,7 +334,6 @@ for %%d in (
 if exist "!INSTALLER!" del "!INSTALLER!" 2>nul
 exit /b
 
-:: ---- detect_mysql ----
 :detect_mysql
 echo [Phase 3/6] Checking MySQL...
 set "MYSQL_OK=0"
@@ -382,7 +350,6 @@ if not errorlevel 1 (
     )
 )
 
-:: search common dirs
 for %%d in (
     "C:\Program Files\MySQL\MySQL Server 9.7\bin"
     "C:\Program Files\MySQL\MySQL Server 9.0\bin"
@@ -404,7 +371,6 @@ for %%d in (
 echo [INFO] MySQL not found
 exit /b
 
-:: ---- install_mysql_winget ----
 :install_mysql_winget
 echo [INFO] Installing MySQL via winget...
 winget install Oracle.MySQL --accept-package-agreements --accept-source-agreements 2>&1
@@ -430,11 +396,9 @@ for %%d in (
 echo [WARN] winget install completed but MySQL not found
 exit /b
 
-:: ---- configure_mysql ----
 :configure_mysql
 echo [Phase 4/6] Configuring MySQL...
 
-:: find mysqld
 set "MYSQLD="
 if defined MYSQL_BIN (
     if exist "!MYSQL_BIN!mysqld.exe" set "MYSQLD=!MYSQL_BIN!mysqld.exe"
@@ -450,19 +414,16 @@ if not defined MYSQLD (
 
 echo [INFO] mysqld found: !MYSQLD!
 
-:: detect data dir — search ProgramData for existing data, then fallback
 set "DATA_DIR="
 for /d %%d in ("C:\ProgramData\MySQL\MySQL Server *") do (
     if exist "%%d\Data\mysql\" if not defined DATA_DIR set "DATA_DIR=%%d\Data"
 )
-:: fallback: derive from mysqld path (for portable installs)
 if not defined DATA_DIR (
     for %%b in ("!MYSQLD!\..") do set "DATA_DIR=%%~fb\data"
 )
 
 echo [INFO] Data dir: !DATA_DIR!
 
-:: initialize if needed
 if not exist "!DATA_DIR!\mysql\" (
     echo [INFO] Data directory not initialized, running --initialize-insecure...
     echo [INFO] This may take 30-60 seconds...
@@ -479,7 +440,6 @@ if not exist "!DATA_DIR!\mysql\" (
     )
 )
 
-:: detect/create service — dynamic discovery first, then fallback
 set "SVC_NAME="
 for /f "tokens=2" %%a in ('sc query state^= all 2^>nul ^| findstr /i "SERVICE_NAME.*mysql"') do (
     if not defined SVC_NAME set "SVC_NAME=%%a"
@@ -518,7 +478,6 @@ if defined SVC_NAME (
     echo [INFO] No service, will use direct mysqld start
 )
 
-:: ===== start MySQL =====
 echo [INFO] Starting MySQL...
 
 set "CONNECTED=0"
@@ -529,11 +488,10 @@ if not errorlevel 1 (
     exit /b
 )
 
-:: 1) try service start
 if "!CONNECTED!"=="0" if defined SVC_NAME (
     echo [INFO] Starting service !SVC_NAME!...
     net start "!SVC_NAME!" 2>&1
-    echo [INFO] Waiting for MySQL to be ready ^(up to 30s^)...
+    echo [INFO] Waiting for MySQL to be ready (up to 30s)...
     for /l %%w in (1,1,30) do (
         if "!CONNECTED!"=="0" (
             timeout /t 1 /nobreak >nul
@@ -546,15 +504,13 @@ if "!CONNECTED!"=="0" if defined SVC_NAME (
     )
 )
 
-:: 2) try direct mysqld start
 if "!CONNECTED!"=="0" if defined MYSQLD (
     echo [INFO] Trying direct mysqld start...
     echo [INFO] Command: "!MYSQLD!" --console --datadir="!DATA_DIR!"
     
-    :: start mysqld in background (output to temp file via cmd /c wrapper)
     start "" /B cmd /c ""!MYSQLD!" --console --datadir="!DATA_DIR!" > "%TEMP%\mysqld_output.log" 2>&1"
     
-    echo [INFO] Waiting for MySQL to accept connections ^(up to 30s^)...
+    echo [INFO] Waiting for MySQL to accept connections (up to 30s)...
     for /l %%w in (1,1,15) do (
         if "!CONNECTED!"=="0" (
             timeout /t 2 /nobreak >nul
@@ -566,7 +522,6 @@ if "!CONNECTED!"=="0" if defined MYSQLD (
         )
     )
     
-    :: if still not connected, check if mysqld is still running
     if "!CONNECTED!"=="0" (
         tasklist /fi "imagename eq mysqld.exe" 2>nul | find "mysqld.exe" >nul 2>&1
         if errorlevel 1 (
@@ -590,27 +545,23 @@ if "!CONNECTED!"=="0" if defined MYSQLD (
     )
 )
 
-:: 3) try password reset (skip-grant-tables mode)
 if "!CONNECTED!"=="0" if defined MYSQLD (
     echo [INFO] Attempting password reset via safe mode...
     
-    :: stop any running instances
     if defined SVC_NAME net stop "!SVC_NAME!" >nul 2>&1
     taskkill /f /im mysqld.exe >nul 2>&1
     timeout /t 2 /nobreak >nul
 
-    echo [INFO] Starting MySQL in safe mode ^(skip-grant-tables + named-pipe^)...
+    echo [INFO] Starting MySQL in safe mode (skip-grant-tables + named-pipe)...
     start "" /B "!MYSQLD!" --console --skip-grant-tables --skip-networking --enable-named-pipe --datadir="!DATA_DIR!"
     timeout /t 8 /nobreak >nul
 
-    :: connect via named pipe (skip-networking disables TCP, so we use pipe protocol)
     mysql -u root --protocol=pipe -e "FLUSH PRIVILEGES;" 2>nul
     mysql -u root --protocol=pipe -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '';" 2>nul
     if errorlevel 1 mysql -u root --protocol=pipe -e "UPDATE mysql.user SET authentication_string='' WHERE User='root' AND Host='localhost'; FLUSH PRIVILEGES;" 2>nul
 
     echo [OK] Root password reset attempted
 
-    :: restart MySQL normally
     taskkill /f /im mysqld.exe >nul 2>&1
     timeout /t 2 /nobreak >nul
 
@@ -637,6 +588,5 @@ if "!CONNECTED!"=="1" (
 ) else (
     echo [WARN] All startup attempts failed. MySQL is not running.
 )
-:: clean up temp files
 if exist "%TEMP%\mysqld_output.log" del "%TEMP%\mysqld_output.log" 2>nul
 exit /b

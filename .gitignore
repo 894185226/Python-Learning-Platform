@@ -1,47 +1,6 @@
-# 临时文件
-*.tmp
-*.temp
-
-# 日志文件
-*.log
-
-# 编辑器配置
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# 操作系统文件
-Thumbs.db
-.DS_Store
-
-# Node.js
 node_modules/
-package-lock.json
-
-# Python
+*.log
+.DS_Store
+*.tmp
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# 备份文件
-*.bak
-*.backup
-
-# 参考文件（W3Schools制作参考，无需上传）
-W3Schools Online Web Tutorials.html
-W3Schools Online Web Tutorials_files/
-
-# 敏感文件
-*令牌*
-*令牌*.txt
-*Token*
-
-# Trae IDE 配置
-.trae/
-
-# 临时输出
-query
-push_output*.txt
-remote_hash.txt
+.env

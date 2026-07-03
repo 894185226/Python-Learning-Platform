@@ -9,13 +9,16 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 const crypto = require('crypto');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = 3000;
+let dbReady = false;
 
 // 中间件
 app.use(cors());
-app.use(express.json({ limit: '1mb' })); // 限制请求体大小
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(__dirname));
 
 // ===================================================
@@ -122,7 +125,7 @@ async function initializeDatabase() {
             CREATE TABLE IF NOT EXISTS students (
                 id          INT AUTO_INCREMENT PRIMARY KEY COMMENT '学生唯一编号',
                 username    VARCHAR(50)  NOT NULL UNIQUE COMMENT '登录用户名',
-                password    VARCHAR(64)  NOT NULL COMMENT '密码（SHA256 哈希）',
+                password    VARCHAR(60)  NOT NULL COMMENT '密码（bcrypt 哈希）',
                 display_name VARCHAR(50) NOT NULL COMMENT '真实姓名/显示名称',
                 grade       VARCHAR(20)  DEFAULT '' COMMENT '年级',
                 class_num   INT          DEFAULT 0 COMMENT '班级编号',
@@ -176,7 +179,7 @@ async function initializeDatabase() {
             CREATE TABLE IF NOT EXISTS admins (
                 id          INT AUTO_INCREMENT PRIMARY KEY COMMENT '管理员编号',
                 username    VARCHAR(50)  NOT NULL UNIQUE COMMENT '登录用户名',
-                password    VARCHAR(64)  NOT NULL COMMENT '密码（SHA256 哈希）',
+                password    VARCHAR(60)  NOT NULL COMMENT '密码（bcrypt 哈希）',
                 display_name VARCHAR(50) NOT NULL DEFAULT '管理员' COMMENT '显示名称',
                 created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
             ) ENGINE=InnoDB COMMENT='管理员账号表'
@@ -229,9 +232,10 @@ async function initializeDatabase() {
             'SELECT COUNT(*) AS cnt FROM admins WHERE username = ?', ['admin']
         );
         if (adminExist[0].cnt === 0) {
+            const adminHash = await bcrypt.hash('admin123', 10);
             await dbPool.execute(
-                'INSERT INTO admins (username, password, display_name) VALUES (?, SHA2(?, 256), ?)',
-                ['admin', 'admin123', '教师管理员']
+                'INSERT INTO admins (username, password, display_name) VALUES (?, ?, ?)',
+                ['admin', adminHash, '教师管理员']
             );
             console.log('[初始化] 已创建默认管理员账号 (admin / admin123)');
         }
@@ -242,10 +246,12 @@ async function initializeDatabase() {
             ['test001', 'test002']
         );
         if (existing[0].cnt === 0) {
+            const testHash = await bcrypt.hash('1234', 10);
             await dbPool.execute(
                 `INSERT INTO students (username, password, display_name, grade, class_num) VALUES
-                 ('test001', SHA2('1234', 256), '张三', '七年级', 3),
-                 ('test002', SHA2('1234', 256), '李四', '七年级', 3)`
+                 ('test001', ?, '张三', '七年级', 3),
+                 ('test002', ?, '李四', '七年级', 3)`,
+                [testHash, testHash]
             );
             console.log('[初始化] 已插入测试账号 (test001 / test002, 密码: 1234)');
         }
@@ -267,15 +273,27 @@ const pool = mysql.createPool({
     connectionLimit: 10
 });
 
-// SHA256 密码加密（教学用途，生产环境建议 bcrypt）
-function hashPassword(password) {
-    return crypto.createHash('sha256').update(password).digest('hex');
+async function hashPassword(password) {
+    return await bcrypt.hash(password, 10);
+}
+
+async function verifyPassword(password, hash) {
+    if (!hash) return false;
+    if (hash.length === 60 && hash.startsWith('$2')) {
+        try {
+            return await bcrypt.compare(password, hash);
+        } catch {
+            return false;
+        }
+    } else {
+        return crypto.createHash('sha256').update(password).digest('hex') === hash;
+    }
 }
 
 // 记录管理员操作日志
 async function logAdminAction(adminName, action, detail) {
     try {
-        await pool.execute('INSERT INTO admin_logs (admin_name, action, detail) VALUES (?, ?, ?)',
+        await pool.query('INSERT INTO admin_logs (admin_name, action, detail) VALUES (?, ?, ?)',
             [adminName, action, detail || '']);
     } catch (e) { /* 日志记录失败不影响主流程 */ }
 }
@@ -284,8 +302,21 @@ async function logAdminAction(adminName, action, detail) {
 // API 接口
 // ===================================================
 
+// ---------- 数据库状态检查 ----------
+app.get('/api/status', (req, res) => {
+    res.json({ success: true, dbReady });
+});
+
+// ---------- 离线模式中间件 ----------
+function requireDB(req, res, next) {
+    if (!dbReady) {
+        return res.json({ success: false, error: '数据库未连接，请启动MySQL服务后刷新页面' });
+    }
+    next();
+}
+
 // ---------- 用户注册 ----------
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', requireDB, async (req, res) => {
     try {
         const { username, password, displayName, grade, classNum } = req.body;
 
@@ -309,8 +340,8 @@ app.post('/api/register', async (req, res) => {
             return res.json({ success: false, error: '班级必须为1-20' });
         }
 
-        const hashed = hashPassword(password);
-        await pool.execute(
+        const hashed = await hashPassword(password);
+        await pool.query(
             'INSERT INTO students (username, password, display_name, grade, class_num) VALUES (?, ?, ?, ?, ?)',
             [username.trim(), hashed, displayName.trim(), grade || '', cn]
         );
@@ -326,7 +357,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 // ---------- 用户登录 ----------
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', requireDB, async (req, res) => {
     try {
         const { username, password } = req.body;
 
@@ -334,10 +365,9 @@ app.post('/api/login', async (req, res) => {
         const errMsg = validateInput({ username, password });
         if (errMsg) return res.json({ success: false, error: errMsg });
 
-        const hashed = hashPassword(password);
-        const [rows] = await pool.execute(
-            'SELECT id, username, display_name, grade, class_num, status FROM students WHERE username = ? AND password = ?',
-            [username.trim(), hashed]
+        const [rows] = await pool.query(
+            'SELECT id, username, display_name, grade, class_num, status, password FROM students WHERE username = ?',
+            [username.trim()]
         );
 
         if (rows.length === 0) {
@@ -345,6 +375,10 @@ app.post('/api/login', async (req, res) => {
         }
 
         const student = rows[0];
+        const isValid = await verifyPassword(password, student.password);
+        if (!isValid) {
+            return res.json({ success: false, error: '用户名或密码错误' });
+        }
 
         // 检查学生状态
         if (student.status === 'graduated') {
@@ -353,7 +387,7 @@ app.post('/api/login', async (req, res) => {
 
         // 记录登录日志
         const ip = req.ip || req.connection.remoteAddress || '';
-        await pool.execute(
+        await pool.query(
             'INSERT INTO login_logs (student_id, ip_address) VALUES (?, ?)',
             [student.id, ip]
         );
@@ -373,13 +407,18 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// ---------- 学生退出登录 ----------
+app.post('/api/logout', (req, res) => {
+    res.json({ success: true, message: '已退出登录' });
+});
+
 // ---------- 获取学习进度 ----------
-app.get('/api/progress/:username', async (req, res) => {
+app.get('/api/progress/:username', requireDB, async (req, res) => {
     try {
         const { username } = req.params;
 
         // 查找学生
-        const [students] = await pool.execute(
+        const [students] = await pool.query(
             'SELECT id FROM students WHERE username = ?', [username]
         );
         if (students.length === 0) {
@@ -389,7 +428,7 @@ app.get('/api/progress/:username', async (req, res) => {
         const studentId = students[0].id;
 
         // 获取模块进度
-        const [modules] = await pool.execute(
+        const [modules] = await pool.query(
             'SELECT module_id, score, completed_at FROM learning_progress WHERE student_id = ? AND completed = 1',
             [studentId]
         );
@@ -399,7 +438,7 @@ app.get('/api/progress/:username', async (req, res) => {
         });
 
         // 获取成就
-        const [achievements] = await pool.execute(
+        const [achievements] = await pool.query(
             'SELECT achievement_id, earned_at FROM achievements WHERE student_id = ?',
             [studentId]
         );
@@ -409,7 +448,7 @@ app.get('/api/progress/:username', async (req, res) => {
         });
 
         // 获取登录日期
-        const [logs] = await pool.execute(
+        const [logs] = await pool.query(
             'SELECT DISTINCT DATE(login_time) AS login_date FROM login_logs WHERE student_id = ?',
             [studentId]
         );
@@ -427,7 +466,7 @@ app.get('/api/progress/:username', async (req, res) => {
 });
 
 // ---------- 标记模块完成 ----------
-app.post('/api/progress/mark', async (req, res) => {
+app.post('/api/progress/mark', requireDB, async (req, res) => {
     try {
         const { username, moduleId, score } = req.body;
         if (!username || !moduleId) {
@@ -442,7 +481,7 @@ app.post('/api/progress/mark', async (req, res) => {
             return res.json({ success: false, error: '参数过长' });
         }
 
-        const [students] = await pool.execute(
+        const [students] = await pool.query(
             'SELECT id FROM students WHERE username = ?', [username]
         );
         if (students.length === 0) {
@@ -452,7 +491,7 @@ app.post('/api/progress/mark', async (req, res) => {
         const studentId = students[0].id;
         const validScore = Math.min(100, Math.max(0, parseInt(score) || 0));
 
-        await pool.execute(
+        await pool.query(
             `INSERT INTO learning_progress (student_id, module_id, completed, score, completed_at)
              VALUES (?, ?, 1, ?, NOW())
              ON DUPLICATE KEY UPDATE completed = 1, score = VALUES(score), completed_at = NOW()`,
@@ -467,7 +506,7 @@ app.post('/api/progress/mark', async (req, res) => {
 });
 
 // ---------- 颁发成就 ----------
-app.post('/api/achievement/award', async (req, res) => {
+app.post('/api/achievement/award', requireDB, async (req, res) => {
     try {
         const { username, achievementId } = req.body;
         if (!username || !achievementId) {
@@ -482,7 +521,7 @@ app.post('/api/achievement/award', async (req, res) => {
             return res.json({ success: false, error: '参数过长' });
         }
 
-        const [students] = await pool.execute(
+        const [students] = await pool.query(
             'SELECT id FROM students WHERE username = ?', [username]
         );
         if (students.length === 0) {
@@ -491,7 +530,7 @@ app.post('/api/achievement/award', async (req, res) => {
 
         const studentId = students[0].id;
 
-        await pool.execute(
+        await pool.query(
             `INSERT IGNORE INTO achievements (student_id, achievement_id, earned_at)
              VALUES (?, ?, NOW())`,
             [studentId, achievementId]
@@ -509,16 +548,15 @@ app.post('/api/achievement/award', async (req, res) => {
 // ===================================================
 
 // ---------- 管理员登录 ----------
-app.post('/api/admin/login', async (req, res) => {
+app.post('/api/admin/login', requireDB, async (req, res) => {
     try {
         const { username, password } = req.body;
         const errMsg = validateInput({ username, password });
         if (errMsg) return res.json({ success: false, error: errMsg });
 
-        const hashed = hashPassword(password);
-        const [rows] = await pool.execute(
-            'SELECT id, username, display_name FROM admins WHERE username = ? AND password = ?',
-            [username.trim(), hashed]
+        const [rows] = await pool.query(
+            'SELECT id, username, display_name, password FROM admins WHERE username = ?',
+            [username.trim()]
         );
 
         if (rows.length === 0) {
@@ -526,6 +564,10 @@ app.post('/api/admin/login', async (req, res) => {
         }
 
         const admin = rows[0];
+        const isValid = await verifyPassword(password, admin.password);
+        if (!isValid) {
+            return res.json({ success: false, error: '管理员账号或密码错误' });
+        }
         const token = crypto.randomBytes(32).toString('hex');
         adminSessions.set(token, {
             username: admin.username,
@@ -560,13 +602,13 @@ app.use('/api/admin', adminAuth);
 // ---------- 获取所有学生列表（含统计数据，支持分页）----------
 app.get('/api/admin/students', async (req, res) => {
     try {
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const pageSize = Math.min(100, Math.max(10, parseInt(req.query.pageSize) || 50));
-        const offset = (page - 1) * pageSize;
+        const page = Math.max(1, Math.trunc(parseInt(req.query.page) || 1));
+        const pageSize = Math.min(100, Math.max(10, Math.trunc(parseInt(req.query.pageSize) || 50)));
+        const offset = Math.trunc((page - 1) * pageSize);
 
-        const [[{ total }]] = await pool.execute('SELECT COUNT(*) AS total FROM students');
+        const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM students');
 
-        const [rows] = await pool.execute(`
+        const [rows] = await pool.query(`
             SELECT 
                 s.id, s.username, s.display_name, s.grade, s.class_num, s.status, s.created_at,
                 COALESCE(lp.module_count, 0) AS completed_modules,
@@ -588,8 +630,8 @@ app.get('/api/admin/students', async (req, res) => {
                 FROM login_logs GROUP BY student_id
             ) ll ON s.id = ll.student_id
             ORDER BY s.created_at DESC
-            LIMIT ? OFFSET ?
-        `, [pageSize, offset]);
+            LIMIT ${pageSize} OFFSET ${offset}
+        `);
         res.json({ success: true, students: rows, total, page, pageSize });
     } catch (err) {
         console.error('获取学生列表错误:', err);
@@ -604,26 +646,26 @@ app.get('/api/admin/student/:id', async (req, res) => {
         if (isNaN(studentId)) return res.json({ success: false, error: '无效的学生ID' });
 
         // 学生基本信息
-        const [students] = await pool.execute(
+        const [students] = await pool.query(
             'SELECT id, username, display_name, grade, class_num, status, created_at FROM students WHERE id = ?',
             [studentId]
         );
         if (students.length === 0) return res.json({ success: false, error: '学生不存在' });
 
         // 模块进度
-        const [modules] = await pool.execute(
+        const [modules] = await pool.query(
             'SELECT module_id, score, completed_at FROM learning_progress WHERE student_id = ? AND completed = 1 ORDER BY completed_at',
             [studentId]
         );
 
         // 成就
-        const [achievements] = await pool.execute(
+        const [achievements] = await pool.query(
             'SELECT achievement_id, earned_at FROM achievements WHERE student_id = ? ORDER BY earned_at',
             [studentId]
         );
 
         // 登录日志
-        const [logs] = await pool.execute(
+        const [logs] = await pool.query(
             'SELECT login_time, ip_address FROM login_logs WHERE student_id = ? ORDER BY login_time DESC LIMIT 50',
             [studentId]
         );
@@ -644,20 +686,20 @@ app.get('/api/admin/student/:id', async (req, res) => {
 // ---------- 获取全局统计数据 ----------
 app.get('/api/admin/stats', async (req, res) => {
     try {
-        const [[{ totalStudents }]] = await pool.execute('SELECT COUNT(*) AS totalStudents FROM students');
-        const [[{ totalCompleted }]] = await pool.execute('SELECT COUNT(*) AS totalCompleted FROM learning_progress WHERE completed = 1');
-        const [[{ totalAchievements }]] = await pool.execute('SELECT COUNT(*) AS totalAchievements FROM achievements');
-        const [[{ totalLogins }]] = await pool.execute('SELECT COUNT(*) AS totalLogins FROM login_logs');
+        const [[{ totalStudents }]] = await pool.query('SELECT COUNT(*) AS totalStudents FROM students');
+        const [[{ totalCompleted }]] = await pool.query('SELECT COUNT(*) AS totalCompleted FROM learning_progress WHERE completed = 1');
+        const [[{ totalAchievements }]] = await pool.query('SELECT COUNT(*) AS totalAchievements FROM achievements');
+        const [[{ totalLogins }]] = await pool.query('SELECT COUNT(*) AS totalLogins FROM login_logs');
 
         // 各模块完成人数
-        const [moduleStats] = await pool.execute(`
+        const [moduleStats] = await pool.query(`
             SELECT module_id, COUNT(*) AS count 
             FROM learning_progress WHERE completed = 1 
             GROUP BY module_id ORDER BY count DESC
         `);
 
         // 最近登录
-        const [recentLogins] = await pool.execute(`
+        const [recentLogins] = await pool.query(`
             SELECT s.display_name, s.username, ll.login_time
             FROM login_logs ll
             JOIN students s ON ll.student_id = s.id
@@ -687,7 +729,7 @@ app.delete('/api/admin/student/:id', async (req, res) => {
         const studentId = parseInt(req.params.id);
         if (isNaN(studentId)) return res.json({ success: false, error: '无效的学生ID' });
 
-        await pool.execute('DELETE FROM students WHERE id = ?', [studentId]);
+        await pool.query('DELETE FROM students WHERE id = ?', [studentId]);
         await logAdminAction(req.adminUser.username, '删除学生', `学生ID: ${studentId}`);
         res.json({ success: true });
     } catch (err) {
@@ -737,7 +779,7 @@ app.post('/api/admin/students/import', async (req, res) => {
                 }
 
                 try {
-                    const hashed = hashPassword(password);
+                    const hashed = await hashPassword(password);
                     await conn.execute(
                         'INSERT INTO students (username, password, display_name, grade, class_num) VALUES (?, ?, ?, ?, ?)',
                         [username, hashed, displayName, grade, classNum]
@@ -821,7 +863,7 @@ app.put('/api/admin/students/batch', async (req, res) => {
                         await conn.rollback();
                         return res.json({ success: false, error: '密码至少4位' });
                     }
-                    const hashed = hashPassword(newPassword);
+                    const hashed = await hashPassword(newPassword);
                     await conn.execute(
                         `UPDATE students SET password = ? WHERE id IN (${placeholders})`,
                         [hashed, ...ids]
@@ -860,7 +902,7 @@ app.put('/api/admin/students/batch', async (req, res) => {
 // 获取公告列表（学生端）
 app.get('/api/notices', async (req, res) => {
     try {
-        const [rows] = await pool.execute('SELECT id, title, content, created_at FROM notices ORDER BY created_at DESC LIMIT 10');
+        const [rows] = await pool.query('SELECT id, title, content, created_at FROM notices ORDER BY created_at DESC LIMIT 10');
         res.json({ success: true, notices: rows });
     } catch (err) {
         console.error('获取公告错误:', err);
@@ -871,7 +913,7 @@ app.get('/api/notices', async (req, res) => {
 // 管理端获取公告
 app.get('/api/admin/notices', async (req, res) => {
     try {
-        const [rows] = await pool.execute('SELECT id, title, content, created_at, updated_at FROM notices ORDER BY created_at DESC');
+        const [rows] = await pool.query('SELECT id, title, content, created_at, updated_at FROM notices ORDER BY created_at DESC');
         res.json({ success: true, notices: rows });
     } catch (err) {
         console.error('获取公告错误:', err);
@@ -885,7 +927,7 @@ app.post('/api/admin/notices', async (req, res) => {
         const { title, content } = req.body;
         if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
         if (!content || !content.trim()) return res.json({ success: false, error: '内容不能为空' });
-        await pool.execute('INSERT INTO notices (title, content) VALUES (?, ?)', [title.trim(), content.trim()]);
+        await pool.query('INSERT INTO notices (title, content) VALUES (?, ?)', [title.trim(), content.trim()]);
         await logAdminAction(req.adminUser.username, '发布公告', title.trim());
         res.json({ success: true });
     } catch (err) {
@@ -902,7 +944,7 @@ app.put('/api/admin/notices/:id', async (req, res) => {
         const { title, content } = req.body;
         if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
         if (!content || !content.trim()) return res.json({ success: false, error: '内容不能为空' });
-        await pool.execute('UPDATE notices SET title = ?, content = ? WHERE id = ?', [title.trim(), content.trim(), id]);
+        await pool.query('UPDATE notices SET title = ?, content = ? WHERE id = ?', [title.trim(), content.trim(), id]);
         await logAdminAction(req.adminUser.username, '编辑公告', title.trim());
         res.json({ success: true });
     } catch (err) {
@@ -916,7 +958,7 @@ app.delete('/api/admin/notices/:id', async (req, res) => {
     try {
         const id = parseInt(req.params.id);
         if (isNaN(id)) return res.json({ success: false, error: '无效的公告ID' });
-        await pool.execute('DELETE FROM notices WHERE id = ?', [id]);
+        await pool.query('DELETE FROM notices WHERE id = ?', [id]);
         res.json({ success: true });
     } catch (err) {
         console.error('删除公告错误:', err);
@@ -932,12 +974,13 @@ app.put('/api/admin/password', async (req, res) => {
         if (newPassword.length < 4) return res.json({ success: false, error: '新密码至少4位' });
 
         const adminName = req.adminUser.username;
-        const oldHashed = hashPassword(oldPassword);
-        const [rows] = await pool.execute('SELECT id FROM admins WHERE username = ? AND password = ?', [adminName, oldHashed]);
+        const [rows] = await pool.query('SELECT id, password FROM admins WHERE username = ?', [adminName]);
         if (rows.length === 0) return res.json({ success: false, error: '当前密码错误' });
+        const isValid = await verifyPassword(oldPassword, rows[0].password);
+        if (!isValid) return res.json({ success: false, error: '当前密码错误' });
 
-        const newHashed = hashPassword(newPassword);
-        await pool.execute('UPDATE admins SET password = ? WHERE username = ?', [newHashed, adminName]);
+        const newHashed = await hashPassword(newPassword);
+        await pool.query('UPDATE admins SET password = ? WHERE username = ?', [newHashed, adminName]);
         await logAdminAction(adminName, '修改密码', '管理员密码已修改');
         res.json({ success: true });
     } catch (err) {
@@ -949,7 +992,7 @@ app.put('/api/admin/password', async (req, res) => {
 // ---------- 操作日志 ----------
 app.get('/api/admin/logs', async (req, res) => {
     try {
-        const [rows] = await pool.execute('SELECT admin_name, action, detail, created_at FROM admin_logs ORDER BY created_at DESC LIMIT 100');
+        const [rows] = await pool.query('SELECT admin_name, action, detail, created_at FROM admin_logs ORDER BY created_at DESC LIMIT 100');
         res.json({ success: true, logs: rows });
     } catch (err) {
         console.error('获取日志错误:', err);
@@ -960,11 +1003,11 @@ app.get('/api/admin/logs', async (req, res) => {
 // ---------- 数据备份 ----------
 app.get('/api/admin/backup', async (req, res) => {
     try {
-        const [students] = await pool.execute('SELECT * FROM students');
-        const [progress] = await pool.execute('SELECT * FROM learning_progress');
-        const [achievements] = await pool.execute('SELECT * FROM achievements');
-        const [loginLogs] = await pool.execute('SELECT * FROM login_logs ORDER BY id DESC LIMIT 10000');
-        const [notices] = await pool.execute('SELECT * FROM notices');
+        const [students] = await pool.query('SELECT * FROM students');
+        const [progress] = await pool.query('SELECT * FROM learning_progress');
+        const [achievements] = await pool.query('SELECT * FROM achievements');
+        const [loginLogs] = await pool.query('SELECT * FROM login_logs ORDER BY id DESC LIMIT 10000');
+        const [notices] = await pool.query('SELECT * FROM notices');
         const backup = { students, progress, achievements, loginLogs, notices, exportedAt: new Date().toISOString() };
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.setHeader('Content-Disposition', 'attachment; filename=' + encodeURIComponent('数据备份_' + new Date().toISOString().split('T')[0] + '.json'));
@@ -1031,7 +1074,7 @@ app.post('/api/admin/restore', async (req, res) => {
 // ---------- 按班级统计 ----------
 app.get('/api/admin/stats/class', async (req, res) => {
     try {
-        const [rows] = await pool.execute(`
+        const [rows] = await pool.query(`
             SELECT 
                 s.grade, s.class_num,
                 COUNT(*) AS total,
@@ -1064,7 +1107,7 @@ app.get('/api/admin/stats/class', async (req, res) => {
 // ---------- 班级统计导出 CSV ----------
 app.get('/api/admin/stats/class/export', async (req, res) => {
     try {
-        const [rows] = await pool.execute(`
+        const [rows] = await pool.query(`
             SELECT 
                 s.grade, s.class_num,
                 COUNT(*) AS total,
@@ -1105,7 +1148,7 @@ function fmtDate(d) {
 // ---------- 数据导出（CSV）----------
 app.get('/api/admin/export', async (req, res) => {
     try {
-        const [rows] = await pool.execute(`
+        const [rows] = await pool.query(`
             SELECT 
                 s.display_name, s.username, s.grade, s.class_num, s.status,
                 s.created_at,
@@ -1183,20 +1226,23 @@ app.use((err, req, res, next) => {
         console.log('[启动] 正在连接 MySQL 并初始化数据库...');
         await initializeDatabase();
         console.log('[启动] 数据库初始化完成');
+        dbReady = true;
     } catch (err) {
-        console.error('===========================================');
-        console.error('[错误] 数据库初始化失败！');
-        console.error('[原因] ' + err.message);
-        console.error('');
-        console.error('请检查：');
-        console.error('  1. MySQL 服务是否已启动？');
-        console.error('  2. MySQL root 密码是否为空？(当前配置为空密码)');
-        console.error('  3. 如果 root 有密码，请修改 server.js 中的 password 配置');
-        console.error('');
-        console.error('详细错误：');
-        console.error(err);
-        console.error('===========================================');
-        process.exit(1);
+        console.warn('===========================================');
+        console.warn('[警告] 数据库初始化失败！');
+        console.warn('[原因] ' + err.message);
+        console.warn('');
+        console.warn('网站将以离线模式启动，部分功能不可用：');
+        console.warn('  - 用户登录/注册功能不可用');
+        console.warn('  - 学习进度无法保存');
+        console.warn('  - 管理员后台不可用');
+        console.warn('');
+        console.warn('请检查：');
+        console.warn('  1. MySQL 服务是否已启动？');
+        console.warn('  2. MySQL root 密码是否为空？(当前配置为空密码)');
+        console.warn('  3. 如果 root 有密码，请修改 server.js 中的 password 配置');
+        console.warn('===========================================');
+        dbReady = false;
     }
 
     app.listen(PORT, '0.0.0.0', () => {

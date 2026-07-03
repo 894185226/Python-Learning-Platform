@@ -11,9 +11,9 @@ const MODULE_NAMES = {
     'debug': '错误调试', 'extend': '拓展延伸', 'project': '创意项目', 'test': '综合测试'
 };
 const ACHIEVEMENT_NAMES = {
-    'first-login': '初次登录', 'module-complete': '模块完成', 'all-complete': '全部通关',
-    'speed-master': '速度达人', 'perfect-score': '满分学霸', 'naming-judge': '命名法官',
-    'debug-master': '调试大师', 'creative': '创意之星', 'persistent': '坚持不懈'
+    'beginner': '入门之星', 'judge': '公正小法官', 'debugger': '调试能手',
+    'creator': '创意达人', 'champion': '全能学霸', 'tracer': '追踪大师',
+    'explorer': '实验先锋', 'coder': '编程新星'
 };
 
 // ===== 会话管理 =====
@@ -175,8 +175,8 @@ function renderStudentTable() {
             <td>${s.login_days}</td>
             <td>${s.last_login ? fmt(s.last_login) : '从未登录'}</td>
             <td>
-                <button class="btn-sm btn-info" onclick="event.stopPropagation();resetSinglePassword(${s.id},'${esc(s.display_name)}')" title="重置密码"><i class="fas fa-key"></i></button>
-                <button class="btn-sm btn-danger" onclick="event.stopPropagation();deleteSingle(${s.id},'${esc(s.display_name)}')"><i class="fas fa-trash"></i></button>
+                <button class="btn btn-sm btn-info" onclick="event.stopPropagation();resetSinglePassword(${s.id},'${esc(s.display_name)}')" title="重置密码"><i class="fas fa-key"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteSingle(${s.id},'${esc(s.display_name)}')"><i class="fas fa-trash"></i></button>
             </td>
         </tr>
     `).join('');
@@ -441,18 +441,20 @@ async function loadNotices() {
         if (!data.success) return;
         const el = document.getElementById('noticeList');
         if (data.notices.length === 0) {
-            el.innerHTML = '<div class="empty-state">暂无公告</div>';
+            el.innerHTML = '<div class="empty-notices"><i class="fas fa-bullhorn"></i><p>暂无公告，点击左侧发布第一条公告</p></div>';
             return;
         }
         el.innerHTML = data.notices.map(n => `
             <div class="notice-item">
                 <div class="notice-header">
-                    <strong>${esc(n.title)}</strong>
+                    <span class="notice-title">${esc(n.title)}</span>
                     <span class="notice-time">${fmt(n.created_at)}</span>
                 </div>
                 <div class="notice-body">${esc(n.content)}</div>
-                <button class="btn-sm btn-info" onclick="openNoticeEdit(${n.id},'${esc(n.title)}','${esc(n.content)}')"><i class="fas fa-edit"></i> 编辑</button>
-                <button class="btn-sm btn-danger" onclick="deleteNotice(${n.id})"><i class="fas fa-trash"></i> 删除</button>
+                <div class="notice-actions">
+                    <button class="btn btn-sm btn-info" onclick="openNoticeEdit(${n.id},'${esc(n.title)}','${esc(n.content)}')"><i class="fas fa-edit"></i> 编辑</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteNotice(${n.id})"><i class="fas fa-trash"></i> 删除</button>
+                </div>
             </div>
         `).join('');
     } catch (e) { console.error(e); }
@@ -589,6 +591,7 @@ async function restoreDatabase() {
         return;
     }
     const el = document.getElementById('restoreResult');
+    el.classList.remove('success', 'error');
     el.style.display = 'block';
     el.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在恢复...';
     try {
@@ -600,15 +603,24 @@ async function restoreDatabase() {
             body: JSON.stringify(backupData)
         });
         if (data.success) {
-            el.innerHTML = '<span style="color:green;"><i class="fas fa-check"></i> 数据恢复成功！</span>';
+            el.classList.add('success');
+            el.classList.remove('error');
+            el.innerHTML = '<i class="fas fa-check"></i> 数据恢复成功！';
             loadStudents(); loadDashboard();
         } else {
-            el.innerHTML = '<span style="color:red;">恢复失败: ' + data.error + '</span>';
+            el.classList.add('error');
+            el.classList.remove('success');
+            el.innerHTML = '<i class="fas fa-times"></i> 恢复失败: ' + data.error;
         }
     } catch (e) {
-        el.innerHTML = '<span style="color:red;">恢复失败: ' + (e.message || '文件格式错误') + '</span>';
+        el.classList.add('error');
+        el.classList.remove('success');
+        el.innerHTML = '<i class="fas fa-times"></i> 恢复失败: ' + (e.message || '文件格式错误');
     }
-    document.getElementById('restoreFile').value = '';
+    setTimeout(() => {
+        document.getElementById('restoreFile').value = '';
+        el.style.display = 'none';
+    }, 3000);
 }
 
 async function loadOperationLogs() {
@@ -617,13 +629,13 @@ async function loadOperationLogs() {
         if (!data.success) return;
         const tbody = document.getElementById('operationLogsBody');
         if (data.logs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="empty-state">暂无操作日志</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" class="logs-empty"><i class="fas fa-history"></i><p>暂无操作日志</p></td></tr>';
             return;
         }
         tbody.innerHTML = data.logs.map(l => `
             <tr>
                 <td>${fmt(l.created_at)}</td>
-                <td><span class="status-tag">${esc(l.action)}</span></td>
+                <td><span class="log-action">${esc(l.action)}</span></td>
                 <td>${esc(l.detail)}</td>
             </tr>
         `).join('');

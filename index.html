@@ -14,13 +14,10 @@
     <meta property="og:locale" content="zh_CN">
     <link rel="canonical" href="http://localhost:3000">
     <!-- CDN 预连接，加快资源加载 -->
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-    <!-- CodeMirror 代码编辑器 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/monokai.min.css">
+    <link rel="stylesheet" href="lib/all.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css'">
+    <link rel="stylesheet" href="lib/codemirror.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css'">
+    <link rel="stylesheet" href="lib/monokai.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/monokai.min.css'">
 </head>
 <body>
     <!-- 顶部导航栏 - W3Schools风格 -->
@@ -1000,9 +997,11 @@ z = x + y</pre>
         </div>
     </footer>
 
-    <!-- CodeMirror JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
+    <!-- CodeMirror JS (本地优先，CDN备用) -->
+    <script src="lib/codemirror.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js'"></script>
+    <script src="lib/python.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js'"></script>
+    <script src="lib/comment.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/comment/comment.min.js'"></script>
+    <script src="lib/closebrackets.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js'"></script>
     <script src="script.js"></script>
 </body>
 </html>

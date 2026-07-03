@@ -54,10 +54,10 @@
             <header class="admin-header">
                 <h1 id="pageTitle">数据概览</h1>
                 <div class="header-actions">
-                    <button class="btn-outline" onclick="exportCSV()">
+                    <button class="btn btn-outline" onclick="exportCSV()">
                         <i class="fas fa-download"></i> 导出CSV
                     </button>
-                    <button class="refresh-btn" onclick="refreshCurrentPage()">
+                    <button class="btn btn-outline" onclick="refreshCurrentPage()">
                         <i class="fas fa-sync-alt"></i> 刷新
                     </button>
                 </div>
@@ -105,13 +105,13 @@
                 </div>
                 <!-- 批量操作栏 -->
                 <div class="batch-bar">
-                    <button class="btn-sm btn-primary" onclick="batchTransfer()"><i class="fas fa-exchange-alt"></i> 批量转班</button>
-                    <button class="btn-sm btn-warning" onclick="batchGraduate()"><i class="fas fa-graduation-cap"></i> 设为毕业</button>
-                    <button class="btn-sm btn-success" onclick="batchActivate()"><i class="fas fa-check"></i> 设为在读</button>
-                    <button class="btn-sm btn-info" onclick="batchResetPassword()"><i class="fas fa-key"></i> 重置密码</button>
-                    <button class="btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
-                    <button class="btn-sm btn-outline" onclick="selectAll()">全选</button>
-                    <button class="btn-sm btn-outline" onclick="clearSelection()">取消全选</button>
+                    <button class="btn btn-sm btn-primary" onclick="batchTransfer()"><i class="fas fa-exchange-alt"></i> 批量转班</button>
+                    <button class="btn btn-sm btn-warning" onclick="batchGraduate()"><i class="fas fa-graduation-cap"></i> 设为毕业</button>
+                    <button class="btn btn-sm btn-success" onclick="batchActivate()"><i class="fas fa-check"></i> 设为在读</button>
+                    <button class="btn btn-sm btn-info" onclick="batchResetPassword()"><i class="fas fa-key"></i> 重置密码</button>
+                    <button class="btn btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
+                    <button class="btn btn-sm btn-outline" onclick="selectAll()">全选</button>
+                    <button class="btn btn-sm btn-outline" onclick="clearSelection()">取消全选</button>
                 </div>
                 <!-- 学生表格 -->
                 <div class="card">
@@ -153,13 +153,13 @@
                         </div>
                         <textarea id="importText" class="import-textarea" rows="10" placeholder="张三,zhangsan,123456,七年级,3&#10;李四,lisi,123456,七年级,3&#10;王五,wangwu,123456,八年级,5"></textarea>
                         <div class="import-actions">
-                            <button class="btn-primary" onclick="doImport()"><i class="fas fa-upload"></i> 开始导入</button>
-                            <button class="btn-outline" onclick="downloadTemplate()"><i class="fas fa-download"></i> 下载模板</button>
-                            <label class="btn-outline" style="cursor:pointer;">
+                            <button class="btn btn-primary" onclick="doImport()"><i class="fas fa-upload"></i> 开始导入</button>
+                            <button class="btn btn-outline" onclick="downloadTemplate()"><i class="fas fa-download"></i> 下载模板</button>
+                            <label class="btn btn-outline" style="cursor:pointer;">
                                 <i class="fas fa-file-csv"></i> 上传CSV文件
                                 <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none;" onchange="handleFileImport()">
                             </label>
-                            <button class="btn-outline" onclick="document.getElementById('importText').value=''">清空</button>
+                            <button class="btn btn-outline" onclick="document.getElementById('importText').value=''">清空</button>
                         </div>
                         <div class="import-result" id="importResult" style="display:none;"></div>
                     </div>
@@ -170,7 +170,7 @@
             <section class="page-content" id="page-class-stats">
                 <div class="card">
                     <div class="card-header"><h3><i class="fas fa-chart-pie"></i> 按班级统计</h3>
-                    <button class="btn-sm btn-primary" onclick="exportClassStats()"><i class="fas fa-download"></i> 导出CSV</button></div>
+                    <button class="btn btn-sm btn-primary" onclick="exportClassStats()"><i class="fas fa-download"></i> 导出CSV</button></div>
                     <div class="card-body table-wrapper">
                         <table class="data-table" id="classStatsTable">
                             <thead>
@@ -191,70 +191,102 @@
                     </div>
                 </div>
             </section>
-        <section class="page-content" id="page-notices">
-                <div class="card">
-                    <div class="card-header"><h3><i class="fas fa-bullhorn"></i> 系统公告</h3></div>
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label>公告标题</label>
-                            <input type="text" id="noticeTitle" class="form-input" placeholder="输入公告标题...">
+            <section class="page-content" id="page-notices">
+                <div class="notices-container">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-bullhorn"></i> 发布公告</h3>
                         </div>
-                        <div class="form-group">
-                            <label>公告内容</label>
-                            <textarea id="noticeContent" class="form-input" rows="4" placeholder="输入公告内容..."></textarea>
+                        <div class="card-body">
+                            <div class="notice-form-group">
+                                <label>标题</label>
+                                <input type="text" id="noticeTitle" placeholder="输入公告标题...">
+                            </div>
+                            <div class="notice-form-group">
+                                <label>内容</label>
+                                <textarea id="noticeContent" placeholder="输入公告内容..."></textarea>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-primary" onclick="publishNotice()">
+                                    <i class="fas fa-paper-plane"></i> 发布公告
+                                </button>
+                            </div>
                         </div>
-                        <button class="btn-primary" onclick="publishNotice()"><i class="fas fa-paper-plane"></i> 发布公告</button>
                     </div>
-                </div>
-                <div class="card" style="margin-top:16px;">
-                    <div class="card-header"><h3>已发布公告</h3></div>
-                    <div class="card-body" id="noticeList"></div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-list-alt"></i> 已发布公告</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="notice-list" id="noticeList"></div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <!-- ===== 系统设置 ===== -->
             <section class="page-content" id="page-settings">
-                <div class="card">
-                    <div class="card-header"><h3><i class="fas fa-key"></i> 修改管理员密码</h3></div>
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label>当前密码</label>
-                            <input type="password" id="oldPassword" class="form-input" placeholder="输入当前密码">
+                <div class="settings-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-key"></i> 修改管理员密码</h3>
                         </div>
-                        <div class="form-group">
-                            <label>新密码</label>
-                            <input type="password" id="newPassword" class="form-input" placeholder="输入新密码（至少4位）">
+                        <div class="card-body">
+                            <div class="settings-form-group">
+                                <label>当前密码</label>
+                                <input type="password" id="oldPassword" placeholder="输入当前密码">
+                            </div>
+                            <div class="settings-form-group">
+                                <label>新密码</label>
+                                <input type="password" id="newPassword" placeholder="输入新密码（至少4位）">
+                            </div>
+                            <div class="settings-form-group">
+                                <label>确认新密码</label>
+                                <input type="password" id="confirmPassword" placeholder="再次输入新密码">
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-primary" onclick="changePassword()">
+                                    <i class="fas fa-save"></i> 修改密码
+                                </button>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>确认新密码</label>
-                            <input type="password" id="confirmPassword" class="form-input" placeholder="再次输入新密码">
-                        </div>
-                        <button class="btn-primary" onclick="changePassword()"><i class="fas fa-save"></i> 修改密码</button>
                     </div>
-                </div>
-                <div class="card" style="margin-top:16px;">
-                    <div class="card-header"><h3><i class="fas fa-database"></i> 数据管理</h3></div>
-                    <div class="card-body">
-                        <p style="margin-bottom:12px;color:#666;">导出完整数据库备份，或从备份文件恢复数据。</p>
-                        <button class="btn-primary" onclick="backupDatabase()"><i class="fas fa-download"></i> 导出备份</button>
-                        <label class="btn-outline" style="cursor:pointer;margin-left:8px;">
-                            <i class="fas fa-upload"></i> 恢复备份
-                            <input type="file" id="restoreFile" accept=".json" style="display:none;" onchange="restoreDatabase()">
-                        </label>
-                        <div id="restoreResult" style="margin-top:8px;display:none;"></div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-database"></i> 数据管理</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="data-management-info">
+                                <p>导出完整数据库备份，或从备份文件恢复数据。建议定期备份数据以防意外丢失。</p>
+                            </div>
+                            <div class="data-actions">
+                                <button class="btn btn-primary" onclick="backupDatabase()">
+                                    <i class="fas fa-download"></i> 导出备份
+                                </button>
+                                <label class="btn btn-outline" for="restoreFile">
+                                    <i class="fas fa-upload"></i> 恢复备份
+                                    <input type="file" id="restoreFile" accept=".json" onchange="restoreDatabase()">
+                                </label>
+                            </div>
+                            <div class="restore-result" id="restoreResult"></div>
+                        </div>
                     </div>
-                </div>
-                <div class="card" style="margin-top:16px;">
-                    <div class="card-header"><h3><i class="fas fa-history"></i> 操作日志</h3></div>
-                    <div class="card-body table-wrapper">
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>时间</th><th>操作</th><th>详情</th></tr>
-                            </thead>
-                            <tbody id="operationLogsBody">
-                                <tr><td colspan="3" class="empty-state">加载中...</td></tr>
-                            </tbody>
-                        </table>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-history"></i> 操作日志</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="logs-table-wrapper">
+                                <table class="logs-table">
+                                    <thead>
+                                        <tr><th>时间</th><th>操作</th><th>详情</th></tr>
+                                    </thead>
+                                    <tbody id="operationLogsBody">
+                                        <tr><td colspan="3" class="logs-empty"><i class="fas fa-spinner fa-spin"></i> 加载中...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -265,7 +297,7 @@
     <div class="modal-overlay" id="transferModal" style="display:none;">
         <div class="modal-card">
             <div class="modal-header">
-                <h3>批量转班</h3>
+                <h3><i class="fas fa-users"></i> 批量转班</h3>
                 <button class="modal-close" onclick="closeTransferModal()">&times;</button>
             </div>
             <div class="modal-body">
@@ -281,7 +313,10 @@
                     <label>目标班级</label>
                     <select id="transferClass" class="form-input"></select>
                 </div>
-                <button class="btn-primary" onclick="confirmTransfer()">确认转班</button>
+                <div class="card-actions" style="justify-content: flex-end;">
+                    <button class="btn btn-outline" onclick="closeTransferModal()">取消</button>
+                    <button class="btn btn-primary" onclick="confirmTransfer()">确认转班</button>
+                </div>
             </div>
         </div>
     </div>
@@ -300,7 +335,7 @@
     <div class="modal-overlay" id="noticeEditModal" style="display:none;">
         <div class="modal-card">
             <div class="modal-header">
-                <h3>编辑公告</h3>
+                <h3><i class="fas fa-edit"></i> 编辑公告</h3>
                 <button class="modal-close" onclick="closeNoticeEdit()">&times;</button>
             </div>
             <div class="modal-body">
@@ -313,7 +348,10 @@
                     <label>公告内容</label>
                     <textarea id="editNoticeContent" class="form-input" rows="6" placeholder="输入公告内容..."></textarea>
                 </div>
-                <button class="btn-primary" onclick="saveNoticeEdit()">保存修改</button>
+                <div class="card-actions" style="justify-content: flex-end;">
+                    <button class="btn btn-outline" onclick="closeNoticeEdit()">取消</button>
+                    <button class="btn btn-primary" onclick="saveNoticeEdit()">保存修改</button>
+                </div>
             </div>
         </div>
     </div>

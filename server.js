@@ -15,7 +15,7 @@ const PORT = 3000;
 
 // 中间件
 app.use(cors());
-app.use(express.json({ limit: '10kb' })); // 限制请求体大小，防止恶意大请求
+app.use(express.json({ limit: '1mb' })); // 限制请求体大小
 app.use(express.static(__dirname));
 
 // ===================================================
@@ -50,6 +50,22 @@ setInterval(() => {
         if (now - record.start > RATE_LIMIT_WINDOW) rateLimitMap.delete(ip);
     }
 }, 60000);
+
+// ===================================================
+// 管理员认证
+// ===================================================
+const adminSessions = new Map(); // token -> { username, displayName, expires }
+
+function adminAuth(req, res, next) {
+    const token = req.headers['x-admin-token'] || '';
+    const session = adminSessions.get(token);
+    if (!session || session.expires < Date.now()) {
+        if (session) adminSessions.delete(token);
+        return res.status(401).json({ success: false, error: '未登录或登录已过期' });
+    }
+    req.adminUser = session;
+    next();
+}
 
 // ===================================================
 // 输入校验工具函数
@@ -177,6 +193,18 @@ async function initializeDatabase() {
             ) ENGINE=InnoDB COMMENT='系统公告表'
         `);
 
+        // 操作日志表
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS admin_logs (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                admin_name  VARCHAR(50)  NOT NULL COMMENT '管理员用户名',
+                action      VARCHAR(50)  NOT NULL COMMENT '操作类型',
+                detail      VARCHAR(500) DEFAULT '' COMMENT '操作详情',
+                created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+                INDEX idx_created (created_at)
+            ) ENGINE=InnoDB COMMENT='管理员操作日志表'
+        `);
+
         console.log('[初始化] 所有数据表就绪');
 
         // 兼容旧表结构：添加新字段（如果不存在）
@@ -242,6 +270,14 @@ const pool = mysql.createPool({
 // SHA256 密码加密（教学用途，生产环境建议 bcrypt）
 function hashPassword(password) {
     return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+// 记录管理员操作日志
+async function logAdminAction(adminName, action, detail) {
+    try {
+        await pool.execute('INSERT INTO admin_logs (admin_name, action, detail) VALUES (?, ?, ?)',
+            [adminName, action, detail || '']);
+    } catch (e) { /* 日志记录失败不影响主流程 */ }
 }
 
 // ===================================================
@@ -490,8 +526,15 @@ app.post('/api/admin/login', async (req, res) => {
         }
 
         const admin = rows[0];
+        const token = crypto.randomBytes(32).toString('hex');
+        adminSessions.set(token, {
+            username: admin.username,
+            displayName: admin.display_name,
+            expires: Date.now() + 24 * 60 * 60 * 1000
+        });
         res.json({
             success: true,
+            token,
             user: {
                 username: admin.username,
                 displayName: admin.display_name,
@@ -504,9 +547,25 @@ app.post('/api/admin/login', async (req, res) => {
     }
 });
 
-// ---------- 获取所有学生列表（含统计数据）----------
+// ---------- 管理员登出 ----------
+app.post('/api/admin/logout', adminAuth, (req, res) => {
+    const token = req.headers['x-admin-token'];
+    adminSessions.delete(token);
+    res.json({ success: true });
+});
+
+// ===== 以下管理端接口需要认证 =====
+app.use('/api/admin', adminAuth);
+
+// ---------- 获取所有学生列表（含统计数据，支持分页）----------
 app.get('/api/admin/students', async (req, res) => {
     try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const pageSize = Math.min(100, Math.max(10, parseInt(req.query.pageSize) || 50));
+        const offset = (page - 1) * pageSize;
+
+        const [[{ total }]] = await pool.execute('SELECT COUNT(*) AS total FROM students');
+
         const [rows] = await pool.execute(`
             SELECT 
                 s.id, s.username, s.display_name, s.grade, s.class_num, s.status, s.created_at,
@@ -529,8 +588,9 @@ app.get('/api/admin/students', async (req, res) => {
                 FROM login_logs GROUP BY student_id
             ) ll ON s.id = ll.student_id
             ORDER BY s.created_at DESC
-        `);
-        res.json({ success: true, students: rows });
+            LIMIT ? OFFSET ?
+        `, [pageSize, offset]);
+        res.json({ success: true, students: rows, total, page, pageSize });
     } catch (err) {
         console.error('获取学生列表错误:', err);
         res.json({ success: false, error: '服务器错误: ' + err.message });
@@ -628,6 +688,7 @@ app.delete('/api/admin/student/:id', async (req, res) => {
         if (isNaN(studentId)) return res.json({ success: false, error: '无效的学生ID' });
 
         await pool.execute('DELETE FROM students WHERE id = ?', [studentId]);
+        await logAdminAction(req.adminUser.username, '删除学生', `学生ID: ${studentId}`);
         res.json({ success: true });
     } catch (err) {
         console.error('删除学生错误:', err);
@@ -695,6 +756,7 @@ app.post('/api/admin/students/import', async (req, res) => {
             conn.release();
         }
 
+        await logAdminAction(req.adminUser.username, '批量导入', `成功${results.success}条，失败${results.failed}条`);
         res.json({ success: true, results });
     } catch (err) {
         console.error('批量导入错误:', err);
@@ -786,6 +848,7 @@ app.put('/api/admin/students/batch', async (req, res) => {
             conn.release();
         }
 
+        await logAdminAction(req.adminUser.username, '批量操作', `${action}: ${ids.length}人`);
         res.json({ success: true, affected: ids.length });
     } catch (err) {
         console.error('批量操作错误:', err);
@@ -823,9 +886,27 @@ app.post('/api/admin/notices', async (req, res) => {
         if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
         if (!content || !content.trim()) return res.json({ success: false, error: '内容不能为空' });
         await pool.execute('INSERT INTO notices (title, content) VALUES (?, ?)', [title.trim(), content.trim()]);
+        await logAdminAction(req.adminUser.username, '发布公告', title.trim());
         res.json({ success: true });
     } catch (err) {
         console.error('发布公告错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 管理端编辑公告
+app.put('/api/admin/notices/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.json({ success: false, error: '无效的公告ID' });
+        const { title, content } = req.body;
+        if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
+        if (!content || !content.trim()) return res.json({ success: false, error: '内容不能为空' });
+        await pool.execute('UPDATE notices SET title = ?, content = ? WHERE id = ?', [title.trim(), content.trim(), id]);
+        await logAdminAction(req.adminUser.username, '编辑公告', title.trim());
+        res.json({ success: true });
+    } catch (err) {
+        console.error('编辑公告错误:', err);
         res.json({ success: false, error: '服务器错误' });
     }
 });
@@ -840,6 +921,110 @@ app.delete('/api/admin/notices/:id', async (req, res) => {
     } catch (err) {
         console.error('删除公告错误:', err);
         res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 修改管理员密码 ----------
+app.put('/api/admin/password', async (req, res) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+        if (!oldPassword || !newPassword) return res.json({ success: false, error: '密码不能为空' });
+        if (newPassword.length < 4) return res.json({ success: false, error: '新密码至少4位' });
+
+        const adminName = req.adminUser.username;
+        const oldHashed = hashPassword(oldPassword);
+        const [rows] = await pool.execute('SELECT id FROM admins WHERE username = ? AND password = ?', [adminName, oldHashed]);
+        if (rows.length === 0) return res.json({ success: false, error: '当前密码错误' });
+
+        const newHashed = hashPassword(newPassword);
+        await pool.execute('UPDATE admins SET password = ? WHERE username = ?', [newHashed, adminName]);
+        await logAdminAction(adminName, '修改密码', '管理员密码已修改');
+        res.json({ success: true });
+    } catch (err) {
+        console.error('修改密码错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 操作日志 ----------
+app.get('/api/admin/logs', async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT admin_name, action, detail, created_at FROM admin_logs ORDER BY created_at DESC LIMIT 100');
+        res.json({ success: true, logs: rows });
+    } catch (err) {
+        console.error('获取日志错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 数据备份 ----------
+app.get('/api/admin/backup', async (req, res) => {
+    try {
+        const [students] = await pool.execute('SELECT * FROM students');
+        const [progress] = await pool.execute('SELECT * FROM learning_progress');
+        const [achievements] = await pool.execute('SELECT * FROM achievements');
+        const [loginLogs] = await pool.execute('SELECT * FROM login_logs ORDER BY id DESC LIMIT 10000');
+        const [notices] = await pool.execute('SELECT * FROM notices');
+        const backup = { students, progress, achievements, loginLogs, notices, exportedAt: new Date().toISOString() };
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename=' + encodeURIComponent('数据备份_' + new Date().toISOString().split('T')[0] + '.json'));
+        res.json(backup);
+        await logAdminAction(req.adminUser.username, '数据备份', '导出完整数据库备份');
+    } catch (err) {
+        console.error('备份错误:', err);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ---------- 数据恢复 ----------
+app.post('/api/admin/restore', async (req, res) => {
+    try {
+        const data = req.body;
+        if (!data.students || !Array.isArray(data.students)) return res.json({ success: false, error: '无效的备份文件' });
+
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            // 按顺序恢复（先删后插，处理外键）
+            await conn.execute('DELETE FROM login_logs');
+            await conn.execute('DELETE FROM achievements');
+            await conn.execute('DELETE FROM learning_progress');
+            await conn.execute('DELETE FROM students');
+
+            for (const s of data.students) {
+                await conn.execute(
+                    'INSERT INTO students (id, username, password, display_name, grade, class_num, status, created_at) VALUES (?,?,?,?,?,?,?,?)',
+                    [s.id, s.username, s.password, s.display_name, s.grade || '', s.class_num || 0, s.status || 'active', s.created_at || new Date()]
+                );
+            }
+            if (data.progress) for (const p of data.progress) {
+                await conn.execute('INSERT INTO learning_progress (id, student_id, module_id, completed, score, completed_at) VALUES (?,?,?,?,?,?)',
+                    [p.id, p.student_id, p.module_id, p.completed, p.score, p.completed_at]);
+            }
+            if (data.achievements) for (const a of data.achievements) {
+                await conn.execute('INSERT INTO achievements (id, student_id, achievement_id, earned_at) VALUES (?,?,?,?)',
+                    [a.id, a.student_id, a.achievement_id, a.earned_at]);
+            }
+            if (data.loginLogs) for (const l of data.loginLogs) {
+                await conn.execute('INSERT INTO login_logs (id, student_id, login_time, ip_address) VALUES (?,?,?,?)',
+                    [l.id, l.student_id, l.login_time, l.ip_address || '']);
+            }
+            if (data.notices) for (const n of data.notices) {
+                await conn.execute('INSERT INTO notices (id, title, content, created_at, updated_at) VALUES (?,?,?,?,?)',
+                    [n.id, n.title, n.content, n.created_at, n.updated_at || n.created_at]);
+            }
+            await conn.commit();
+            await logAdminAction(req.adminUser.username, '数据恢复', '从备份文件恢复数据');
+            res.json({ success: true });
+        } catch (e) {
+            await conn.rollback();
+            throw e;
+        } finally {
+            conn.release();
+        }
+    } catch (err) {
+        console.error('恢复错误:', err);
+        res.json({ success: false, error: '服务器错误: ' + err.message });
     }
 });
 
@@ -873,6 +1058,39 @@ app.get('/api/admin/stats/class', async (req, res) => {
     } catch (err) {
         console.error('班级统计错误:', err);
         res.json({ success: false, error: '服务器错误: ' + err.message });
+    }
+});
+
+// ---------- 班级统计导出 CSV ----------
+app.get('/api/admin/stats/class/export', async (req, res) => {
+    try {
+        const [rows] = await pool.execute(`
+            SELECT 
+                s.grade, s.class_num,
+                COUNT(*) AS total,
+                SUM(CASE WHEN s.status = 'active' THEN 1 ELSE 0 END) AS active,
+                SUM(CASE WHEN s.status = 'graduated' THEN 1 ELSE 0 END) AS graduated,
+                COALESCE(AVG(completed_modules.cnt), 0) AS avg_modules
+            FROM students s
+            LEFT JOIN (
+                SELECT student_id, COUNT(*) AS cnt FROM learning_progress WHERE completed = 1 GROUP BY student_id
+            ) completed_modules ON s.id = completed_modules.student_id
+            WHERE s.grade != ''
+            GROUP BY s.grade, s.class_num
+            ORDER BY s.grade, s.class_num
+        `);
+        const BOM = '\uFEFF';
+        const headers = ['年级', '班级', '总人数', '在读', '已毕业', '平均完成模块'];
+        let csv = BOM + headers.join(',') + '\n';
+        for (const r of rows) {
+            csv += [r.grade, r.class_num + '班', r.total, r.active, r.graduated, Number(r.avg_modules).toFixed(1)].join(',') + '\n';
+        }
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename=' + encodeURIComponent('班级统计_' + new Date().toISOString().split('T')[0] + '.csv'));
+        res.send(csv);
+    } catch (err) {
+        console.error('班级统计导出错误:', err);
+        res.status(500).json({ success: false, error: '服务器错误' });
     }
 });
 
@@ -938,7 +1156,7 @@ app.get('/api/admin/export', async (req, res) => {
         }
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename=学生数据_' + new Date().toISOString().split('T')[0] + '.csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=' + encodeURIComponent('学生数据_' + new Date().toISOString().split('T')[0] + '.csv'));
         res.send(csv);
     } catch (err) {
         console.error('导出错误:', err);

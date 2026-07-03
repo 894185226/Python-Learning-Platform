@@ -352,8 +352,8 @@ async function handleLogin(event) {
 
     // 登录成功
     if (isAdmin) {
-        // 管理员登录 -> 跳转到管理后台
         sessionStorage.setItem('pv_admin_user', JSON.stringify(result.user));
+        sessionStorage.setItem('pv_admin_token', result.token);
         window.location.href = 'admin.html';
         return false;
     }

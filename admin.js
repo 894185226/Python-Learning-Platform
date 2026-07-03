@@ -21,20 +21,36 @@ function getAdminUser() {
     const data = sessionStorage.getItem('pv_admin_user');
     return data ? JSON.parse(data) : null;
 }
+function getAdminToken() {
+    return sessionStorage.getItem('pv_admin_token') || '';
+}
 function checkAuth() {
     const admin = getAdminUser();
     if (!admin) { window.location.href = 'index.html'; return null; }
     document.getElementById('adminInfo').querySelector('span').textContent = admin.displayName;
     return admin;
 }
-function handleLogout() {
+async function handleLogout() {
+    try {
+        await apiFetch(API_BASE + '/logout', { method: 'POST' });
+    } catch (e) { /* ignore */ }
     sessionStorage.removeItem('pv_admin_user');
+    sessionStorage.removeItem('pv_admin_token');
     window.location.href = 'index.html';
 }
 
 // ===== API 封装 =====
 async function apiFetch(url, options = {}) {
+    const token = getAdminToken();
+    if (!options.headers) options.headers = {};
+    options.headers['X-Admin-Token'] = token;
     const res = await fetch(url, options);
+    if (res.status === 401) {
+        sessionStorage.removeItem('pv_admin_user');
+        sessionStorage.removeItem('pv_admin_token');
+        window.location.href = 'index.html';
+        throw new Error('登录已过期');
+    }
     if (!res.ok) throw new Error(`服务器错误 (${res.status})`);
     return await res.json();
 }
@@ -43,12 +59,13 @@ async function apiFetch(url, options = {}) {
 function switchPage(name) {
     document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.page === name));
     document.querySelectorAll('.page-content').forEach(p => p.classList.toggle('active', p.id === 'page-' + name));
-    const titles = { 'dashboard': '数据概览', 'students': '学生管理', 'import': '批量导入', 'class-stats': '班级统计', 'notices': '公告管理' };
+    const titles = { 'dashboard': '数据概览', 'students': '学生管理', 'import': '批量导入', 'class-stats': '班级统计', 'notices': '公告管理', 'settings': '系统设置' };
     document.getElementById('pageTitle').textContent = titles[name] || name;
     if (name === 'dashboard') loadDashboard();
     if (name === 'students') loadStudents();
     if (name === 'class-stats') loadClassStats();
     if (name === 'notices') loadNotices();
+    if (name === 'settings') loadSettings();
     // 隐藏转班弹窗
     document.getElementById('transferModal').style.display = 'none';
 }
@@ -92,19 +109,36 @@ async function loadDashboard() {
 // ===== 学生管理 =====
 let allStudents = [];
 let selectedIds = new Set();
+let studentPage = 1;
+let studentTotal = 0;
+const PAGE_SIZE = 50;
 
-async function loadStudents() {
+async function loadStudents(page = 1) {
     try {
-        const data = await apiFetch(API_BASE + '/students');
+        studentPage = page;
+        const data = await apiFetch(API_BASE + '/students?page=' + page + '&pageSize=' + PAGE_SIZE);
         if (!data.success) return;
         allStudents = data.students;
+        studentTotal = data.total;
         selectedIds.clear();
         updateSelectAllCheckbox();
         updateSelectedCount();
         renderStudentTable();
+        renderPagination();
     } catch (e) {
         document.getElementById('studentTableBody').innerHTML = `<tr><td colspan="11" class="empty-state">加载失败：${e.message}</td></tr>`;
     }
+}
+
+function renderPagination() {
+    const totalPages = Math.ceil(studentTotal / PAGE_SIZE);
+    let html = `<span style="color:#666;font-size:13px;">共 ${studentTotal} 名学生，${totalPages} 页</span>`;
+    html += `<button class="btn-sm btn-outline" onclick="loadStudents(1)" ${studentPage <= 1 ? 'disabled' : ''}>首页</button>`;
+    html += `<button class="btn-sm btn-outline" onclick="loadStudents(${studentPage - 1})" ${studentPage <= 1 ? 'disabled' : ''}>上一页</button>`;
+    html += `<span style="font-size:13px;">第 ${studentPage}/${totalPages} 页</span>`;
+    html += `<button class="btn-sm btn-outline" onclick="loadStudents(${studentPage + 1})" ${studentPage >= totalPages ? 'disabled' : ''}>下一页</button>`;
+    html += `<button class="btn-sm btn-outline" onclick="loadStudents(${totalPages})" ${studentPage >= totalPages ? 'disabled' : ''}>末页</button>`;
+    document.getElementById('paginationBar').innerHTML = html;
 }
 
 function getFilteredStudents() {
@@ -323,25 +357,7 @@ function downloadTemplate() {
 }
 
 function exportClassStats() {
-    const rows = [];
-    document.querySelectorAll('#classStatsBody tr').forEach(tr => {
-        const cells = tr.querySelectorAll('td');
-        if (cells.length >= 7) {
-            rows.push([cells[0].textContent, cells[1].textContent, cells[2].textContent,
-                cells[3].textContent, cells[4].textContent, cells[5].textContent].map(s => s.trim()));
-        }
-    });
-    if (rows.length === 0) { alert('暂无数据'); return; }
-    const BOM = '\uFEFF';
-    const csv = BOM + '年级,班级,总人数,在读,已毕业,平均完成模块\n' +
-        rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '班级统计_' + new Date().toISOString().split('T')[0] + '.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    window.open(API_BASE + '/stats/class/export', '_blank');
 }
 
 // ===== 班级统计 =====
@@ -435,6 +451,7 @@ async function loadNotices() {
                     <span class="notice-time">${fmt(n.created_at)}</span>
                 </div>
                 <div class="notice-body">${esc(n.content)}</div>
+                <button class="btn-sm btn-info" onclick="openNoticeEdit(${n.id},'${esc(n.title)}','${esc(n.content)}')"><i class="fas fa-edit"></i> 编辑</button>
                 <button class="btn-sm btn-danger" onclick="deleteNotice(${n.id})"><i class="fas fa-trash"></i> 删除</button>
             </div>
         `).join('');
@@ -467,6 +484,34 @@ async function deleteNotice(id) {
     } catch (e) { alert('删除失败: ' + e.message); }
 }
 
+function openNoticeEdit(id, title, content) {
+    document.getElementById('editNoticeId').value = id;
+    document.getElementById('editNoticeTitle').value = title;
+    document.getElementById('editNoticeContent').value = content;
+    document.getElementById('noticeEditModal').style.display = 'flex';
+}
+function closeNoticeEdit() {
+    document.getElementById('noticeEditModal').style.display = 'none';
+}
+async function saveNoticeEdit() {
+    const id = document.getElementById('editNoticeId').value;
+    const title = document.getElementById('editNoticeTitle').value.trim();
+    const content = document.getElementById('editNoticeContent').value.trim();
+    if (!title) { alert('请输入标题'); return; }
+    if (!content) { alert('请输入内容'); return; }
+    try {
+        const data = await apiFetch(API_BASE + '/notices/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content })
+        });
+        if (data.success) {
+            closeNoticeEdit();
+            loadNotices();
+        } else alert('保存失败: ' + data.error);
+    } catch (e) { alert('保存失败: ' + e.message); }
+}
+
 // ===== CSV 导出 =====
 function exportCSV() {
     window.open(API_BASE + '/export', '_blank');
@@ -483,6 +528,106 @@ function esc(s) {
     const div = document.createElement('div');
     div.textContent = s;
     return div.innerHTML;
+}
+
+// ===== 文件导入 =====
+function handleFileImport() {
+    const file = document.getElementById('csvFileInput').files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        // 跳过BOM和空行
+        const lines = text.split('\n').filter(l => l.trim());
+        // 跳过标题行（如果第一行包含"姓名"）
+        let start = 0;
+        if (lines[0] && lines[0].includes('姓名')) start = 1;
+        const data = lines.slice(start).join('\n');
+        document.getElementById('importText').value = data;
+    };
+    reader.readAsText(file, 'UTF-8');
+    document.getElementById('csvFileInput').value = '';
+}
+
+// ===== 系统设置 =====
+function loadSettings() {
+    loadOperationLogs();
+}
+
+async function changePassword() {
+    const oldPassword = document.getElementById('oldPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    if (!oldPassword) { alert('请输入当前密码'); return; }
+    if (!newPassword) { alert('请输入新密码'); return; }
+    if (newPassword.length < 4) { alert('新密码至少4位'); return; }
+    if (newPassword !== confirmPassword) { alert('两次密码不一致'); return; }
+    try {
+        const data = await apiFetch(API_BASE + '/password', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldPassword, newPassword })
+        });
+        if (data.success) {
+            alert('密码修改成功！');
+            document.getElementById('oldPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+        } else alert('修改失败: ' + data.error);
+    } catch (e) { alert('修改失败: ' + e.message); }
+}
+
+function backupDatabase() {
+    window.open(API_BASE + '/backup', '_blank');
+}
+
+async function restoreDatabase() {
+    const file = document.getElementById('restoreFile').files[0];
+    if (!file) return;
+    if (!confirm('恢复数据将覆盖所有现有数据，确定继续？')) {
+        document.getElementById('restoreFile').value = '';
+        return;
+    }
+    const el = document.getElementById('restoreResult');
+    el.style.display = 'block';
+    el.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在恢复...';
+    try {
+        const text = await file.text();
+        const backupData = JSON.parse(text);
+        const data = await apiFetch(API_BASE + '/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(backupData)
+        });
+        if (data.success) {
+            el.innerHTML = '<span style="color:green;"><i class="fas fa-check"></i> 数据恢复成功！</span>';
+            loadStudents(); loadDashboard();
+        } else {
+            el.innerHTML = '<span style="color:red;">恢复失败: ' + data.error + '</span>';
+        }
+    } catch (e) {
+        el.innerHTML = '<span style="color:red;">恢复失败: ' + (e.message || '文件格式错误') + '</span>';
+    }
+    document.getElementById('restoreFile').value = '';
+}
+
+async function loadOperationLogs() {
+    try {
+        const data = await apiFetch(API_BASE + '/logs');
+        if (!data.success) return;
+        const tbody = document.getElementById('operationLogsBody');
+        if (data.logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="empty-state">暂无操作日志</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.logs.map(l => `
+            <tr>
+                <td>${fmt(l.created_at)}</td>
+                <td><span class="status-tag">${esc(l.action)}</span></td>
+                <td>${esc(l.detail)}</td>
+            </tr>
+        `).join('');
+    } catch (e) { console.error(e); }
 }
 
 // ===== 初始化班级筛选下拉 =====

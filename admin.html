@@ -31,6 +31,9 @@
                 <a href="javascript:void(0)" class="nav-item" data-page="notices">
                     <i class="fas fa-bullhorn"></i> <span>公告管理</span>
                 </a>
+                <a href="javascript:void(0)" class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i> <span>系统设置</span>
+                </a>
             </nav>
             <div class="sidebar-footer">
                 <div class="admin-info" id="adminInfo">
@@ -133,6 +136,7 @@
                                 <tr><td colspan="11" class="empty-state">加载中...</td></tr>
                             </tbody>
                         </table>
+                        <div class="pagination-bar" id="paginationBar" style="padding:10px 0;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;"></div>
                     </div>
                 </div>
             </section>
@@ -151,6 +155,10 @@
                         <div class="import-actions">
                             <button class="btn-primary" onclick="doImport()"><i class="fas fa-upload"></i> 开始导入</button>
                             <button class="btn-outline" onclick="downloadTemplate()"><i class="fas fa-download"></i> 下载模板</button>
+                            <label class="btn-outline" style="cursor:pointer;">
+                                <i class="fas fa-file-csv"></i> 上传CSV文件
+                                <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none;" onchange="handleFileImport()">
+                            </label>
                             <button class="btn-outline" onclick="document.getElementById('importText').value=''">清空</button>
                         </div>
                         <div class="import-result" id="importResult" style="display:none;"></div>
@@ -203,6 +211,53 @@
                     <div class="card-body" id="noticeList"></div>
                 </div>
             </section>
+
+            <!-- ===== 系统设置 ===== -->
+            <section class="page-content" id="page-settings">
+                <div class="card">
+                    <div class="card-header"><h3><i class="fas fa-key"></i> 修改管理员密码</h3></div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label>当前密码</label>
+                            <input type="password" id="oldPassword" class="form-input" placeholder="输入当前密码">
+                        </div>
+                        <div class="form-group">
+                            <label>新密码</label>
+                            <input type="password" id="newPassword" class="form-input" placeholder="输入新密码（至少4位）">
+                        </div>
+                        <div class="form-group">
+                            <label>确认新密码</label>
+                            <input type="password" id="confirmPassword" class="form-input" placeholder="再次输入新密码">
+                        </div>
+                        <button class="btn-primary" onclick="changePassword()"><i class="fas fa-save"></i> 修改密码</button>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:16px;">
+                    <div class="card-header"><h3><i class="fas fa-database"></i> 数据管理</h3></div>
+                    <div class="card-body">
+                        <p style="margin-bottom:12px;color:#666;">导出完整数据库备份，或从备份文件恢复数据。</p>
+                        <button class="btn-primary" onclick="backupDatabase()"><i class="fas fa-download"></i> 导出备份</button>
+                        <label class="btn-outline" style="cursor:pointer;margin-left:8px;">
+                            <i class="fas fa-upload"></i> 恢复备份
+                            <input type="file" id="restoreFile" accept=".json" style="display:none;" onchange="restoreDatabase()">
+                        </label>
+                        <div id="restoreResult" style="margin-top:8px;display:none;"></div>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:16px;">
+                    <div class="card-header"><h3><i class="fas fa-history"></i> 操作日志</h3></div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>时间</th><th>操作</th><th>详情</th></tr>
+                            </thead>
+                            <tbody id="operationLogsBody">
+                                <tr><td colspan="3" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -238,6 +293,28 @@
                 <button class="modal-close" onclick="closeStudentDetail()">&times;</button>
             </div>
             <div class="modal-body" id="detailBody"></div>
+        </div>
+    </div>
+
+    <!-- 公告编辑弹窗 -->
+    <div class="modal-overlay" id="noticeEditModal" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>编辑公告</h3>
+                <button class="modal-close" onclick="closeNoticeEdit()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editNoticeId">
+                <div class="form-group">
+                    <label>公告标题</label>
+                    <input type="text" id="editNoticeTitle" class="form-input" placeholder="输入公告标题...">
+                </div>
+                <div class="form-group">
+                    <label>公告内容</label>
+                    <textarea id="editNoticeContent" class="form-input" rows="6" placeholder="输入公告内容..."></textarea>
+                </div>
+                <button class="btn-primary" onclick="saveNoticeEdit()">保存修改</button>
+            </div>
         </div>
     </div>
 

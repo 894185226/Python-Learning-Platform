@@ -895,6 +895,11 @@ body {
     color: #fff;
 }
 
+.btn-sm:disabled, .btn-outline:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 .btn-danger {
     background: #ffebee;
     color: #f44336;

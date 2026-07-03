@@ -7,8 +7,15 @@ chcp 65001 >nul 2>&1
 :: ============================================================
 ::  Admin check
 :: ============================================================
-net session >nul 2>&1
+:: fltmc is the most reliable admin check on all Windows versions
+:: It requires admin privileges and has ZERO service dependencies
+fltmc >nul 2>&1
 if not errorlevel 1 goto :admin_ok
+
+:: fallback: whoami (checks for High Mandatory Level SID)
+whoami /groups 2>nul | findstr /c:"S-1-16-12288" >nul 2>&1
+if not errorlevel 1 goto :admin_ok
+
     echo ==============================================
     echo   Requesting administrator privileges...
     echo   If UAC prompt appears, click [Yes]
@@ -17,9 +24,16 @@ if not errorlevel 1 goto :admin_ok
     if errorlevel 1 (
         echo [ERROR] Failed to elevate. Please run as Administrator.
         echo Right-click this file ^> [Run as administrator]
+        echo(
+        echo If the above doesn't work, try this:
+        echo   1. Press Win+R, type: cmd
+        echo   2. Press Ctrl+Shift+Enter ^(Run as Admin^)
+        echo   3. Type: cd /d "%~dp0" ^&^& "%~nx0"
         pause
         exit /b 1
     )
+    echo Auto-elevating... this window will close.
+    timeout /t 2 /nobreak >nul
     exit /b
 
 :admin_ok
@@ -532,13 +546,13 @@ if "!CONNECTED!"=="0" if defined SVC_NAME (
     )
 )
 
-:: 2) try direct mysqld start (with error output capture)
+:: 2) try direct mysqld start
 if "!CONNECTED!"=="0" if defined MYSQLD (
     echo [INFO] Trying direct mysqld start...
     echo [INFO] Command: "!MYSQLD!" --console --datadir="!DATA_DIR!"
     
-    :: start mysqld and capture its output to a temp file
-    start "" /B "!MYSQLD!" --console --datadir="!DATA_DIR!" > "%TEMP%\mysqld_output.log" 2>&1
+    :: start mysqld in background (output to temp file via cmd /c wrapper)
+    start "" /B cmd /c ""!MYSQLD!" --console --datadir="!DATA_DIR!" > "%TEMP%\mysqld_output.log" 2>&1"
     
     echo [INFO] Waiting for MySQL to accept connections ^(up to 30s^)...
     for /l %%w in (1,1,15) do (
@@ -585,14 +599,14 @@ if "!CONNECTED!"=="0" if defined MYSQLD (
     taskkill /f /im mysqld.exe >nul 2>&1
     timeout /t 2 /nobreak >nul
 
-    echo [INFO] Starting MySQL in safe mode ^(skip-grant-tables^)...
-    start "" /B "!MYSQLD!" --console --skip-grant-tables --skip-networking --datadir="!DATA_DIR!"
-    timeout /t 5 /nobreak >nul
+    echo [INFO] Starting MySQL in safe mode ^(skip-grant-tables + named-pipe^)...
+    start "" /B "!MYSQLD!" --console --skip-grant-tables --skip-networking --enable-named-pipe --datadir="!DATA_DIR!"
+    timeout /t 8 /nobreak >nul
 
-    mysql -u root -e "FLUSH PRIVILEGES;" 2>nul
-    mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '';" 2>nul
-    if errorlevel 1 mysql -u root -e "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('');" 2>nul
-    if errorlevel 1 mysql -u root -e "UPDATE mysql.user SET authentication_string=PASSWORD('') WHERE User='root'; FLUSH PRIVILEGES;" 2>nul
+    :: connect via named pipe (skip-networking disables TCP, so we use pipe protocol)
+    mysql -u root --protocol=pipe -e "FLUSH PRIVILEGES;" 2>nul
+    mysql -u root --protocol=pipe -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '';" 2>nul
+    if errorlevel 1 mysql -u root --protocol=pipe -e "UPDATE mysql.user SET authentication_string='' WHERE User='root' AND Host='localhost'; FLUSH PRIVILEGES;" 2>nul
 
     echo [OK] Root password reset attempted
 

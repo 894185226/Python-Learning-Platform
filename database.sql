@@ -1,5 +1,5 @@
 -- ===================================================
--- Python 变量专题学习网站 - 数据库初始化脚本
+-- Python 基础学习平台 - 数据库初始化脚本
 -- 适用：MySQL 8.0+
 -- ===================================================
 
@@ -18,9 +18,12 @@ CREATE TABLE IF NOT EXISTS students (
     username    VARCHAR(50)  NOT NULL UNIQUE COMMENT '登录用户名',
     password    VARCHAR(60)  NOT NULL COMMENT '密码（bcrypt 哈希，兼容旧 SHA256）',
     display_name VARCHAR(50) NOT NULL COMMENT '真实姓名/显示名称',
-    class_name  VARCHAR(50)  DEFAULT '' COMMENT '班级',
+    grade       VARCHAR(20)  DEFAULT '' COMMENT '年级',
+    class_num   INT          DEFAULT 0 COMMENT '班级编号',
+    status      VARCHAR(20)  DEFAULT 'active' COMMENT '状态: active/graduated',
     created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
-    INDEX idx_username (username)
+    INDEX idx_username (username),
+    INDEX idx_grade_class (grade, class_num)
 ) ENGINE=InnoDB COMMENT='学生用户信息表';
 
 -- ===================================================
@@ -96,22 +99,14 @@ CREATE TABLE IF NOT EXISTS admin_logs (
 ) ENGINE=InnoDB COMMENT='管理员操作日志表';
 
 -- ===================================================
--- 9. 兼容旧表结构：添加新字段（如果不存在）
+-- 9. 插入测试数据（可选）
 -- ===================================================
-ALTER TABLE students ADD COLUMN IF NOT EXISTS grade VARCHAR(20) DEFAULT '' AFTER display_name;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS class_num INT DEFAULT 0 AFTER grade;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active' AFTER class_num;
-ALTER TABLE students ADD INDEX IF NOT EXISTS idx_grade_class (grade, class_num);
+INSERT IGNORE INTO students (username, password, display_name, grade, class_num, status) VALUES
+  ('test001', SHA2('1234', 256), '张三', '七年级', 3, 'active'),
+  ('test002', SHA2('1234', 256), '李四', '七年级', 3, 'active');
 
 -- ===================================================
--- 10. 插入测试数据（可选）
--- ===================================================
-INSERT IGNORE INTO students (username, password, display_name, class_name, grade, class_num, status) VALUES
-  ('test001', SHA2('1234', 256), '张三', '初一(3)班', '七年级', 3, 'active'),
-  ('test002', SHA2('1234', 256), '李四', '初一(3)班', '七年级', 3, 'active');
-
--- ===================================================
--- 11. 插入默认管理员账号
+-- 10. 插入默认管理员账号
 -- ===================================================
 INSERT IGNORE INTO admins (username, password, display_name) VALUES
   ('admin', SHA2('admin123', 256), '教师管理员');

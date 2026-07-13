@@ -31,6 +31,15 @@
                 <a href="javascript:void(0)" class="nav-item" data-page="notices">
                     <i class="fas fa-bullhorn"></i> <span>公告管理</span>
                 </a>
+                <a href="javascript:void(0)" class="nav-item" data-page="assignments">
+                    <i class="fas fa-tasks"></i> <span>作业管理</span>
+                </a>
+                <a href="javascript:void(0)" class="nav-item" data-page="activity">
+                    <i class="fas fa-heartbeat"></i> <span>活跃度监控</span>
+                </a>
+                <a href="javascript:void(0)" class="nav-item" data-page="daily-questions">
+                    <i class="fas fa-calendar-check"></i> <span>每日一题</span>
+                </a>
                 <a href="javascript:void(0)" class="nav-item" data-page="settings">
                     <i class="fas fa-cog"></i> <span>系统设置</span>
                 </a>
@@ -57,6 +66,9 @@
                     <button class="btn btn-outline" onclick="exportCSV()">
                         <i class="fas fa-download"></i> 导出CSV
                     </button>
+                    <button class="btn btn-outline" onclick="exportDetailedReport()">
+                        <i class="fas fa-file-export"></i> 导出详细报告
+                    </button>
                     <button class="btn btn-outline" onclick="refreshCurrentPage()">
                         <i class="fas fa-sync-alt"></i> 刷新
                     </button>
@@ -79,6 +91,29 @@
                     <div class="card">
                         <div class="card-header"><h3><i class="fas fa-clock"></i> 最近登录</h3></div>
                         <div class="card-body"><div class="recent-logins" id="recentLogins"><div class="empty-state">暂无数据</div></div></div>
+                    </div>
+                </div>
+                <!-- 学习趋势 & 章节完成率 -->
+                <div class="dashboard-grid" style="margin-top:20px;">
+                    <div class="card">
+                        <div class="card-header"><h3><i class="fas fa-chart-line"></i> 学习趋势（近30天）</h3></div>
+                        <div class="card-body"><canvas id="trendChart" width="500" height="280" style="width:100%;height:auto;"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3><i class="fas fa-clipboard-check"></i> 章节完成率</h3></div>
+                        <div class="card-body" style="max-height:360px;overflow-y:auto;"><div id="chapterCompletion"><div class="empty-state">暂无数据</div></div></div>
+                    </div>
+                </div>
+                <!-- 测验成绩 -->
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header"><h3><i class="fas fa-graduation-cap"></i> 测验成绩汇总</h3></div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table" id="quizScoresTable">
+                            <thead>
+                                <tr><th>章节</th><th>平均分</th><th>参加人数</th></tr>
+                            </thead>
+                            <tbody id="quizScoresBody"><tr><td colspan="3" class="empty-state">暂无数据</td></tr></tbody>
+                        </table>
                     </div>
                 </div>
             </section>
@@ -206,6 +241,16 @@
                                 <label>内容</label>
                                 <textarea id="noticeContent" placeholder="输入公告内容..."></textarea>
                             </div>
+                            <div class="notice-form-row">
+                                <div class="notice-form-group">
+                                    <label>定时发布（可选）</label>
+                                    <input type="datetime-local" id="noticePublishAt">
+                                </div>
+                                <div class="notice-form-group">
+                                    <label>过期时间（可选）</label>
+                                    <input type="datetime-local" id="noticeExpireAt">
+                                </div>
+                            </div>
                             <div class="card-actions">
                                 <button class="btn btn-primary" onclick="publishNotice()">
                                     <i class="fas fa-paper-plane"></i> 发布公告
@@ -219,6 +264,166 @@
                         </div>
                         <div class="card-body">
                             <div class="notice-list" id="noticeList"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== 作业管理 ===== -->
+            <section class="page-content" id="page-assignments">
+                <div class="notices-container">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-plus-circle"></i> 发布作业</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="notice-form-group">
+                                <label>作业标题</label>
+                                <input type="text" id="assignmentTitle" placeholder="输入作业标题...">
+                            </div>
+                            <div class="notice-form-group">
+                                <label>作业描述</label>
+                                <textarea id="assignmentDesc" placeholder="输入作业描述..."></textarea>
+                            </div>
+                            <div class="notice-form-row">
+                                <div class="notice-form-group">
+                                    <label>关联章节</label>
+                                    <select id="assignmentChapter" class="search-input" style="width:100%;">
+                                        <option value="">请选择章节</option>
+                                        <option value="ch1">第1章 认识Python</option>
+                                        <option value="ch2">第2章 变量</option>
+                                        <option value="ch3">第3章 变量类型</option>
+                                        <option value="ch4">第4章 条件判断</option>
+                                        <option value="ch5">第5章 if进阶</option>
+                                        <option value="ch6">第6章 while循环</option>
+                                        <option value="ch7">第7章 while拓展</option>
+                                        <option value="ch8">第8章 循环嵌套</option>
+                                        <option value="ch9">第9章 综合应用一</option>
+                                        <option value="ch10">第10章 排列小星星</option>
+                                        <option value="ch11">第11章 初识列表</option>
+                                        <option value="ch12">第12章 列表的使用</option>
+                                        <option value="ch13">第13章 元组与集合</option>
+                                        <option value="ch14">第14章 神奇的字典</option>
+                                        <option value="ch15">第15章 再遇字符串</option>
+                                        <option value="ch16">第16章 公共语法</option>
+                                        <option value="ch17">第17章 轻松搞定二进制</option>
+                                        <option value="ch18">第18章 编程思维实践</option>
+                                        <option value="ch19">第19章 各种各样的数</option>
+                                    </select>
+                                </div>
+                                <div class="notice-form-group">
+                                    <label>截止日期</label>
+                                    <input type="datetime-local" id="assignmentDueDate">
+                                </div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-primary" onclick="publishAssignment()">
+                                    <i class="fas fa-paper-plane"></i> 发布作业
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-list-alt"></i> 作业列表</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="assignmentList"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== 活跃度监控 ===== -->
+            <section class="page-content" id="page-activity">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-heartbeat"></i> 不活跃学生</h3>
+                        <div class="card-actions">
+                            <label style="font-size:13px;color:var(--text-secondary);">天数：</label>
+                            <select id="inactiveDays" class="search-input" style="width:auto;" onchange="loadInactiveStudents()">
+                                <option value="7">7天</option>
+                                <option value="14">14天</option>
+                                <option value="30">30天</option>
+                            </select>
+                            <button class="btn btn-sm btn-primary" onclick="loadInactiveStudents()"><i class="fas fa-sync-alt"></i> 刷新</button>
+                        </div>
+                    </div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table" id="inactiveTable">
+                            <thead>
+                                <tr><th>姓名</th><th>年级</th><th>班级</th><th>最后登录</th><th>距今天数</th><th>操作</th></tr>
+                            </thead>
+                            <tbody id="inactiveBody"><tr><td colspan="6" class="empty-state">加载中...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== 每日一题 ===== -->
+            <section class="page-content" id="page-daily-questions">
+                <div class="notices-container">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-plus-circle"></i> 发布每日一题</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="notice-form-group">
+                                <label>题目</label>
+                                <input type="text" id="dqQuestion" placeholder="输入题目内容...">
+                            </div>
+                            <div class="notice-form-row">
+                                <div class="notice-form-group">
+                                    <label>选项A</label>
+                                    <input type="text" id="dqOptionA" placeholder="选项A">
+                                </div>
+                                <div class="notice-form-group">
+                                    <label>选项B</label>
+                                    <input type="text" id="dqOptionB" placeholder="选项B">
+                                </div>
+                            </div>
+                            <div class="notice-form-row">
+                                <div class="notice-form-group">
+                                    <label>选项C</label>
+                                    <input type="text" id="dqOptionC" placeholder="选项C">
+                                </div>
+                                <div class="notice-form-group">
+                                    <label>选项D</label>
+                                    <input type="text" id="dqOptionD" placeholder="选项D">
+                                </div>
+                            </div>
+                            <div class="notice-form-row">
+                                <div class="notice-form-group">
+                                    <label>正确答案</label>
+                                    <select id="dqAnswer" class="search-input" style="width:100%;">
+                                        <option value="A">A</option>
+                                        <option value="B">B</option>
+                                        <option value="C">C</option>
+                                        <option value="D">D</option>
+                                    </select>
+                                </div>
+                                <div class="notice-form-group">
+                                    <label>日期</label>
+                                    <input type="date" id="dqDate">
+                                </div>
+                            </div>
+                            <div class="notice-form-group">
+                                <label>解析</label>
+                                <textarea id="dqExplanation" placeholder="输入答案解析..."></textarea>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-primary" onclick="addDailyQuestion()">
+                                    <i class="fas fa-paper-plane"></i> 发布题目
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-list-alt"></i> 已发布题目</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="dailyQuestionList"></div>
                         </div>
                     </div>
                 </div>
@@ -288,6 +493,24 @@
                             </div>
                         </div>
                     </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-user-shield"></i> 管理员列表</h3>
+                            <div class="card-actions">
+                                <button class="btn btn-sm btn-primary" onclick="createSubAdmin()"><i class="fas fa-user-plus"></i> 创建子管理员</button>
+                            </div>
+                        </div>
+                        <div class="card-body table-wrapper">
+                            <table class="data-table" id="adminListTable">
+                                <thead>
+                                    <tr><th>用户名</th><th>显示名称</th><th>角色</th><th>创建时间</th></tr>
+                                </thead>
+                                <tbody id="adminListBody">
+                                    <tr><td colspan="4" class="empty-state">加载中...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
@@ -348,9 +571,86 @@
                     <label>公告内容</label>
                     <textarea id="editNoticeContent" class="form-input" rows="6" placeholder="输入公告内容..."></textarea>
                 </div>
+                <div class="notice-form-row">
+                    <div class="form-group">
+                        <label>定时发布</label>
+                        <input type="datetime-local" id="editNoticePublishAt" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>过期时间</label>
+                        <input type="datetime-local" id="editNoticeExpireAt" class="form-input">
+                    </div>
+                </div>
                 <div class="card-actions" style="justify-content: flex-end;">
                     <button class="btn btn-outline" onclick="closeNoticeEdit()">取消</button>
                     <button class="btn btn-primary" onclick="saveNoticeEdit()">保存修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 作业提交详情弹窗 -->
+    <div class="modal-overlay" id="submissionsModal" style="display:none;">
+        <div class="modal-card modal-wide">
+            <div class="modal-header">
+                <h3><i class="fas fa-clipboard-check"></i> 提交详情</h3>
+                <button class="modal-close" onclick="closeSubmissions()">&times;</button>
+            </div>
+            <div class="modal-body" id="submissionsBody" style="max-height:500px;overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <!-- 作业编辑弹窗 -->
+    <div class="modal-overlay" id="assignmentEditModal" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> 编辑作业</h3>
+                <button class="modal-close" onclick="closeAssignmentEdit()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editAssignmentId">
+                <div class="form-group">
+                    <label>作业标题</label>
+                    <input type="text" id="editAssignmentTitle" class="form-input" placeholder="输入作业标题...">
+                </div>
+                <div class="form-group">
+                    <label>作业描述</label>
+                    <textarea id="editAssignmentDesc" class="form-input" rows="4" placeholder="输入作业描述..."></textarea>
+                </div>
+                <div class="notice-form-row">
+                    <div class="form-group">
+                        <label>关联章节</label>
+                        <select id="editAssignmentChapter" class="form-input">
+                            <option value="">请选择章节</option>
+                            <option value="ch1">第1章 认识Python</option>
+                            <option value="ch2">第2章 变量</option>
+                            <option value="ch3">第3章 变量类型</option>
+                            <option value="ch4">第4章 条件判断</option>
+                            <option value="ch5">第5章 if进阶</option>
+                            <option value="ch6">第6章 while循环</option>
+                            <option value="ch7">第7章 while拓展</option>
+                            <option value="ch8">第8章 循环嵌套</option>
+                            <option value="ch9">第9章 综合应用一</option>
+                            <option value="ch10">第10章 排列小星星</option>
+                            <option value="ch11">第11章 初识列表</option>
+                            <option value="ch12">第12章 列表的使用</option>
+                            <option value="ch13">第13章 元组与集合</option>
+                            <option value="ch14">第14章 神奇的字典</option>
+                            <option value="ch15">第15章 再遇字符串</option>
+                            <option value="ch16">第16章 公共语法</option>
+                            <option value="ch17">第17章 轻松搞定二进制</option>
+                            <option value="ch18">第18章 编程思维实践</option>
+                            <option value="ch19">第19章 各种各样的数</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>截止日期</label>
+                        <input type="datetime-local" id="editAssignmentDueDate" class="form-input">
+                    </div>
+                </div>
+                <div class="card-actions" style="justify-content: flex-end;">
+                    <button class="btn btn-outline" onclick="closeAssignmentEdit()">取消</button>
+                    <button class="btn btn-primary" onclick="saveAssignmentEdit()">保存修改</button>
                 </div>
             </div>
         </div>

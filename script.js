@@ -164,13 +164,15 @@ const API = {
                 throw new Error('服务器返回格式错误');
             }
         } catch (e) {
+            // 网络错误：返回默认错误对象，让调用方统一处理
             if (e.name === 'TypeError' && e.message.includes('fetch')) {
-                throw new Error('无法连接服务器，请确认后端已启动');
+                return { success: false, error: '网络不可用' };
             }
             if (e.name === 'AbortError') {
-                throw new Error('请求超时，请检查网络连接');
+                return { success: false, error: '请求超时' };
             }
-            throw e;
+            // 其他错误也返回对象而非抛出，避免控制台红色报错
+            return { success: false, error: e.message || '未知错误' };
         }
     },
 
@@ -217,6 +219,118 @@ const API = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, achievementId })
         });
+    },
+    // 错题本
+    async addMistake(username, chapterId, questionText, correctAnswer, studentAnswer) {
+        return await this._fetch(API_BASE + '/mistakes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, chapterId, questionText, correctAnswer, studentAnswer })
+        });
+    },
+    async getMistakes(username) {
+        return await this._fetch(API_BASE + '/mistakes/' + encodeURIComponent(username));
+    },
+    async deleteMistake(id, username) {
+        return await this._fetch(API_BASE + '/mistakes/' + id, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+        });
+    },
+    // 笔记
+    async saveNote(username, chapterId, moduleId, content) {
+        return await this._fetch(API_BASE + '/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, chapterId, moduleId, content })
+        });
+    },
+    async getNotes(username, chapterId) {
+        return await this._fetch(API_BASE + '/notes/' + encodeURIComponent(username) + '/' + encodeURIComponent(chapterId));
+    },
+    async updateNote(id, content) {
+        return await this._fetch(API_BASE + '/notes/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+        });
+    },
+    // 收藏
+    async addSnippet(username, title, code, chapterId) {
+        return await this._fetch(API_BASE + '/snippets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, title, code, chapterId })
+        });
+    },
+    async getSnippets(username) {
+        return await this._fetch(API_BASE + '/snippets/' + encodeURIComponent(username));
+    },
+    async deleteSnippet(id, username) {
+        return await this._fetch(API_BASE + '/snippets/' + id, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+        });
+    },
+    // 排行榜
+    async getLeaderboard(grade, classNum) {
+        let url = API_BASE + '/leaderboard?';
+        if (grade) url += 'grade=' + encodeURIComponent(grade) + '&';
+        if (classNum) url += 'classNum=' + encodeURIComponent(classNum);
+        return await this._fetch(url);
+    },
+    // 学习报告
+    async getReport(username) {
+        return await this._fetch(API_BASE + '/report/' + encodeURIComponent(username));
+    },
+    // 通知
+    async getNotifications(username) {
+        return await this._fetch(API_BASE + '/notifications/' + encodeURIComponent(username));
+    },
+    async markNotificationRead(id) {
+        return await this._fetch(API_BASE + '/notifications/' + id + '/read', { method: 'PUT' });
+    },
+    // 目标
+    async setGoal(username, goalText, targetChapters, startDate, endDate) {
+        return await this._fetch(API_BASE + '/goals', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, goalText, targetChapters, startDate, endDate })
+        });
+    },
+    async getGoals(username) {
+        return await this._fetch(API_BASE + '/goals/' + encodeURIComponent(username));
+    },
+    // 讨论
+    async getDiscussions(chapterId) {
+        let url = API_BASE + '/discussions?';
+        if (chapterId) url += 'chapterId=' + encodeURIComponent(chapterId);
+        return await this._fetch(url);
+    },
+    async createDiscussion(username, title, content, chapterId) {
+        return await this._fetch(API_BASE + '/discussions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, title, content, chapterId })
+        });
+    },
+    async getDiscussionDetail(id) {
+        return await this._fetch(API_BASE + '/discussions/' + id);
+    },
+    async createReply(discussionId, username, content) {
+        return await this._fetch(API_BASE + '/discussions/' + discussionId + '/replies', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, content })
+        });
+    },
+    // 每日一题
+    async getDailyQuestion(date) {
+        let url = API_BASE + '/daily-question?';
+        if (date) url += 'date=' + encodeURIComponent(date);
+        return await this._fetch(url);
     }
 };
 
@@ -227,9 +341,13 @@ const LOCAL_ACHIEVEMENTS_KEY = 'pv_local_achievements';
 function getLocalProgress() {
     try {
         const data = localStorage.getItem(LOCAL_PROGRESS_KEY);
-        return data ? JSON.parse(data) : { modules: {}, achievements: {}, loginDates: [] };
+        const base = data ? JSON.parse(data) : { modules: {}, achievements: {}, loginDates: [] };
+        // 合并章节进度
+        const chapterData = localStorage.getItem('pv_chapter_progress');
+        base.chapters = chapterData ? JSON.parse(chapterData) : {};
+        return base;
     } catch (e) {
-        return { modules: {}, achievements: {}, loginDates: [] };
+        return { modules: {}, chapters: {}, achievements: {}, loginDates: [] };
     }
 }
 
@@ -310,21 +428,71 @@ function setCurrentUser(user) {
     }
 }
 
-// 成就定义
+// 成就定义 - 基于19章Python学习平台
 const ACHIEVEMENTS = [
-    { id: 'beginner', icon: '⭐', name: '入门之星', desc: '完成情境导入和知识讲解', check: (p) => p.modules['intro'] && p.modules['lesson'] },
-    { id: 'judge', icon: '⚖️', name: '公正小法官', desc: '在命名小法官中获得8分以上', check: (p) => p.modules['judge'] },
-    { id: 'debugger', icon: '🔧', name: '调试能手', desc: '修复所有bug（完成错误调试诊所）', check: (p) => p.modules['debug'] },
-    { id: 'creator', icon: '🎨', name: '创意达人', desc: '完成创意项目制作', check: (p) => p.modules['project'] },
-    { id: 'champion', icon: '🏆', name: '全能学霸', desc: '完成全部10个模块', check: (p) => Object.keys(p.modules).length >= 10 },
-    { id: 'tracer', icon: '🔍', name: '追踪大师', desc: '完成值追踪挑战', check: (p) => p.modules['trace'] },
-    { id: 'explorer', icon: '🧪', name: '实验先锋', desc: '完成类比实验室', check: (p) => p.modules['lab'] },
-    { id: 'coder', icon: '💻', name: '编程新星', desc: '完成实践操作', check: (p) => p.modules['practice'] }
+    // 章节成就（每完成一章获得）
+    { id: 'ch1_done', icon: '🐍', name: 'Python初识', desc: '完成第1章：认识Python', check: (p) => p.chapters && p.chapters['ch1'] },
+    { id: 'ch2_done', icon: '📦', name: '变量大师', desc: '完成第2章：变量', check: (p) => p.chapters && p.chapters['ch2'] },
+    { id: 'ch3_done', icon: '📊', name: '类型专家', desc: '完成第3章：变量类型', check: (p) => p.chapters && p.chapters['ch3'] },
+    { id: 'ch4_done', icon: '🔀', name: '判断达人', desc: '完成第4章：条件判断', check: (p) => p.chapters && p.chapters['ch4'] },
+    { id: 'ch5_done', icon: '🔗', name: '逻辑高手', desc: '完成第5章：if进阶', check: (p) => p.chapters && p.chapters['ch5'] },
+    { id: 'ch6_done', icon: '🔄', name: '循环入门', desc: '完成第6章：while循环', check: (p) => p.chapters && p.chapters['ch6'] },
+    { id: 'ch7_done', icon: '⏭️', name: '控制大师', desc: '完成第7章：while拓展', check: (p) => p.chapters && p.chapters['ch7'] },
+    { id: 'ch8_done', icon: '🔁', name: '嵌套高手', desc: '完成第8章：循环嵌套', check: (p) => p.chapters && p.chapters['ch8'] },
+    { id: 'ch9_done', icon: '🧮', name: '综合应用', desc: '完成第9章：综合应用一', check: (p) => p.chapters && p.chapters['ch9'] },
+    { id: 'ch10_done', icon: '⭐', name: '星星画家', desc: '完成第10章：排列小星星', check: (p) => p.chapters && p.chapters['ch10'] },
+    { id: 'ch11_done', icon: '📋', name: '列表新手', desc: '完成第11章：初识列表', check: (p) => p.chapters && p.chapters['ch11'] },
+    { id: 'ch12_done', icon: '📝', name: '列表达人', desc: '完成第12章：列表的使用', check: (p) => p.chapters && p.chapters['ch12'] },
+    { id: 'ch13_done', icon: '🔒', name: '集合探索者', desc: '完成第13章：元组与集合', check: (p) => p.chapters && p.chapters['ch13'] },
+    { id: 'ch14_done', icon: '📖', name: '字典大师', desc: '完成第14章：神奇的字典', check: (p) => p.chapters && p.chapters['ch14'] },
+    { id: 'ch15_done', icon: '✂️', name: '字符串达人', desc: '完成第15章：再遇字符串', check: (p) => p.chapters && p.chapters['ch15'] },
+    { id: 'ch16_done', icon: '🧰', name: '语法通才', desc: '完成第16章：公共语法', check: (p) => p.chapters && p.chapters['ch16'] },
+    { id: 'ch17_done', icon: '💡', name: '二进制解码', desc: '完成第17章：轻松搞定二进制', check: (p) => p.chapters && p.chapters['ch17'] },
+    { id: 'ch18_done', icon: '🧠', name: '思维达人', desc: '完成第18章：编程思维实践', check: (p) => p.chapters && p.chapters['ch18'] },
+    { id: 'ch19_done', icon: '🔢', name: '数字专家', desc: '完成第19章：各种各样的数', check: (p) => p.chapters && p.chapters['ch19'] },
+    // 里程碑成就
+    { id: 'milestone_beginner', icon: '🚀', name: '入门先锋', desc: '完成入门基础（第1-3章）', check: (p) => p.chapters && ['ch1','ch2','ch3'].every(c => p.chapters[c]) },
+    { id: 'milestone_flow', icon: '🔀', name: '控制流大师', desc: '完成控制流程（第4-8章）', check: (p) => p.chapters && ['ch4','ch5','ch6','ch7','ch8'].every(c => p.chapters[c]) },
+    { id: 'milestone_data', icon: '📋', name: '数据结构达人', desc: '完成数据结构（第11-15章）', check: (p) => p.chapters && ['ch11','ch12','ch13','ch14','ch15'].every(c => p.chapters[c]) },
+    { id: 'milestone_advance', icon: '💡', name: '拓展探索者', desc: '完成进阶拓展（第16-19章）', check: (p) => p.chapters && ['ch16','ch17','ch18','ch19'].every(c => p.chapters[c]) },
+    { id: 'champion', icon: '👑', name: '全能学霸', desc: '完成全部19个章节', check: (p) => p.chapters && Object.keys(p.chapters).length >= 19 }
 ];
 
 // 受保护的模块（需要登录才能访问，welcome 和 achievement 除外）
-const PROTECTED_MODULES = ['intro', 'lesson', 'judge', 'debug', 'practice', 'trace', 'lab', 'extend', 'project', 'test'];
+// 包含所有章节子模块，防止通过 URL hash 绕过登录检查
+const PROTECTED_MODULES = [
+    // 变量模块（第2章）子模块
+    'intro', 'lesson', 'judge', 'debug', 'practice', 'trace', 'lab', 'extend', 'project', 'test',
+    // 章节完成标记
+    'chapter_ch1', 'chapter_ch2', 'chapter_ch3', 'chapter_ch4', 'chapter_ch5',
+    'chapter_ch6', 'chapter_ch7', 'chapter_ch8', 'chapter_ch9', 'chapter_ch10',
+    'chapter_ch11', 'chapter_ch12', 'chapter_ch13', 'chapter_ch14', 'chapter_ch15',
+    'chapter_ch16', 'chapter_ch17', 'chapter_ch18', 'chapter_ch19',
+    // 第1章子模块
+    'ch1_intro', 'ch1_knowledge', 'ch1_lab', 'ch1_practice', 'ch1_debug', 'ch1_quiz',
+    // 第3-19章子模块（每章8个：intro, knowledge, lab, practice, debug, extend, project, quiz）
+    'ch3_intro', 'ch3_knowledge', 'ch3_lab', 'ch3_practice', 'ch3_debug', 'ch3_extend', 'ch3_project', 'ch3_quiz',
+    'ch4_intro', 'ch4_knowledge', 'ch4_lab', 'ch4_practice', 'ch4_debug', 'ch4_extend', 'ch4_project', 'ch4_quiz',
+    'ch5_intro', 'ch5_knowledge', 'ch5_lab', 'ch5_practice', 'ch5_debug', 'ch5_extend', 'ch5_project', 'ch5_quiz',
+    'ch6_intro', 'ch6_knowledge', 'ch6_lab', 'ch6_practice', 'ch6_debug', 'ch6_extend', 'ch6_project', 'ch6_quiz',
+    'ch7_intro', 'ch7_knowledge', 'ch7_lab', 'ch7_practice', 'ch7_debug', 'ch7_extend', 'ch7_project', 'ch7_quiz',
+    'ch8_intro', 'ch8_knowledge', 'ch8_lab', 'ch8_practice', 'ch8_debug', 'ch8_extend', 'ch8_project', 'ch8_quiz',
+    'ch9_intro', 'ch9_knowledge', 'ch9_lab', 'ch9_practice', 'ch9_debug', 'ch9_extend', 'ch9_project', 'ch9_quiz',
+    'ch10_intro', 'ch10_knowledge', 'ch10_lab', 'ch10_practice', 'ch10_debug', 'ch10_extend', 'ch10_project', 'ch10_quiz',
+    'ch11_intro', 'ch11_knowledge', 'ch11_lab', 'ch11_practice', 'ch11_debug', 'ch11_extend', 'ch11_project', 'ch11_quiz',
+    'ch12_intro', 'ch12_knowledge', 'ch12_lab', 'ch12_practice', 'ch12_debug', 'ch12_extend', 'ch12_project', 'ch12_quiz',
+    'ch13_intro', 'ch13_knowledge', 'ch13_lab', 'ch13_practice', 'ch13_debug', 'ch13_extend', 'ch13_project', 'ch13_quiz',
+    'ch14_intro', 'ch14_knowledge', 'ch14_lab', 'ch14_practice', 'ch14_debug', 'ch14_extend', 'ch14_project', 'ch14_quiz',
+    'ch15_intro', 'ch15_knowledge', 'ch15_lab', 'ch15_practice', 'ch15_debug', 'ch15_extend', 'ch15_project', 'ch15_quiz',
+    'ch16_intro', 'ch16_knowledge', 'ch16_lab', 'ch16_practice', 'ch16_debug', 'ch16_extend', 'ch16_project', 'ch16_quiz',
+    'ch17_intro', 'ch17_knowledge', 'ch17_lab', 'ch17_practice', 'ch17_debug', 'ch17_extend', 'ch17_project', 'ch17_quiz',
+    'ch18_intro', 'ch18_knowledge', 'ch18_lab', 'ch18_practice', 'ch18_debug', 'ch18_extend', 'ch18_project', 'ch18_quiz',
+    'ch19_intro', 'ch19_knowledge', 'ch19_lab', 'ch19_practice', 'ch19_debug', 'ch19_extend', 'ch19_project', 'ch19_quiz',
+    // 新功能模块
+    'leaderboard', 'mistakes', 'report', 'snippets', 'goals', 'discussion'
+];
 let pendingModuleId = null; // 登录后要跳转的目标模块
+let pendingChapterId = null; // 登录后要跳转的目标章节
 
 // ===== 用户认证系统 =====
 function openLoginModal() {
@@ -345,6 +513,7 @@ function openLoginModal() {
 function closeLoginModal() {
     document.getElementById('loginModal').style.display = 'none';
     pendingModuleId = null;
+    pendingChapterId = null;
 }
 
 function openRegisterModal() {
@@ -354,13 +523,23 @@ function openRegisterModal() {
 function closeRegisterModal() {
     document.getElementById('registerModal').style.display = 'none';
     pendingModuleId = null;
+    pendingChapterId = null;
 }
 
 function closeAllModals() {
     document.getElementById('loginModal').style.display = 'none';
     document.getElementById('registerModal').style.display = 'none';
     pendingModuleId = null;
+    pendingChapterId = null;
 }
+
+// ESC 键关闭弹窗
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeAllModals();
+        closeMobileMenu();
+    }
+});
 
 // 保留兼容旧调用
 function closeLoginModal_old() {
@@ -417,8 +596,19 @@ async function handleLogin(event) {
     // 刷新成就墙
     renderAchievementWall();
 
-    // 如果有待跳转的目标模块，自动跳转
-    if (pendingModuleId) {
+    // 如果有待跳转的目标，自动跳转
+    // 优先处理章节跳转（含子模块）
+    if (pendingChapterId) {
+        const chapterId = pendingChapterId;
+        const moduleId = pendingModuleId;
+        pendingChapterId = null;
+        pendingModuleId = null;
+        switchChapter(chapterId);
+        // 如果同时有待跳转的子模块，在章节渲染完成后跳转
+        if (moduleId && moduleId !== chapterId) {
+            setTimeout(() => switchChapterModule(chapterId, moduleId, 0), 200);
+        }
+    } else if (pendingModuleId) {
         const target = pendingModuleId;
         pendingModuleId = null;
         switchModule(target);
@@ -487,8 +677,18 @@ async function handleRegister(event) {
     document.getElementById('regClassNum').value = '';
     renderAchievementWall();
 
-    // 如果有待跳转的目标模块，自动跳转
-    if (pendingModuleId) {
+    // 如果有待跳转的目标，自动跳转
+    // 优先处理章节跳转（含子模块）
+    if (pendingChapterId) {
+        const chapterId = pendingChapterId;
+        const moduleId = pendingModuleId;
+        pendingChapterId = null;
+        pendingModuleId = null;
+        switchChapter(chapterId);
+        if (moduleId && moduleId !== chapterId) {
+            setTimeout(() => switchChapterModule(chapterId, moduleId, 0), 200);
+        }
+    } else if (pendingModuleId) {
         const target = pendingModuleId;
         pendingModuleId = null;
         switchModule(target);
@@ -568,8 +768,14 @@ function checkLocalAchievements() {
     const earned = getLocalAchievements();
     let hasNew = false;
 
+    // 确保 progress 有 chapters 属性
+    const checkProgress = {
+        chapters: progress.chapters || {},
+        modules: progress.modules || {}
+    };
+
     ACHIEVEMENTS.forEach(ach => {
-        if (!earned[ach.id] && ach.check(progress)) {
+        if (!earned[ach.id] && ach.check(checkProgress)) {
             saveLocalAchievement(ach.id);
             showAchievementToast(ach);
             hasNew = true;
@@ -584,6 +790,19 @@ function checkLocalAchievements() {
 async function checkAndAwardAchievements(username) {
     try {
         const progress = await API.getProgress(username);
+        if (!progress.success) {
+            log.warn('获取进度失败:', progress.error);
+            return [];
+        }
+        // 确保必要字段存在
+        if (!progress.achievements) progress.achievements = {};
+        if (!progress.modules) progress.modules = {};
+        if (!progress.chapters) progress.chapters = {};
+        // 合并本地章节进度（服务器可能没有存储章节进度）
+        if (Object.keys(progress.chapters).length === 0) {
+            const chapterData = localStorage.getItem('pv_chapter_progress');
+            progress.chapters = chapterData ? JSON.parse(chapterData) : {};
+        }
         const newAchievements = [];
         
         for (const ach of ACHIEVEMENTS) {
@@ -689,12 +908,12 @@ async function renderAchievementWall() {
 
         updateMapGrid(progress);
 
-        const completedCount = Object.keys(progress.modules).length;
-        const totalModules = 10;
-        const percent = Math.round((completedCount / totalModules) * 100);
+        const completedCount = Object.keys(progress.chapters || {}).length;
+        const totalChapters = 19;
+        const percent = Math.round((completedCount / totalChapters) * 100);
 
         if (progressSummary) {
-            progressSummary.textContent = `总进度：${completedCount}/${totalModules} 模块完成 (${percent}%)`;
+            progressSummary.textContent = `总进度：${completedCount}/${totalChapters} 章节完成 (${percent}%)`;
         }
         if (progressBar) {
             progressBar.style.width = percent + '%';
@@ -732,6 +951,21 @@ async function renderAchievementWall() {
     // 已登录：使用后端数据
     try {
         progress = await API.getProgress(currentUser.username);
+        if (!progress.success) {
+            log.warn('获取进度失败:', progress.error);
+            if (achievementList) achievementList.innerHTML = '<p style="text-align:center;color:#999;">无法连接服务器，请检查网络</p>';
+            return;
+        }
+        // 确保必要字段存在
+        if (!progress.achievements) progress.achievements = {};
+        if (!progress.modules) progress.modules = {};
+        if (!progress.chapters) progress.chapters = {};
+        if (!progress.loginDates) progress.loginDates = [];
+        // 合并本地章节进度（确保不丢失）
+        if (Object.keys(progress.chapters).length === 0) {
+            const chapterData = localStorage.getItem('pv_chapter_progress');
+            progress.chapters = chapterData ? JSON.parse(chapterData) : {};
+        }
     } catch (e) {
         log.error('获取进度失败:', e.message);
         if (achievementList) achievementList.innerHTML = '<p style="text-align:center;color:#999;">无法连接服务器，请检查网络</p>';
@@ -746,12 +980,12 @@ async function renderAchievementWall() {
     updateMapGrid(progress);
     
     // 更新进度条
-    const completedCount = Object.keys(progress.modules).length;
-    const totalModules = 10;
-    const percent = Math.round((completedCount / totalModules) * 100);
+    const completedCount = Object.keys(progress.chapters || {}).length;
+    const totalChapters = 19;
+    const percent = Math.round((completedCount / totalChapters) * 100);
     
     if (progressSummary) {
-        progressSummary.textContent = `总进度：${completedCount}/${totalModules} 模块完成 (${percent}%)`;
+        progressSummary.textContent = `总进度：${completedCount}/${totalChapters} 章节完成 (${percent}%)`;
     }
     if (progressBar) {
         progressBar.style.width = percent + '%';
@@ -787,12 +1021,14 @@ async function renderAchievementWall() {
 }
 
 function updateMapGrid(progress) {
-    const mapItems = document.querySelectorAll('.map-item[data-module-id]');
+    const mapItems = document.querySelectorAll('.map-item[data-chapter-id]');
     if (!mapItems.length) return;
     
+    const chapters = (progress && progress.chapters) ? progress.chapters : {};
+    
     mapItems.forEach(item => {
-        const moduleId = item.getAttribute('data-module-id');
-        if (progress && progress.modules[moduleId]) {
+        const chapterId = item.getAttribute('data-chapter-id');
+        if (chapters[chapterId]) {
             item.classList.add('completed');
         } else {
             item.classList.remove('completed');
@@ -1050,6 +1286,13 @@ function openNavItem(navId) {
     }
 }
 
+// 关闭所有下拉菜单
+function closeAllDropdowns() {
+    document.querySelectorAll('.w3-dropdown-content').forEach(function(nav) {
+        nav.classList.add('w3-hide');
+    });
+}
+
 // 切换下拉菜单
 function toggleNavItem(navId) {
     const allNavs = document.querySelectorAll('.w3-dropdown-content');
@@ -1072,7 +1315,28 @@ function toggleNavItem(navId) {
 
 // ===== 搜索关键词映射 =====
 const SEARCH_KEYWORDS = [
-    { keywords: ['变量', 'variable', '盒子', '情境', '场景', '导入', '介绍'], moduleId: 'intro', name: '情境导入', icon: '🎬', desc: '了解为什么需要变量' },
+    // 章节关键词
+    { keywords: ['认识', 'python', 'print', 'hello', '入门', '第一课', '开始'], moduleId: 'ch1', name: '第1章 认识Python', icon: '🐍', desc: '了解Python，编写第一行代码' },
+    { keywords: ['变量', 'variable', '盒子', '赋值', '命名', '变量名'], moduleId: 'ch2', name: '第2章 变量', icon: '📦', desc: '理解变量概念与命名规则' },
+    { keywords: ['类型', 'int', 'float', 'str', 'bool', '整数', '小数', '字符串', '布尔'], moduleId: 'ch3', name: '第3章 变量类型', icon: '📊', desc: '掌握四种基本数据类型' },
+    { keywords: ['条件', 'if', 'else', '判断', '条件判断', '比较'], moduleId: 'ch4', name: '第4章 条件判断', icon: '🔀', desc: '让程序做出智能决策' },
+    { keywords: ['and', 'or', 'not', '逻辑', '组合', '进阶判断'], moduleId: 'ch5', name: '第5章 if进阶', icon: '🔗', desc: '组合多个条件进行判断' },
+    { keywords: ['循环', 'while', '重复', '迭代', '次数'], moduleId: 'ch6', name: '第6章 while循环', icon: '🔄', desc: '让程序重复执行任务' },
+    { keywords: ['break', 'continue', '跳出', '跳过', '中断'], moduleId: 'ch7', name: '第7章 while拓展', icon: '⏭️', desc: '控制循环的流程' },
+    { keywords: ['嵌套', '双重循环', '内外', '嵌套循环'], moduleId: 'ch8', name: '第8章 循环嵌套', icon: '🔁', desc: '循环里面套循环' },
+    { keywords: ['综合', '应用', '计算器', '整合'], moduleId: 'ch9', name: '第9章 综合应用', icon: '🧮', desc: '综合运用所学知识' },
+    { keywords: ['星星', '图形', '图案', '打印', '星号'], moduleId: 'ch10', name: '第10章 排列小星星', icon: '⭐', desc: '用字符绘制图形' },
+    { keywords: ['列表', 'list', '数组', '集合', '索引'], moduleId: 'ch11', name: '第11章 初识列表', icon: '📋', desc: '管理一组数据' },
+    { keywords: ['append', 'pop', 'insert', 'remove', 'sort', '列表操作'], moduleId: 'ch12', name: '第12章 列表的使用', icon: '📝', desc: '列表的增删改查' },
+    { keywords: ['元组', 'tuple', '集合', 'set', '不可变'], moduleId: 'ch13', name: '第13章 元组与集合', icon: '🔒', desc: '不可变序列与去重集合' },
+    { keywords: ['字典', 'dict', '键值对', 'key', 'value', '通讯录'], moduleId: 'ch14', name: '第14章 神奇的字典', icon: '📖', desc: '键值对数据结构' },
+    { keywords: ['字符串', 'string', '切片', 'replace', 'upper', 'lower'], moduleId: 'ch15', name: '第15章 再遇字符串', icon: '✂️', desc: '字符串切片与常用方法' },
+    { keywords: ['len', 'max', 'min', '公共', '通用', 'in'], moduleId: 'ch16', name: '第16章 公共语法', icon: '🧰', desc: '通用函数与方法' },
+    { keywords: ['二进制', '进制', 'bit', '字节', '转换'], moduleId: 'ch17', name: '第17章 二进制', icon: '💡', desc: '理解计算机的数字世界' },
+    { keywords: ['流程图', '算法', '伪代码', '思维', '编程思维'], moduleId: 'ch18', name: '第18章 编程思维', icon: '🧠', desc: '培养计算思维' },
+    { keywords: ['数字', '复数', '科学计数', '进制', '浮点'], moduleId: 'ch19', name: '第19章 各种各样的数', icon: '🔢', desc: '数字类型总结' },
+    // 旧模块关键词（保留兼容）
+    { keywords: ['情境', '场景', '导入', '介绍', '动画'], moduleId: 'intro', name: '情境导入', icon: '🎬', desc: '了解为什么需要变量' },
     { keywords: ['实验室', '拖拽', '标签', '数据', '拖动', '类比'], moduleId: 'lab', name: '生活类比实验室', icon: '🧪', desc: '拖拽体验变量概念' },
     { keywords: ['知识', '讲解', '概念', '命名', '规则', '赋值', '赋值符号', '学习', '教程'], moduleId: 'lesson', name: '知识讲解', icon: '📚', desc: '学习变量核心概念' },
     { keywords: ['法官', '合法', '非法', '判断', '命名规则', '判断题'], moduleId: 'judge', name: '命名小法官', icon: '⚖️', desc: '判断变量名合法性' },
@@ -1168,7 +1432,12 @@ function navigateToModule(moduleId) {
     try {
         // 隐藏所有建议下拉
         document.querySelectorAll('.search-suggestions').forEach(el => el.classList.remove('active'));
-        switchModule(moduleId);
+        // 判断是章节ID还是旧模块ID
+        if (moduleId.startsWith('ch')) {
+            switchChapter(moduleId);
+        } else {
+            switchModule(moduleId);
+        }
     } catch (e) {
         log.error('导航出错:', e);
     }
@@ -1186,7 +1455,8 @@ function search(inputId) {
         if (results.length > 0) {
             // 隐藏建议下拉
             document.querySelectorAll('.search-suggestions').forEach(el => el.classList.remove('active'));
-            switchModule(results[0].moduleId);
+            // 使用 navigateToModule 正确分发章节/模块跳转
+            navigateToModule(results[0].moduleId);
         } else {
             alert(`未找到与"${searchTerm}"相关的内容，请尝试：变量、代码、调试、测验等关键词`);
         }
@@ -1265,17 +1535,21 @@ function switchModule(moduleId) {
     targetModule.classList.add('active');
     state.currentModule = moduleId;
 
-    // 模块切换淡入动画
-    targetModule.style.opacity = '0';
-    targetModule.style.transform = 'translateY(12px)';
-    requestAnimationFrame(() => {
-        targetModule.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
-        targetModule.style.opacity = '1';
-        targetModule.style.transform = 'translateY(0)';
-    });
+    // 如果切换到成就墙或首页，隐藏所有章节容器
+    if (moduleId === 'achievement' || moduleId === 'welcome') {
+        document.querySelectorAll('.chapter-section').forEach(c => c.classList.remove('active'));
+        hideSidebarToggle();
+        currentChapter = null;
+        currentChapterModule = null;
+    }
 
-    // 更新 URL hash（用于书签和浏览器前进后退）
-    window.location.hash = '#' + moduleId;
+    // 更新 URL hash（避免重复添加历史记录导致后退需要两次）
+    const targetHash = '#' + moduleId;
+    if (window.location.hash === targetHash) {
+        history.replaceState(null, '', targetHash);
+    } else {
+        window.location.hash = targetHash;
+    }
 
     // 高亮导航栏当前模块
     updateNavActiveState(moduleId);
@@ -1290,6 +1564,26 @@ function switchModule(moduleId) {
     // 如果切换到知识讲解，刷新按钮状态
     if (moduleId === 'lesson') {
         refreshLessonButton();
+    }
+
+    // 新模块渲染
+    if (moduleId === 'leaderboard') {
+        renderLeaderboard();
+    }
+    if (moduleId === 'mistakes') {
+        renderMistakeBook();
+    }
+    if (moduleId === 'report') {
+        renderReport();
+    }
+    if (moduleId === 'snippets') {
+        renderSnippets();
+    }
+    if (moduleId === 'goals') {
+        renderGoals();
+    }
+    if (moduleId === 'discussion') {
+        renderDiscussions();
     }
 
     // 平滑滚动到模块顶部
@@ -1320,8 +1614,7 @@ function updateNavActiveState(moduleId) {
         'debug': 'challenge',
         'extend': 'challenge',
         'test': 'challenge',
-        'project': 'project',
-        'achievement': 'project'
+        'project': 'project'
     };
     
     const navId = navMap[moduleId];
@@ -1432,6 +1725,7 @@ async function refreshLessonButton() {
     if (!currentUser) return;
     try {
         const progress = await API.getProgress(currentUser.username);
+        if (!progress.success) return;
         if (progress.modules['lesson']) {
             completeBtn.textContent = '✅ 已学完';
             completeBtn.disabled = true;
@@ -2405,11 +2699,14 @@ function initScrollReveal() {
                     backToTopBtn.classList.remove('visible');
                 }
             }
+            // 章节子模块导航吸顶效果
+            stickyChapterNav();
             scrollTimer = null;
         }, 100);
     });
 
     // 使用 IntersectionObserver 处理 .reveal 系列元素的滚动入场
+
     if ('IntersectionObserver' in window) {
         const revealObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -2430,6 +2727,60 @@ function initScrollReveal() {
         // 降级：直接显示所有元素
         document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale').forEach(el => {
             el.classList.add('revealed');
+        });
+    }
+}
+
+// 章节子模块导航吸顶效果
+function stickyChapterNav() {
+    const STICKY_TOP = 60; // 主导航栏高度，nav 至此即吸顶
+    const topBar = document.querySelector('.w3-top');
+    const navs = document.querySelectorAll('.chapter-module-nav');
+    if (navs.length === 0) return;
+
+    const currentY = window.scrollY;
+    // 始终更新滚动位置，避免从非吸顶状态切换时使用陈旧值
+    if (stickyChapterNav._lastY === undefined) stickyChapterNav._lastY = currentY;
+    const isScrollingDown = currentY > stickyChapterNav._lastY;
+    stickyChapterNav._lastY = currentY;
+
+    let anySticky = false;
+    navs.forEach(nav => {
+        const rect = nav.getBoundingClientRect();
+        const parent = nav.parentElement;
+        if (!parent) return;
+        const parentRect = parent.getBoundingClientRect();
+        const shouldStick = rect.top <= STICKY_TOP && parentRect.bottom > STICKY_TOP + rect.height;
+        if (shouldStick && !nav.classList.contains('is-sticky')) {
+            nav.classList.add('is-sticky');
+            nav.style.width = parent.offsetWidth + 'px';
+            if (!nav._placeholder) {
+                nav._placeholder = document.createElement('div');
+                nav._placeholder.style.height = rect.height + 'px';
+                nav._placeholder.style.width = '100%';
+                nav._placeholder.style.flexShrink = '0';
+            }
+            nav.parentNode.insertBefore(nav._placeholder, nav);
+        } else if (!shouldStick && nav.classList.contains('is-sticky')) {
+            nav.classList.remove('is-sticky', 'nav-top-zero');
+            nav.style.width = '';
+            if (nav._placeholder && nav._placeholder.parentNode) {
+                nav._placeholder.parentNode.removeChild(nav._placeholder);
+            }
+        }
+        if (nav.classList.contains('is-sticky')) anySticky = true;
+    });
+
+    if (anySticky) {
+        navs.forEach(nav => {
+            if (!nav.classList.contains('is-sticky')) return;
+            if (isScrollingDown) {
+                nav.classList.add('nav-top-zero');
+                if (topBar) topBar.classList.add('nav-hidden');
+            } else {
+                nav.classList.remove('nav-top-zero');
+                if (topBar) topBar.classList.remove('nav-hidden');
+            }
         });
     }
 }
@@ -2739,3 +3090,1550 @@ if (document.readyState === 'loading') {
 } else {
     initTechEnhancements();
 }
+
+// ============================================
+//  章节导航系统
+// ============================================
+
+let currentChapter = null;
+let currentChapterModule = null;
+
+// 渲染侧边栏章节列表
+function renderChapterSidebar() {
+    const chapterList = document.getElementById('chapterList');
+    if (!chapterList || typeof CHAPTERS === 'undefined') return;
+
+    chapterList.innerHTML = CHAPTERS.map(ch => {
+        const completed = isChapterCompleted(ch.id);
+        return `
+            <li class="chapter-item">
+                <a class="chapter-link ${completed ? 'completed' : ''}" 
+                   onclick="switchChapter('${ch.id}')" 
+                   data-chapter="${ch.id}">
+                    <span class="chapter-num">${ch.num}</span>
+                    <span class="chapter-info">
+                        <div class="chapter-title">${ch.icon} ${ch.title}</div>
+                        <div class="chapter-desc">${ch.desc}</div>
+                    </span>
+                    ${completed ? '<span class="chapter-badge">✓</span>' : ''}
+                </a>
+            </li>
+        `;
+    }).join('');
+}
+
+// 检查章节是否完成
+function isChapterCompleted(chapterId) {
+    try {
+        const progress = JSON.parse(localStorage.getItem('pv_chapter_progress') || '{}');
+        return progress[chapterId] === true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// 标记章节完成
+async function markChapterCompleted(chapterId) {
+    // 先保存到本地（作为兜底）
+    try {
+        const progress = JSON.parse(localStorage.getItem('pv_chapter_progress') || '{}');
+        progress[chapterId] = true;
+        localStorage.setItem('pv_chapter_progress', JSON.stringify(progress));
+    } catch (e) {
+        // ignore
+    }
+
+    // 同步到服务器
+    const currentUser = getCurrentUser();
+    if (currentUser && dbReady) {
+        try {
+            await API.markModuleCompleted(currentUser.username, 'chapter_' + chapterId);
+        } catch (e) {
+            log.warn('同步章节进度失败:', e.message);
+        }
+    }
+
+    renderChapterSidebar();
+
+    // 检查成就
+    if (currentUser) {
+        try {
+            const newAch = await checkAndAwardAchievements(currentUser.username);
+            if (newAch.length > 0) {
+                newAch.forEach(ach => showAchievementToast(ach));
+            }
+        } catch (e) {
+            log.error('检查成就失败:', e.message);
+        }
+    } else {
+        checkLocalAchievements();
+    }
+}
+
+// 切换侧边栏
+function toggleSidebar() {
+    const sidebar = document.getElementById('chapterSidebar');
+    const toggle = document.getElementById('sidebarToggle');
+    const overlay = document.getElementById('sidebarOverlay');
+    const mainContent = document.querySelector('.main-content');
+
+    const isOpen = sidebar.classList.contains('open');
+    if (isOpen) {
+        sidebar.classList.remove('open');
+        toggle.classList.remove('shifted');
+        overlay.classList.remove('open');
+        mainContent.classList.remove('sidebar-open');
+        toggle.querySelector('i').className = 'fas fa-chevron-right';
+    } else {
+        sidebar.classList.add('open');
+        toggle.classList.add('shifted');
+        overlay.classList.add('open');
+        mainContent.classList.add('sidebar-open');
+        toggle.querySelector('i').className = 'fas fa-chevron-left';
+    }
+}
+
+// 切换到指定章节
+function switchChapter(chapterId) {
+    // 检查是否需要登录 —— 所有章节内容都需要登录
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        // 只设置 pendingChapterId，登录后由 switchChapter 处理
+        pendingChapterId = chapterId;
+        openLoginModal();
+        return;
+    }
+
+    // 关闭侧边栏(移动端)
+    if (window.innerWidth <= 768) {
+        toggleSidebar();
+    }
+
+    currentChapter = chapterId;
+    currentChapterModule = null;
+
+    // 隐藏所有模块（包括welcome首页）
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+
+    // 隐藏所有动态章节容器
+    document.querySelectorAll('.chapter-section').forEach(c => c.classList.remove('active'));
+
+    // 显示侧边栏切换按钮（进入章节后显示）
+    showSidebarToggle();
+
+    // 特殊处理：第2章(变量)使用现有HTML内容
+    if (chapterId === 'ch2') {
+        switchToVariableChapterBody();
+        return;
+    }
+
+    // 显示/创建章节容器
+    let chapterContainer = document.getElementById('chapter-' + chapterId);
+    if (!chapterContainer) {
+        chapterContainer = document.createElement('div');
+        chapterContainer.id = 'chapter-' + chapterId;
+        chapterContainer.className = 'chapter-section';
+        document.querySelector('main').appendChild(chapterContainer);
+    }
+    chapterContainer.classList.add('active');
+
+    // 渲染章节内容
+    renderChapterContent(chapterId, chapterContainer);
+
+    // 更新侧边栏高亮
+    updateSidebarActive(chapterId);
+
+    // 滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // 平滑滚动后触发吸顶检查
+    setTimeout(() => stickyChapterNav(), 200);
+
+    // 更新URL hash（避免重复添加历史记录导致后退死循环）
+    const targetHash = '#' + chapterId;
+    if (window.location.hash === targetHash) {
+        history.replaceState(null, '', targetHash);
+    } else {
+        history.pushState(null, '', targetHash);
+    }
+}
+
+// 切换到变量章节(第2章) - 显示变量模块交互内容(内部函数)
+function switchToVariableChapterBody() {
+    // 显示侧边栏切换按钮
+    showSidebarToggle();
+
+    if (window.innerWidth <= 768) {
+        toggleSidebar();
+    }
+
+    currentChapter = 'ch2';
+    currentChapterModule = null;
+
+    // 隐藏所有动态章节容器
+    document.querySelectorAll('.chapter-section').forEach(c => c.classList.remove('active'));
+
+    // 隐藏所有模块
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+
+    // 显示/创建第2章独立容器
+    let ch2Container = document.getElementById('chapter-ch2');
+    if (!ch2Container) {
+        ch2Container = document.createElement('div');
+        ch2Container.id = 'chapter-ch2';
+        ch2Container.className = 'chapter-section';
+        document.querySelector('main').appendChild(ch2Container);
+    }
+    ch2Container.classList.add('active');
+
+    // 渲染第2章Hero + 模块导航
+    ch2Container.innerHTML = `
+        <div class="chapter-landing">
+            <div class="chapter-module-nav" id="chapterModNav-ch2">
+                <button class="mod-nav-btn" onclick="startVariableModule('intro')">🎬 情境导入</button>
+                <button class="mod-nav-btn" onclick="startVariableModule('lab')">🧪 类比实验室</button>
+                <button class="mod-nav-btn" onclick="startVariableModule('lesson')">📚 知识讲解</button>
+                <button class="mod-nav-btn" onclick="startVariableModule('judge')">⚖️ 命名小法官</button>
+                <button class="mod-nav-btn" onclick="startVariableModule('practice')">💻 实践操作</button>
+                <button class="mod-nav-btn" onclick="startVariableModule('trace')">🔍 值追踪挑战</button>
+                <button class="mod-nav-btn" onclick="startVariableModule('debug')">🏥 调试诊所</button>
+                <button class="mod-nav-btn" onclick="startVariableModule('extend')">🚀 扩展思维</button>
+                <button class="mod-nav-btn" onclick="startVariableModule('project')">🎨 创意项目</button>
+                <button class="mod-nav-btn" onclick="startVariableModule('test')">📝 课堂小测</button>
+            </div>
+            <div class="chapter-hero" id="ch2-hero">
+                <div class="chapter-badge-tag">核心概念</div>
+                <h1>📦 变量</h1>
+                <p class="chapter-subtitle">理解变量的概念，掌握命名规则与赋值操作</p>
+                <div class="chapter-cta">
+                    <button class="cta-btn cta-primary" onclick="startVariableModule('intro')">
+                        开始学习
+                    </button>
+                    <button class="cta-btn cta-secondary" onclick="toggleSidebar()">
+                        浏览章节
+                    </button>
+                </div>
+            </div>
+            <div class="chapter-content" id="chapterContent-ch2">
+                <div class="ch-module-wrap">
+                    <div style="text-align:center;padding:48px 0;">
+                        <div style="font-size:48px;margin-bottom:16px;">📦</div>
+                        <h3 style="color:var(--w3-text-color);margin-bottom:8px;">变量 - 会变的小盒子</h3>
+                        <p style="color:var(--text-secondary);">点击上方子模块导航，选择要学习的内容</p>
+                        <p style="color:var(--text-secondary);margin-top:8px;font-size:14px;">10个交互模块，从情境导入到课堂小测，完整学习变量知识</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    updateSidebarActive('ch2');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // 平滑滚动后触发吸顶检查
+    setTimeout(() => stickyChapterNav(), 200);
+    // 避免重复添加历史记录
+    const targetHash2 = '#ch2';
+    if (window.location.hash === targetHash2) {
+        history.replaceState(null, '', targetHash2);
+    } else {
+        history.pushState(null, '', targetHash2);
+    }
+
+    // 自动打开第一个子模块（情境导入）
+    setTimeout(() => {
+        startVariableModule('intro');
+    }, 50);
+}
+
+// 启动变量模块的子模块
+function startVariableModule(moduleId) {
+    // 保持第2章容器可见(作为页面头部)
+    const ch2Container = document.getElementById('chapter-ch2');
+    if (ch2Container) {
+        ch2Container.classList.add('active');
+        // 进入子模块时隐藏 hero 区域，只保留导航
+        const hero = ch2Container.querySelector('.chapter-hero');
+        if (hero) hero.style.display = 'none';
+    }
+
+    // 更新子模块导航高亮
+    const nav = document.getElementById('chapterModNav-ch2');
+    const moduleNames = ['intro', 'lab', 'lesson', 'judge', 'practice', 'trace', 'debug', 'extend', 'project', 'test'];
+    if (nav) {
+        nav.querySelectorAll('.mod-nav-btn').forEach((btn, i) => {
+            btn.classList.toggle('active', moduleNames[i] === moduleId);
+        });
+    }
+
+    currentChapter = 'ch2';
+    currentChapterModule = moduleId;
+
+    // 使用原有的switchModule函数，保留所有事件处理器
+    switchModule(moduleId);
+
+    // 添加下一页按钮到当前激活的模块底部
+    const currentIndex = moduleNames.indexOf(moduleId);
+    const nextIndex = currentIndex + 1;
+    const isLast = nextIndex >= moduleNames.length;
+
+    const activeModule = document.getElementById(moduleId);
+    if (activeModule) {
+        // 移除已有的下一页按钮
+        const existing = activeModule.querySelector('.ch-next-bar');
+        if (existing) existing.remove();
+
+        const nextBtnHTML = `
+            <div class="ch-next-bar">
+                ${isLast ? `
+                    <button class="ch-next-btn ch-next-btn-done" onclick="markChapterCompleted('ch2');document.getElementById('ch2-hero').style.display='';window.scrollTo({top:0,behavior:'smooth'})">
+                        ✓ 本章学习完成，返回顶部
+                    </button>
+                ` : `
+                    <button class="ch-next-btn" onclick="startVariableModule('${moduleNames[nextIndex]}')">
+                        下一页：${moduleNames[nextIndex] === 'lab' ? '🧪 类比实验室' : moduleNames[nextIndex] === 'lesson' ? '📚 知识讲解' : moduleNames[nextIndex] === 'judge' ? '⚖️ 命名小法官' : moduleNames[nextIndex] === 'practice' ? '💻 实践操作' : moduleNames[nextIndex] === 'trace' ? '🔍 值追踪挑战' : moduleNames[nextIndex] === 'debug' ? '🏥 调试诊所' : moduleNames[nextIndex] === 'extend' ? '🚀 扩展思维' : moduleNames[nextIndex] === 'project' ? '🎨 创意项目' : '📝 课堂小测'} →
+                    </button>
+                `}
+            </div>
+        `;
+        activeModule.insertAdjacentHTML('beforeend', nextBtnHTML);
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 渲染章节内容
+function renderChapterContent(chapterId, container) {
+    const chapter = CHAPTERS.find(c => c.id === chapterId);
+    if (!chapter) return;
+
+    const bgColor = chapter.color || '#04AA6D';
+
+    container.innerHTML = `
+        <div class="chapter-landing">
+            <!-- 子模块导航 -->
+            <div class="chapter-module-nav" id="chapterModNav-${chapterId}">
+                ${chapter.modules.map((mod, i) => `
+                    <button class="mod-nav-btn" onclick="switchChapterModule('${chapterId}', '${mod.id}', ${i})">
+                        ${mod.icon} ${mod.title}
+                    </button>
+                `).join('')}
+            </div>
+
+            <!-- 章节Hero -->
+            <div class="chapter-hero">
+                <div class="chapter-badge-tag">${chapter.badge || '学习'}</div>
+                <h1>${chapter.icon} ${chapter.title}</h1>
+                <p class="chapter-subtitle">${chapter.subtitle}</p>
+                <div class="chapter-cta">
+                    <button class="cta-btn cta-primary" onclick="startChapterLearning('${chapterId}')">
+                        开始学习
+                    </button>
+                    <button class="cta-btn cta-secondary" onclick="toggleSidebar()">
+                        浏览章节
+                    </button>
+                </div>
+            </div>
+
+            <!-- 模块内容区 -->
+            <div class="chapter-content" id="chapterContent-${chapterId}">
+                <div class="ch-module-wrap">
+                    <div style="text-align:center;padding:48px 0;">
+                        <div style="font-size:48px;margin-bottom:16px;">${chapter.icon}</div>
+                        <h3 style="color:var(--w3-text-color);margin-bottom:8px;">${chapter.title} - ${chapter.subtitle}</h3>
+                        <p style="color:var(--text-secondary);">点击上方子模块导航开始学习</p>
+                        <p style="color:var(--text-secondary);margin-top:8px;">${chapter.desc}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 自动打开第一个子模块（情境导入）
+    if (chapter.modules && chapter.modules.length > 0) {
+        setTimeout(() => {
+            switchChapterModule(chapterId, chapter.modules[0].id, 0);
+        }, 50);
+    }
+}
+
+// 切换到章节内的子模块
+function switchChapterModule(chapterId, moduleId, index) {
+    // 检查是否需要登录
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        pendingModuleId = moduleId;
+        pendingChapterId = chapterId;
+        openLoginModal();
+        return;
+    }
+
+    currentChapterModule = moduleId;
+
+    const chapter = CHAPTERS.find(c => c.id === chapterId);
+    if (!chapter) return;
+
+    const module = chapter.modules.find(m => m.id === moduleId);
+    if (!module) return;
+
+    // 更新子模块导航高亮
+    const nav = document.getElementById('chapterModNav-' + chapterId);
+    if (nav) {
+        nav.querySelectorAll('.mod-nav-btn').forEach((btn, i) => {
+            btn.classList.toggle('active', i === index);
+        });
+    }
+
+    // 渲染模块内容
+    const contentArea = document.getElementById('chapterContent-' + chapterId);
+    if (!contentArea) return;
+
+    if (typeof module.render === 'function') {
+        contentArea.innerHTML = '<div class="ch-module-wrap">' + module.render() + '</div>';
+    } else {
+        contentArea.innerHTML = `
+            <div class="ch-module-wrap">
+                <div class="module-header">
+                    <h2>${module.icon} ${module.title}</h2>
+                    <p>${module.desc || ''}</p>
+                </div>
+                <div style="text-align:center;color:#aaa;padding:40px;">
+                    <p>此模块内容正在建设中...</p>
+                </div>
+            </div>
+        `;
+    }
+
+    // 添加下一页按钮
+    const nextIndex = index + 1;
+    const isLast = nextIndex >= chapter.modules.length;
+    const nextBtnHTML = `
+        <div class="ch-next-bar">
+            ${isLast ? `
+                <button class="ch-next-btn ch-next-btn-done" onclick="markChapterCompleted('${chapterId}');window.scrollTo({top:0,behavior:'smooth'})">
+                    ✓ 本章学习完成，返回顶部
+                </button>
+            ` : `
+                <button class="ch-next-btn" onclick="switchChapterModule('${chapterId}', '${chapter.modules[nextIndex].id}', ${nextIndex})">
+                    下一页：${chapter.modules[nextIndex].icon} ${chapter.modules[nextIndex].title} →
+                </button>
+            `}
+        </div>
+    `;
+    contentArea.insertAdjacentHTML('beforeend', nextBtnHTML);
+
+    // 滚动到内容区
+    contentArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// 开始章节学习(从第一个子模块开始)
+function startChapterLearning(chapterId) {
+    const chapter = CHAPTERS.find(c => c.id === chapterId);
+    if (!chapter || !chapter.modules.length) return;
+
+    switchChapterModule(chapterId, chapter.modules[0].id, 0);
+}
+
+// 更新侧边栏高亮
+function updateSidebarActive(chapterId) {
+    document.querySelectorAll('.chapter-link').forEach(link => {
+        link.classList.toggle('active', link.dataset.chapter === chapterId);
+    });
+}
+
+// 显示侧边栏切换按钮
+function showSidebarToggle() {
+    const toggle = document.getElementById('sidebarToggle');
+    if (toggle) {
+        // 关闭侧边栏状态
+        const sidebar = document.getElementById('chapterSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const mainContent = document.querySelector('.main-content');
+        if (sidebar && sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('open');
+            mainContent.classList.remove('sidebar-open');
+            toggle.querySelector('i').className = 'fas fa-chevron-right';
+        }
+        toggle.classList.remove('shifted');
+        toggle.style.display = 'flex';
+    }
+}
+
+// 隐藏侧边栏切换按钮（首页时使用）
+function hideSidebarToggle() {
+    const toggle = document.getElementById('sidebarToggle');
+    if (toggle) {
+        toggle.style.display = 'none';
+    }
+    // 确保侧边栏关闭
+    const sidebar = document.getElementById('chapterSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const mainContent = document.querySelector('.main-content');
+    if (sidebar) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('open');
+        mainContent.classList.remove('sidebar-open');
+    }
+}
+
+// 初始化章节系统
+function initChapterSystem() {
+    if (typeof CHAPTERS === 'undefined') {
+        console.warn('chapters.js 未加载，章节系统不可用');
+        return;
+    }
+
+    renderChapterSidebar();
+    // 首页默认隐藏侧边栏按钮
+    hideSidebarToggle();
+
+    // 从URL hash恢复章节
+    const hash = window.location.hash.replace('#', '');
+    if (hash && hash.startsWith('ch')) {
+        setTimeout(() => switchChapter(hash), 100);
+    }
+}
+
+// 处理浏览器前进/后退
+window.addEventListener('popstate', () => {
+    const hash = window.location.hash.replace('#', '');
+    // 防止递归：switchModule/setHash 会触发 popstate，如果已经在目标模块则跳过
+    if (hash === state.currentModule) return;
+    if (hash && hash.startsWith('ch')) {
+        switchChapter(hash);
+    } else if (hash === 'achievement' || hash === 'welcome') {
+        // 非章节模块：交由 switchModule 处理，避免被重置回首页
+        switchModule(hash);
+    } else if (hash === '') {
+        // 返回首页
+        document.querySelectorAll('.chapter-section').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+        const welcome = document.getElementById('welcome');
+        if (welcome) welcome.classList.add('active');
+        updateSidebarActive(null);
+        hideSidebarToggle();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+});
+
+// 在DOMContentLoaded中初始化章节系统
+document.addEventListener('DOMContentLoaded', () => {
+    initChapterSystem();
+    // 初始化通知轮询
+    initNotificationPolling();
+    // 初始化每日一题
+    renderDailyQuestion();
+    // 初始化学习日历
+    renderStudyCalendar('calendarGrid');
+    updateStudyStreak();
+    // 初始化笔记面板（在章节内容渲染后）
+    initNotePanelObserver();
+});
+
+// ================================================================
+//   新功能模块 - 学习排行榜
+// ================================================================
+async function renderLeaderboard() {
+    const currentUser = getCurrentUser();
+    const body = document.getElementById('leaderboardBody');
+    const empty = document.getElementById('leaderboardEmpty');
+    const loginHint = document.getElementById('leaderboardLoginHint');
+    const table = document.getElementById('leaderboardTable');
+
+    if (!currentUser) {
+        if (table) table.style.display = 'none';
+        if (empty) empty.style.display = 'none';
+        if (loginHint) loginHint.style.display = 'block';
+        return;
+    }
+
+    if (loginHint) loginHint.style.display = 'none';
+
+    const grade = document.getElementById('lbGradeFilter')?.value || '';
+    const classNum = document.getElementById('lbClassFilter')?.value || '';
+
+    try {
+        const data = await API.getLeaderboard(grade, classNum);
+        if (!data.success || !data.leaderboard || data.leaderboard.length === 0) {
+            if (table) table.style.display = 'none';
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+
+        if (table) table.style.display = '';
+        if (empty) empty.style.display = 'none';
+
+        const rankColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+        body.innerHTML = data.leaderboard.map((item, i) => {
+            const rank = i + 1;
+            const isMe = item.username === currentUser.username;
+            const rankStyle = rank <= 3 ? `style="background:${rankColors[rank-1]};color:#000;font-weight:700;border-radius:50%;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;"` : '';
+            const rowStyle = isMe ? 'style="background:rgba(4,170,109,0.1);font-weight:600;"' : '';
+            return `
+                <tr ${rowStyle}>
+                    <td>${rank <= 3 ? `<span ${rankStyle}>${rank}</span>` : rank}</td>
+                    <td>${escHtml(item.display_name || item.username)}${isMe ? ' (我)' : ''}</td>
+                    <td>${escHtml(item.grade || '')}${item.class_num ? item.class_num + '班' : ''}</td>
+                    <td>${item.chapter_count || 0}</td>
+                    <td>${item.achievement_count || 0}</td>
+                    <td>${item.score || 0}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        if (table) table.style.display = 'none';
+        if (empty) { empty.style.display = 'block'; empty.innerHTML = '<p>⚠️ 加载排行榜失败，请稍后重试</p>'; }
+    }
+}
+
+// ================================================================
+//   新功能模块 - 错题本
+// ================================================================
+async function renderMistakeBook() {
+    const currentUser = getCurrentUser();
+    const list = document.getElementById('mistakesList');
+    const empty = document.getElementById('mistakesEmpty');
+    const loginHint = document.getElementById('mistakesLoginHint');
+    const stats = document.getElementById('mistakesStats');
+    const filter = document.getElementById('mistakeChapterFilter');
+
+    if (!currentUser) {
+        if (list) list.innerHTML = '';
+        if (empty) empty.style.display = 'none';
+        if (loginHint) loginHint.style.display = 'block';
+        if (stats) stats.style.display = 'none';
+        return;
+    }
+
+    if (loginHint) loginHint.style.display = 'none';
+    if (stats) stats.style.display = '';
+
+    try {
+        const data = await API.getMistakes(currentUser.username);
+        if (!data.success) {
+            if (list) list.innerHTML = '<p style="text-align:center;color:#e74c3c;">加载错题失败，请稍后重试</p>';
+            return;
+        }
+        const mistakes = data.mistakes || [];
+        const selectedChapter = filter?.value || '';
+
+        // 更新筛选下拉
+        if (filter && filter.options.length <= 1) {
+            const chapters = [...new Set(mistakes.map(m => m.chapter_id))];
+            filter.innerHTML = '<option value="">全部章节</option>' +
+                chapters.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+        }
+
+        const filtered = selectedChapter ? mistakes.filter(m => m.chapter_id === selectedChapter) : mistakes;
+
+        // 更新统计
+        const totalChapters = new Set(mistakes.map(m => m.chapter_id)).size;
+        document.getElementById('mstatTotal').textContent = mistakes.length;
+        document.getElementById('mstatChapters').textContent = totalChapters;
+
+        if (filtered.length === 0) {
+            if (list) list.innerHTML = '';
+            if (empty) { empty.style.display = 'block'; empty.querySelector('p').textContent = mistakes.length === 0 ? '🎉 暂无错题记录，继续保持！' : '该章节暂无错题'; }
+            return;
+        }
+
+        if (empty) empty.style.display = 'none';
+
+        // 按章节分组
+        const grouped = {};
+        filtered.forEach(m => {
+            if (!grouped[m.chapter_id]) grouped[m.chapter_id] = [];
+            grouped[m.chapter_id].push(m);
+        });
+
+        list.innerHTML = Object.entries(grouped).map(([chapterId, items]) => `
+            <div class="mistake-group">
+                <h4 class="mistake-group-title">章节：${escHtml(chapterId)} (${items.length}题)</h4>
+                ${items.map(m => `
+                    <div class="mistake-item">
+                        <div class="mistake-question"><strong>题目：</strong>${escHtml(m.question_text)}</div>
+                        <div class="mistake-answers">
+                            <span class="mistake-correct">正确答案：${escHtml(m.correct_answer)}</span>
+                            <span class="mistake-wrong">我的答案：${escHtml(m.student_answer)}</span>
+                        </div>
+                        <div class="mistake-time">${m.created_at ? new Date(m.created_at).toLocaleString('zh-CN') : ''}</div>
+                        <button class="mistake-delete-btn" onclick="deleteMistakeItem(${m.id})">🗑️ 删除</button>
+                    </div>
+                `).join('')}
+            </div>
+        `).join('');
+    } catch (e) {
+        if (list) list.innerHTML = '<p style="color:#e74c3c;text-align:center;">加载错题失败，请稍后重试</p>';
+    }
+}
+
+async function recordMistake(chapterId, questionText, correctAnswer, studentAnswer) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        // 本地存储
+        const local = JSON.parse(localStorage.getItem('pv_local_mistakes') || '[]');
+        local.push({ chapterId, questionText, correctAnswer, studentAnswer, created_at: new Date().toISOString() });
+        localStorage.setItem('pv_local_mistakes', JSON.stringify(local));
+        return;
+    }
+    try {
+        await API.addMistake(currentUser.username, chapterId, questionText, correctAnswer, studentAnswer);
+    } catch (e) {
+        log.error('记录错题失败:', e.message);
+    }
+}
+
+async function deleteMistakeItem(id) {
+    if (!confirm('确定要删除这条错题记录吗？')) return;
+    try {
+        const currentUser = getCurrentUser();
+        await API.deleteMistake(id, currentUser?.username || '');
+        renderMistakeBook();
+    } catch (e) {
+        showToast('删除失败: ' + e.message, 'error');
+    }
+}
+
+// ================================================================
+//   新功能模块 - 个人学习报告
+// ================================================================
+async function renderReport() {
+    const currentUser = getCurrentUser();
+    const loginHint = document.getElementById('reportLoginHint');
+    const userName = document.getElementById('reportUserName');
+
+    if (!currentUser) {
+        if (loginHint) loginHint.style.display = 'block';
+        if (userName) userName.textContent = '你的学习数据分析';
+        // 本地报告
+        renderLocalReport();
+        return;
+    }
+
+    if (loginHint) loginHint.style.display = 'none';
+    if (userName) userName.textContent = currentUser.displayName + ' 的学习报告';
+
+    try {
+        const data = await API.getReport(currentUser.username);
+        if (!data.success) {
+            renderLocalReport();
+            return;
+        }
+
+        const report = data.report || {};
+        document.getElementById('rstatCompleted').textContent = report.totalChapters || 0;
+        document.getElementById('rstatAchievements').textContent = report.totalAchievements || 0;
+        document.getElementById('rstatStreak').textContent = report.streakDays || 0;
+        document.getElementById('rstatTotalDays').textContent = report.totalDays || 0;
+
+        // 环形进度
+        const percent = Math.round(((report.totalChapters || 0) / 19) * 100);
+        const ring = document.getElementById('ringCircle');
+        if (ring) ring.style.background = `conic-gradient(var(--w3-green) ${percent * 3.6}deg, #333 ${percent * 3.6}deg)`;
+        const ringPercent = document.getElementById('ringPercent');
+        if (ringPercent) ringPercent.textContent = percent + '%';
+
+        // 时间线
+        const timeline = document.getElementById('chapterTimeline');
+        if (timeline && report.chapterDetails) {
+            timeline.innerHTML = report.chapterDetails.map(c => `
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <strong>${escHtml(c.moduleId)}</strong>
+                        <span>${c.completedAt ? new Date(c.completedAt).toLocaleDateString('zh-CN') : '未完成'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 强项/弱项
+        const strong = document.getElementById('strongChapters');
+        const weak = document.getElementById('weakChapters');
+        if (strong) strong.innerHTML = report.strengths?.length ? report.strengths.map(c => `<span class="tag tag-green">${escHtml(c)}</span>`).join('') : '<p class="text-muted">完成更多测验来发现你的强项</p>';
+        if (weak) weak.innerHTML = report.weaknesses?.length ? report.weaknesses.map(c => `<span class="tag tag-red">${escHtml(c)}</span>`).join('') : '<p class="text-muted">错题较多的章节会显示在这里</p>';
+
+        renderStudyCalendar('calendarGrid');
+        updateStudyStreak();
+    } catch (e) {
+        renderLocalReport();
+    }
+}
+
+function renderLocalReport() {
+    const progress = getLocalProgress();
+    const completed = Object.keys(progress.chapters || {}).length;
+    const achievements = getLocalAchievements();
+    const achCount = Object.keys(achievements).length;
+
+    const elCompleted = document.getElementById('rstatCompleted');
+    const elAch = document.getElementById('rstatAchievements');
+    if (elCompleted) elCompleted.textContent = completed;
+    if (elAch) elAch.textContent = achCount;
+
+    const percent = Math.round((completed / 19) * 100);
+    const ring = document.getElementById('ringCircle');
+    if (ring) ring.style.background = `conic-gradient(var(--w3-green) ${percent * 3.6}deg, #333 ${percent * 3.6}deg)`;
+    const ringPercent = document.getElementById('ringPercent');
+    if (ringPercent) ringPercent.textContent = percent + '%';
+
+    renderStudyCalendar('calendarGrid');
+    updateStudyStreak();
+}
+
+// ================================================================
+//   学习日历/连续天数
+// ================================================================
+function renderStudyCalendar(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const days = [];
+    const today = new Date();
+    const studyDates = getStudyDates();
+
+    for (let i = 29; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toLocaleDateString('zh-CN');
+        days.push({
+            date: dateStr,
+            day: d.getDate(),
+            weekday: d.getDay(),
+            studied: studyDates.includes(dateStr),
+            isToday: i === 0
+        });
+    }
+
+    container.innerHTML = days.map(d => `
+        <div class="calendar-day ${d.studied ? 'studied' : ''} ${d.isToday ? 'today' : ''}" 
+             title="${d.date}${d.studied ? ' - 已学习' : ''}">
+            ${d.day}
+        </div>
+    `).join('');
+}
+
+function getStudyDates() {
+    try {
+        return JSON.parse(localStorage.getItem('pv_study_dates') || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
+function updateStudyStreak() {
+    const streakEl = document.getElementById('calendarStreak');
+    if (!streakEl) return;
+
+    const dates = getStudyDates();
+    const today = new Date().toLocaleDateString('zh-CN');
+    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('zh-CN');
+
+    // 如果今天和昨天都没有学习记录，连续天数为0
+    if (!dates.includes(today) && !dates.includes(yesterday)) {
+        streakEl.textContent = '🔥 连续学习 0 天，今天开始学习吧！';
+        document.getElementById('rstatStreak') && (document.getElementById('rstatStreak').textContent = '0');
+        return;
+    }
+
+    let streak = 0;
+    let checkDate = new Date();
+    if (!dates.includes(today)) {
+        checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    while (dates.includes(checkDate.toLocaleDateString('zh-CN'))) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    streakEl.textContent = `🔥 连续学习 ${streak} 天，太棒了！`;
+    const elStreak = document.getElementById('rstatStreak');
+    if (elStreak) elStreak.textContent = streak;
+}
+
+// 记录今日学习
+function recordTodayStudy() {
+    const dates = getStudyDates();
+    const today = new Date().toLocaleDateString('zh-CN');
+    if (!dates.includes(today)) {
+        dates.push(today);
+        localStorage.setItem('pv_study_dates', JSON.stringify(dates));
+        updateStudyStreak();
+        renderStudyCalendar('calendarGrid');
+    }
+}
+
+// ================================================================
+//   学习笔记
+// ================================================================
+function initNotePanelObserver() {
+    // 监听章节内容变化以添加笔记面板
+    const observer = new MutationObserver(() => {
+        if (currentChapter && currentChapterModule) {
+            const contentArea = document.getElementById('chapterContent-' + currentChapter);
+            if (contentArea && !contentArea.querySelector('.note-panel')) {
+                initNotePanelForChapter(currentChapter);
+            }
+        }
+    });
+    observer.observe(document.querySelector('main'), { childList: true, subtree: true });
+}
+
+function initNotePanelForChapter(chapterId) {
+    const contentArea = document.getElementById('chapterContent-' + chapterId);
+    if (!contentArea || contentArea.querySelector('.note-panel')) return;
+
+    const notePanel = document.createElement('div');
+    notePanel.className = 'note-panel';
+    notePanel.innerHTML = `
+        <div class="note-panel-header" onclick="this.parentElement.classList.toggle('open')">
+            <h4>📝 学习笔记 <i class="fas fa-chevron-down"></i></h4>
+        </div>
+        <div class="note-panel-body">
+            <textarea class="note-textarea" id="noteTextarea-${chapterId}" placeholder="在这里记录你的学习笔记...支持简单文本"></textarea>
+            <div class="note-actions">
+                <button class="note-save-btn" onclick="saveNoteForChapter('${chapterId}')">💾 保存笔记</button>
+                <span class="note-status" id="noteStatus-${chapterId}"></span>
+            </div>
+        </div>
+    `;
+    contentArea.appendChild(notePanel);
+
+    // 加载已有笔记
+    loadNoteForChapter(chapterId);
+}
+
+async function saveNoteForChapter(chapterId) {
+    const textarea = document.getElementById('noteTextarea-' + chapterId);
+    const status = document.getElementById('noteStatus-' + chapterId);
+    if (!textarea) return;
+
+    const content = textarea.value.trim();
+    const currentUser = getCurrentUser();
+
+    if (currentUser) {
+        try {
+            await API.saveNote(currentUser.username, chapterId, currentChapterModule || 'general', content);
+            if (status) { status.textContent = '✅ 已保存'; status.className = 'note-status saved'; }
+        } catch (e) {
+            if (status) { status.textContent = '❌ 保存失败'; status.className = 'note-status error'; }
+        }
+    } else {
+        // localStorage
+        const notes = JSON.parse(localStorage.getItem('pv_notes') || '{}');
+        notes[chapterId] = { content, savedAt: new Date().toISOString() };
+        localStorage.setItem('pv_notes', JSON.stringify(notes));
+        if (status) { status.textContent = '✅ 已本地保存'; status.className = 'note-status saved'; }
+    }
+
+    setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+}
+
+async function loadNoteForChapter(chapterId) {
+    const textarea = document.getElementById('noteTextarea-' + chapterId);
+    if (!textarea) return;
+
+    const currentUser = getCurrentUser();
+    let content = '';
+
+    if (currentUser) {
+        try {
+            const data = await API.getNotes(currentUser.username, chapterId);
+            if (data.notes && data.notes.length > 0) {
+                content = data.notes[0].content || '';
+            }
+        } catch (e) { /* ignore */ }
+    } else {
+        const notes = JSON.parse(localStorage.getItem('pv_notes') || '{}');
+        if (notes[chapterId]) content = notes[chapterId].content || '';
+    }
+
+    textarea.value = content;
+}
+
+// ================================================================
+//   代码收藏夹
+// ================================================================
+async function renderSnippets() {
+    const currentUser = getCurrentUser();
+    const list = document.getElementById('snippetsList');
+    const empty = document.getElementById('snippetsEmpty');
+    const loginHint = document.getElementById('snippetsLoginHint');
+
+    if (!currentUser) {
+        if (list) list.innerHTML = '';
+        if (empty) empty.style.display = 'none';
+        if (loginHint) loginHint.style.display = 'block';
+        return;
+    }
+
+    if (loginHint) loginHint.style.display = 'none';
+
+    try {
+        const data = await API.getSnippets(currentUser.username);
+        const snippets = data.snippets || [];
+
+        if (snippets.length === 0) {
+            if (list) list.innerHTML = '';
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+
+        if (empty) empty.style.display = 'none';
+
+        list.innerHTML = snippets.map(s => `
+            <div class="snippet-item" id="snippet-${s.id}">
+                <div class="snippet-header">
+                    <h4>⭐ ${escHtml(s.title)}</h4>
+                    <span class="snippet-chapter">${escHtml(s.chapter_id || '')}</span>
+                </div>
+                <div class="snippet-preview">
+                    <pre><code>${escHtml(s.code?.substring(0, 200) || '')}${s.code?.length > 200 ? '...' : ''}</code></pre>
+                </div>
+                <div class="snippet-actions">
+                    <button class="snippet-btn" onclick="toggleSnippetCode(${s.id})">📖 ${s.code?.length > 200 ? '展开' : '查看'}</button>
+                    <button class="snippet-btn snippet-delete" onclick="deleteSnippetItem(${s.id})">🗑️ 删除</button>
+                    <span class="snippet-time">${s.created_at ? new Date(s.created_at).toLocaleDateString('zh-CN') : ''}</span>
+                </div>
+                <div class="snippet-full-code" id="snippetFullCode-${s.id}" style="display:none">
+                    <pre><code>${escHtml(s.code || '')}</code></pre>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        if (list) list.innerHTML = '<p style="color:#e74c3c;text-align:center;">加载收藏失败</p>';
+    }
+}
+
+function toggleSnippetCode(id) {
+    const el = document.getElementById('snippetFullCode-' + id);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function saveSnippet(title, code, chapterId) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        showToast('请先登录后再收藏', 'error');
+        return;
+    }
+    try {
+        await API.addSnippet(currentUser.username, title, code, chapterId);
+        showToast('已收藏代码片段', 'success');
+    } catch (e) {
+        showToast('收藏失败: ' + e.message, 'error');
+    }
+}
+
+async function deleteSnippetItem(id) {
+    if (!confirm('确定要删除这个收藏吗？')) return;
+    try {
+        const currentUser = getCurrentUser();
+        await API.deleteSnippet(id, currentUser?.username || '');
+        renderSnippets();
+    } catch (e) {
+        showToast('删除失败: ' + e.message, 'error');
+    }
+}
+
+// ================================================================
+//   消息通知中心
+// ================================================================
+function toggleNotificationPanel() {
+    const panel = document.getElementById('notificationPanel');
+    if (!panel) return;
+    const isVisible = panel.style.display !== 'none';
+    panel.style.display = isVisible ? 'none' : 'block';
+}
+
+async function fetchNotifications() {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+
+    try {
+        const data = await API.getNotifications(currentUser.username);
+        if (!data.success) return;
+        const notifications = data.notifications || [];
+        const badge = document.getElementById('notificationBadge');
+        const body = document.getElementById('notificationPanelBody');
+
+        const unreadCount = notifications.filter(n => !n.is_read).length;
+        if (badge) {
+            badge.textContent = unreadCount;
+            badge.style.display = unreadCount > 0 ? 'flex' : 'none';
+        }
+
+        if (body) {
+            if (notifications.length === 0) {
+                body.innerHTML = '<div class="notification-empty">暂无通知</div>';
+            } else {
+                body.innerHTML = notifications.map(n => `
+                    <div class="notification-item ${n.is_read ? '' : 'unread'}" onclick="markNotificationRead(${n.id})">
+                        <div class="notification-icon">${n.type === 'achievement' ? '🏆' : n.type === 'announce' ? '📢' : '📝'}</div>
+                        <div class="notification-body">
+                            <div class="notification-text">${escHtml(n.title || n.content || '')}</div>
+                            <div class="notification-time">${n.created_at ? new Date(n.created_at).toLocaleString('zh-CN') : ''}</div>
+                        </div>
+                        ${!n.is_read ? '<span class="notification-dot"></span>' : ''}
+                    </div>
+                `).join('');
+            }
+        }
+    } catch (e) { /* 静默失败 */ }
+}
+
+async function markNotificationRead(id) {
+    try {
+        await API.markNotificationRead(id);
+        fetchNotifications();
+    } catch (e) { /* ignore */ }
+}
+
+function initNotificationPolling() {
+    fetchNotifications();
+    setInterval(fetchNotifications, 30000); // 每30秒轮询
+}
+
+// 点击其他地方关闭通知面板
+document.addEventListener('click', function(e) {
+    const panel = document.getElementById('notificationPanel');
+    const bell = document.getElementById('notificationBellWrap');
+    if (panel && panel.style.display !== 'none' && !bell?.contains(e.target)) {
+        panel.style.display = 'none';
+    }
+});
+
+// ================================================================
+//   学习目标设定
+// ================================================================
+async function renderGoals() {
+    const currentUser = getCurrentUser();
+    const loginHint = document.getElementById('goalsLoginHint');
+    const list = document.getElementById('goalsList');
+    const empty = document.getElementById('goalsEmpty');
+    const form = document.getElementById('goalForm');
+
+    if (!currentUser) {
+        if (loginHint) loginHint.style.display = 'block';
+        if (list) list.innerHTML = '<h3>📋 当前目标</h3>';
+        if (empty) empty.style.display = 'none';
+        if (form) form.style.display = 'none';
+        return;
+    }
+
+    if (loginHint) loginHint.style.display = 'none';
+    if (form) form.style.display = '';
+
+    // 设置默认日期
+    const today = new Date().toISOString().split('T')[0];
+    const endDate = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+    const startInput = document.getElementById('goalStartDate');
+    const endInput = document.getElementById('goalEndDate');
+    if (startInput && !startInput.value) startInput.value = today;
+    if (endInput && !endInput.value) endInput.value = endDate;
+
+    try {
+        const data = await API.getGoals(currentUser.username);
+        if (!data.success) {
+            if (list) list.innerHTML = '<h3>📋 当前目标</h3><p style="color:#e74c3c;">加载目标失败</p>';
+            return;
+        }
+        const goals = data.goals || [];
+
+        if (goals.length === 0) {
+            if (list) list.innerHTML = '<h3>📋 当前目标</h3>';
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+
+        if (empty) empty.style.display = 'none';
+
+        const chapterProgress = JSON.parse(localStorage.getItem('pv_chapter_progress') || '{}');
+        const completedCount = Object.keys(chapterProgress).length;
+
+        list.innerHTML = '<h3>📋 当前目标</h3>' + goals.map(g => {
+            const targetChapters = g.target_chapters || 1;
+            const progress = Math.min(100, Math.round((completedCount / targetChapters) * 100));
+            const isComplete = completedCount >= targetChapters;
+            return `
+                <div class="goal-item ${isComplete ? 'goal-completed' : ''}">
+                    <div class="goal-header">
+                        <h4>🎯 ${escHtml(g.goal_text)}</h4>
+                        ${isComplete ? '<span class="goal-badge">✅ 已完成</span>' : ''}
+                    </div>
+                    <div class="goal-meta">
+                        <span>📅 ${g.start_date ? new Date(g.start_date).toLocaleDateString('zh-CN') : ''} - ${g.end_date ? new Date(g.end_date).toLocaleDateString('zh-CN') : ''}</span>
+                        <span>📚 目标：${targetChapters}章 / 已完成：${completedCount}章</span>
+                    </div>
+                    <div class="goal-progress-bar">
+                        <div class="goal-progress-fill" style="width:${progress}%">${progress}%</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        if (list) list.innerHTML = '<h3>📋 当前目标</h3><p style="color:#e74c3c;">加载目标失败</p>';
+    }
+}
+
+async function setGoal(event) {
+    event.preventDefault();
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        showToast('请先登录', 'error');
+        return false;
+    }
+
+    const goalText = document.getElementById('goalText').value.trim();
+    const targetChapters = parseInt(document.getElementById('goalTargetChapters').value) || 5;
+    const startDate = document.getElementById('goalStartDate').value;
+    const endDate = document.getElementById('goalEndDate').value;
+
+    try {
+        await API.setGoal(currentUser.username, goalText, targetChapters, startDate, endDate);
+        showToast('目标设定成功！', 'success');
+        document.getElementById('goalText').value = '';
+        renderGoals();
+    } catch (e) {
+        showToast('设定失败: ' + e.message, 'error');
+    }
+    return false;
+}
+
+// ================================================================
+//   讨论区
+// ================================================================
+async function renderDiscussions(chapterId) {
+    const currentUser = getCurrentUser();
+    const posts = document.getElementById('discussionPosts');
+    const empty = document.getElementById('discussionEmpty');
+    const loginHint = document.getElementById('discussionLoginHint');
+    const detail = document.getElementById('discussionDetail');
+    const filter = document.getElementById('discussionChapterFilter');
+
+    if (detail) detail.style.display = 'none';
+
+    if (!currentUser) {
+        if (posts) posts.innerHTML = '';
+        if (empty) empty.style.display = 'none';
+        if (loginHint) loginHint.style.display = 'block';
+        return;
+    }
+
+    if (loginHint) loginHint.style.display = 'none';
+
+    // 初始化章节筛选下拉
+    if (filter && filter.options.length <= 1) {
+        const chOptions = [{ id: 'ch1', name: '第1章 认识Python' }, { id: 'ch2', name: '第2章 变量' }, { id: 'ch3', name: '第3章 变量类型' },
+            { id: 'ch4', name: '第4章 条件判断' }, { id: 'ch6', name: '第6章 while循环' }, { id: 'ch11', name: '第11章 初识列表' }];
+        filter.innerHTML = '<option value="">全部章节</option>' +
+            chOptions.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    // 初始化发帖章节下拉
+    const postChapterSelect = document.getElementById('postChapterId');
+    if (postChapterSelect && postChapterSelect.options.length <= 1) {
+        const chOptions = [{ id: 'ch1', name: '第1章 认识Python' }, { id: 'ch2', name: '第2章 变量' }, { id: 'ch3', name: '第3章 变量类型' },
+            { id: 'ch4', name: '第4章 条件判断' }, { id: 'ch6', name: '第6章 while循环' }, { id: 'ch11', name: '第11章 初识列表' }];
+        postChapterSelect.innerHTML = '<option value="">不关联章节</option>' +
+            chOptions.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    try {
+        const data = await API.getDiscussions(chapterId || '');
+        if (!data.success) {
+            if (posts) posts.innerHTML = '<p style="text-align:center;color:#e74c3c;">加载讨论失败</p>';
+            return;
+        }
+        const discussions = data.discussions || [];
+
+        if (discussions.length === 0) {
+            if (posts) posts.innerHTML = '';
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+
+        if (empty) empty.style.display = 'none';
+
+        posts.innerHTML = discussions.map(d => `
+            <div class="discussion-post-item" onclick="renderDiscussionDetail(${d.id})">
+                <div class="discussion-post-title">${escHtml(d.title)}</div>
+                <div class="discussion-post-meta">
+                    <span>👤 ${escHtml(d.username)}</span>
+                    <span>💬 ${d.reply_count || 0} 回复</span>
+                    <span>📅 ${d.created_at ? new Date(d.created_at).toLocaleDateString('zh-CN') : ''}</span>
+                    ${d.chapter_id ? `<span class="discussion-chapter-tag">${escHtml(d.chapter_id)}</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        if (posts) posts.innerHTML = '<p style="text-align:center;color:#e74c3c;">加载讨论失败</p>';
+    }
+}
+
+async function renderDiscussionDetail(postId) {
+    const posts = document.getElementById('discussionPosts');
+    const detail = document.getElementById('discussionDetail');
+    const empty = document.getElementById('discussionEmpty');
+
+    if (posts) posts.style.display = 'none';
+    if (empty) empty.style.display = 'none';
+    if (detail) detail.style.display = 'block';
+
+    try {
+        const data = await API.getDiscussionDetail(postId);
+        if (!data.success || !data.post) {
+            if (detail) detail.innerHTML = '<p style="text-align:center;">帖子不存在</p>';
+            return;
+        }
+
+        const d = data.post;
+        const replies = data.replies || [];
+
+        detail.innerHTML = `
+            <div class="discussion-detail-card">
+                <button class="discussion-back-btn" onclick="backToDiscussionList()">← 返回列表</button>
+                <h3>${escHtml(d.title)}</h3>
+                <div class="discussion-detail-meta">
+                    <span>👤 ${escHtml(d.username)}</span>
+                    <span>📅 ${d.created_at ? new Date(d.created_at).toLocaleString('zh-CN') : ''}</span>
+                    ${d.chapter_id ? `<span class="discussion-chapter-tag">${escHtml(d.chapter_id)}</span>` : ''}
+                </div>
+                <div class="discussion-detail-content">${escHtml(d.content)}</div>
+            </div>
+            <div class="discussion-replies">
+                <h4>💬 回复 (${replies.length})</h4>
+                ${replies.map(r => `
+                    <div class="discussion-reply-item">
+                        <div class="discussion-reply-header">
+                            <strong>${escHtml(r.username)}</strong>
+                            <span>${r.created_at ? new Date(r.created_at).toLocaleString('zh-CN') : ''}</span>
+                        </div>
+                        <div class="discussion-reply-content">${escHtml(r.content)}</div>
+                    </div>
+                `).join('')}
+                <div class="discussion-reply-form">
+                    <h4>📝 发表回复</h4>
+                    <form onsubmit="return createReply(${postId}, event)">
+                        <textarea id="replyContent" class="form-input" rows="3" placeholder="输入你的回复..." required></textarea>
+                        <button type="submit" class="form-submit-btn">回复</button>
+                    </form>
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        if (detail) detail.innerHTML = '<p style="text-align:center;color:#e74c3c;">加载帖子详情失败</p>';
+    }
+}
+
+function backToDiscussionList() {
+    const posts = document.getElementById('discussionPosts');
+    const detail = document.getElementById('discussionDetail');
+    const empty = document.getElementById('discussionEmpty');
+    if (posts) posts.style.display = '';
+    if (detail) detail.style.display = 'none';
+    renderDiscussions();
+}
+
+function showDiscussionForm() {
+    document.getElementById('discussionFormWrap').style.display = 'block';
+}
+
+function hideDiscussionForm() {
+    document.getElementById('discussionFormWrap').style.display = 'none';
+    document.getElementById('postTitle').value = '';
+    document.getElementById('postContent').value = '';
+}
+
+async function createPost(event) {
+    event.preventDefault();
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        showToast('请先登录', 'error');
+        return false;
+    }
+
+    const title = document.getElementById('postTitle').value.trim();
+    const content = document.getElementById('postContent').value.trim();
+    const chapterId = document.getElementById('postChapterId').value;
+
+    try {
+        await API.createDiscussion(currentUser.username, title, content, chapterId);
+        showToast('发帖成功！', 'success');
+        hideDiscussionForm();
+        renderDiscussions();
+    } catch (e) {
+        showToast('发帖失败: ' + e.message, 'error');
+    }
+    return false;
+}
+
+async function createReply(postId, event) {
+    event.preventDefault();
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        showToast('请先登录', 'error');
+        return false;
+    }
+
+    const content = document.getElementById('replyContent').value.trim();
+    try {
+        await API.createReply(postId, currentUser.username, content);
+        showToast('回复成功！', 'success');
+        renderDiscussionDetail(postId);
+    } catch (e) {
+        showToast('回复失败: ' + e.message, 'error');
+    }
+    return false;
+}
+
+// ================================================================
+//   每日一题
+// ================================================================
+async function renderDailyQuestion() {
+    const card = document.getElementById('dailyQuestionCard');
+    if (!card) return;
+
+    try {
+        const data = await API.getDailyQuestion();
+        if (!data.success || !data.question) {
+            card.style.display = 'none';
+            return;
+        }
+
+        const q = data.question;
+        card.style.display = 'block';
+        card.innerHTML = `
+            <div class="daily-question-header">
+                <h3>📅 每日一题</h3>
+                <span class="daily-question-date">${new Date().toLocaleDateString('zh-CN')}</span>
+            </div>
+            <div class="daily-question-body">
+                <p class="daily-question-text">${escHtml(q.question)}</p>
+                <div class="daily-question-options">
+                    ${(typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || [])).map((opt, i) => `
+                        <button class="daily-option-btn" onclick="submitDailyAnswer(${i}, '${escHtml(q.answer || '').replace(/'/g, "\\'")}', this)" data-index="${i}">
+                            ${String.fromCharCode(65 + i)}. ${escHtml(opt)}
+                        </button>
+                    `).join('')}
+                </div>
+                <div class="daily-question-feedback" id="dailyFeedback" style="display:none"></div>
+            </div>
+        `;
+    } catch (e) {
+        card.style.display = 'none';
+    }
+}
+
+function submitDailyAnswer(answerIndex, correctAnswer, btn) {
+    const feedback = document.getElementById('dailyFeedback');
+    const allBtns = document.querySelectorAll('.daily-option-btn');
+
+    allBtns.forEach(b => b.disabled = true);
+
+    const isCorrect = String(answerIndex) === String(correctAnswer);
+    if (isCorrect) {
+        btn.classList.add('correct');
+        if (feedback) {
+            feedback.style.display = 'block';
+            feedback.innerHTML = '✅ 回答正确！太棒了！';
+            feedback.className = 'daily-question-feedback correct';
+        }
+    } else {
+        btn.classList.add('wrong');
+        // 高亮正确答案
+        allBtns.forEach(b => {
+            if (b.dataset.index === String(correctAnswer)) b.classList.add('correct');
+        });
+        if (feedback) {
+            feedback.style.display = 'block';
+            feedback.innerHTML = '❌ 回答错误，正确答案已标出。';
+            feedback.className = 'daily-question-feedback wrong';
+        }
+    }
+}
+
+// ================================================================
+//   语音朗读
+// ================================================================
+let speechSynth = window.speechSynthesis;
+let currentUtterance = null;
+
+function speakText(text) {
+    if (!speechSynth) {
+        showToast('您的浏览器不支持语音朗读', 'error');
+        return;
+    }
+
+    // 如果正在朗读，暂停
+    if (speechSynth.speaking && !speechSynth.paused) {
+        speechSynth.pause();
+        return;
+    }
+
+    // 如果已暂停，继续
+    if (speechSynth.paused) {
+        speechSynth.resume();
+        return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-CN';
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    currentUtterance = utterance;
+    speechSynth.speak(utterance);
+}
+
+function stopSpeaking() {
+    if (speechSynth) {
+        speechSynth.cancel();
+        currentUtterance = null;
+    }
+}
+
+// 在章节内容渲染后添加朗读按钮
+function addSpeakButton(container) {
+    if (!container || container.querySelector('.speak-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'speak-btn';
+    btn.innerHTML = '🔊 朗读';
+    btn.title = '朗读当前内容';
+    btn.onclick = function() {
+        const text = container.textContent || '';
+        if (speechSynth?.speaking) {
+            stopSpeaking();
+            btn.innerHTML = '🔊 朗读';
+        } else {
+            speakText(text);
+            btn.innerHTML = '⏸️ 暂停';
+            // 监听朗读结束
+            const checkEnd = setInterval(() => {
+                if (!speechSynth?.speaking) {
+                    btn.innerHTML = '🔊 朗读';
+                    clearInterval(checkEnd);
+                }
+            }, 500);
+        }
+    };
+    container.insertBefore(btn, container.firstChild);
+}
+
+// 在章节内容渲染后调用 - 由 chapter-interactions.js 调用
+// 通过 MutationObserver 自动添加
+(function initSpeakButtonObserver() {
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach(m => {
+            m.addedNodes.forEach(node => {
+                if (node.nodeType === 1) {
+                    const contentAreas = node.querySelectorAll ? node.querySelectorAll('.ch-module-wrap, .module-header') : [];
+                    contentAreas.forEach(area => {
+                        if (area.querySelector('h2') && !area.querySelector('.speak-btn')) {
+                            addSpeakButton(area);
+                        }
+                    });
+                }
+            });
+        });
+    });
+    observer.observe(document.querySelector('main') || document.body, { childList: true, subtree: true });
+})();

@@ -1,5 +1,5 @@
 // ===================================================
-// Python 变量专题学习网站 - 后端服务器
+// Python 基础学习平台 - 后端服务器
 // 技术栈：Node.js + Express + MySQL
 // 启动方式：node server.js
 // ===================================================
@@ -19,14 +19,22 @@ let dbReady = false;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.static(__dirname));
+app.use(express.static(__dirname, {
+    maxAge: '1h',           // 静态文件缓存1小时，减少局域网带宽消耗
+    setHeaders: (res, filePath) => {
+        // HTML 文件不缓存，确保总是获取最新版本
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+        }
+    }
+}));
 
 // ===================================================
 // 简易速率限制（防止暴力破解）
 // ===================================================
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 分钟
-const RATE_LIMIT_MAX = 20;           // 最多 20 次请求
+const RATE_LIMIT_MAX = 60;           // 教室局域网正常使用
 
 function rateLimit(req, res, next) {
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
@@ -208,6 +216,149 @@ async function initializeDatabase() {
             ) ENGINE=InnoDB COMMENT='管理员操作日志表'
         `);
 
+        // 错题本
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS mistake_book (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                student_id INT NOT NULL,
+                chapter_id VARCHAR(10) NOT NULL COMMENT '章节ID，如ch1',
+                question_text TEXT NOT NULL COMMENT '题目内容',
+                correct_answer VARCHAR(500) NOT NULL COMMENT '正确答案',
+                student_answer VARCHAR(500) NOT NULL COMMENT '学生答案',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+                INDEX idx_student_chapter (student_id, chapter_id)
+            ) ENGINE=InnoDB COMMENT='错题本'
+        `);
+
+        // 学习笔记
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS study_notes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                student_id INT NOT NULL,
+                chapter_id VARCHAR(10) NOT NULL,
+                module_id VARCHAR(30) DEFAULT '',
+                content TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+                INDEX idx_student_chapter (student_id, chapter_id)
+            ) ENGINE=InnoDB COMMENT='学习笔记'
+        `);
+
+        // 代码收藏
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS code_snippets (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                student_id INT NOT NULL,
+                title VARCHAR(200) NOT NULL,
+                code TEXT NOT NULL,
+                chapter_id VARCHAR(10) DEFAULT '',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB COMMENT='代码收藏'
+        `);
+
+        // 作业
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS assignments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                title VARCHAR(200) NOT NULL,
+                description TEXT,
+                chapter_id VARCHAR(10) DEFAULT '',
+                due_date DATE,
+                created_by VARCHAR(50) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_due (due_date)
+            ) ENGINE=InnoDB COMMENT='作业'
+        `);
+
+        // 作业提交
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS assignment_submissions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                assignment_id INT NOT NULL,
+                student_id INT NOT NULL,
+                content TEXT,
+                score INT DEFAULT 0,
+                submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
+                FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+                UNIQUE KEY uk_assignment_student (assignment_id, student_id)
+            ) ENGINE=InnoDB COMMENT='作业提交'
+        `);
+
+        // 每日一题
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS daily_questions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                question TEXT NOT NULL,
+                options JSON COMMENT '选项列表JSON',
+                answer VARCHAR(10) NOT NULL COMMENT '正确答案',
+                explanation TEXT COMMENT '解析',
+                question_date DATE NOT NULL UNIQUE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB COMMENT='每日一题'
+        `);
+
+        // 学习目标
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS student_goals (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                student_id INT NOT NULL,
+                goal_text VARCHAR(500) NOT NULL,
+                target_chapters INT DEFAULT 0,
+                start_date DATE NOT NULL,
+                end_date DATE NOT NULL,
+                completed TINYINT(1) DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+                INDEX idx_student (student_id)
+            ) ENGINE=InnoDB COMMENT='学习目标'
+        `);
+
+        // 通知
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                student_id INT NOT NULL,
+                title VARCHAR(200) NOT NULL,
+                content TEXT,
+                type VARCHAR(30) DEFAULT 'system' COMMENT 'system/achievement/assignment',
+                is_read TINYINT(1) DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+                INDEX idx_student_read (student_id, is_read)
+            ) ENGINE=InnoDB COMMENT='通知'
+        `);
+
+        // 讨论帖
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS discussion_posts (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                student_id INT NOT NULL,
+                title VARCHAR(200) NOT NULL,
+                content TEXT NOT NULL,
+                chapter_id VARCHAR(10) DEFAULT '',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+                INDEX idx_chapter (chapter_id)
+            ) ENGINE=InnoDB COMMENT='讨论帖'
+        `);
+
+        // 讨论回复
+        await dbPool.execute(`
+            CREATE TABLE IF NOT EXISTS discussion_replies (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                post_id INT NOT NULL,
+                student_id INT NOT NULL,
+                content TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (post_id) REFERENCES discussion_posts(id) ON DELETE CASCADE,
+                FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB COMMENT='讨论回复'
+        `);
+
         console.log('[初始化] 所有数据表就绪');
 
         // 兼容旧表结构：添加新字段（如果不存在）
@@ -220,12 +371,12 @@ async function initializeDatabase() {
             try { await dbPool.execute(col.sql); console.log(`[迁移] 已添加字段 ${col.name}`); }
             catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
         }
-        // 迁移旧 class_name 数据到新字段
+
+        // 给 admins 表添加 role 字段（兼容迁移）
         try {
-            await dbPool.execute("UPDATE students SET grade = '七年级' WHERE grade = '' AND class_name LIKE '初一%'");
-            await dbPool.execute("UPDATE students SET grade = '八年级' WHERE grade = '' AND class_name LIKE '初二%'");
-            await dbPool.execute("UPDATE students SET class_num = CAST(REPLACE(REPLACE(REPLACE(class_name, '初一(', ''), '初二(', ''), ')班', '') AS UNSIGNED) WHERE class_num = 0 AND class_name != '' AND class_name REGEXP '[0-9]+'");
-        } catch (e) { /* 迁移失败不阻塞启动 */ }
+            await dbPool.execute("ALTER TABLE admins ADD COLUMN role VARCHAR(20) DEFAULT 'admin' AFTER display_name");
+            console.log('[迁移] 已添加字段 role');
+        } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
 
         // 插入默认管理员账号
         const [adminExist] = await dbPool.execute(
@@ -270,7 +421,7 @@ const pool = mysql.createPool({
     database: 'python_var_lesson',
     charset: 'utf8mb4',
     waitForConnections: true,
-    connectionLimit: 10
+    connectionLimit: 20,       // 教室局域网多用户并发
 });
 
 async function hashPassword(password) {
@@ -422,7 +573,7 @@ app.get('/api/progress/:username', requireDB, async (req, res) => {
             'SELECT id FROM students WHERE username = ?', [username]
         );
         if (students.length === 0) {
-            return res.json({ modules: {}, achievements: {}, loginDates: [] });
+            return res.json({ modules: {}, achievements: {}, loginDates: [], chapters: {} });
         }
 
         const studentId = students[0].id;
@@ -435,6 +586,15 @@ app.get('/api/progress/:username', requireDB, async (req, res) => {
         const moduleMap = {};
         modules.forEach(m => {
             moduleMap[m.module_id] = m.completed_at;
+        });
+
+        // 提取章节进度（module_id 以 chapter_ 开头）
+        const chapterMap = {};
+        modules.forEach(m => {
+            if (m.module_id.startsWith('chapter_')) {
+                const chapterId = m.module_id.replace('chapter_', '');
+                chapterMap[chapterId] = m.completed_at;
+            }
         });
 
         // 获取成就
@@ -458,10 +618,10 @@ app.get('/api/progress/:username', requireDB, async (req, res) => {
             return d.toISOString().split('T')[0];
         });
 
-        res.json({ modules: moduleMap, achievements: achMap, loginDates });
+        res.json({ modules: moduleMap, achievements: achMap, loginDates, chapters: chapterMap });
     } catch (err) {
         console.error('获取进度错误:', err);
-        res.json({ modules: {}, achievements: {}, loginDates: [] });
+        res.json({ modules: {}, achievements: {}, loginDates: [], chapters: {} });
     }
 });
 
@@ -472,8 +632,30 @@ app.post('/api/progress/mark', requireDB, async (req, res) => {
         if (!username || !moduleId) {
             return res.json({ success: false, error: '参数不完整' });
         }
-        // 模块ID白名单校验
-        const validModules = ['intro', 'lab', 'lesson', 'judge', 'practice', 'trace', 'debug', 'extend', 'project', 'test'];
+        // 模块ID白名单校验（支持章节模块 + 章节完成标记 + 旧模块）
+        const validModules = [
+            'intro','lab','lesson','judge','practice','trace','debug','extend','project','test',
+            'chapter_ch1','chapter_ch2','chapter_ch3','chapter_ch4','chapter_ch5','chapter_ch6','chapter_ch7','chapter_ch8','chapter_ch9','chapter_ch10',
+            'chapter_ch11','chapter_ch12','chapter_ch13','chapter_ch14','chapter_ch15','chapter_ch16','chapter_ch17','chapter_ch18','chapter_ch19',
+            'ch1_intro','ch1_knowledge','ch1_lab','ch1_practice','ch1_debug','ch1_quiz',
+            'ch3_intro','ch3_knowledge','ch3_lab','ch3_practice','ch3_debug','ch3_extend','ch3_project','ch3_quiz',
+            'ch4_intro','ch4_knowledge','ch4_lab','ch4_practice','ch4_debug','ch4_extend','ch4_project','ch4_quiz',
+            'ch5_intro','ch5_knowledge','ch5_lab','ch5_practice','ch5_debug','ch5_extend','ch5_project','ch5_quiz',
+            'ch6_intro','ch6_knowledge','ch6_lab','ch6_practice','ch6_debug','ch6_extend','ch6_project','ch6_quiz',
+            'ch7_intro','ch7_knowledge','ch7_lab','ch7_practice','ch7_debug','ch7_extend','ch7_project','ch7_quiz',
+            'ch8_intro','ch8_knowledge','ch8_lab','ch8_practice','ch8_debug','ch8_extend','ch8_project','ch8_quiz',
+            'ch9_intro','ch9_knowledge','ch9_lab','ch9_practice','ch9_debug','ch9_extend','ch9_project','ch9_quiz',
+            'ch10_intro','ch10_knowledge','ch10_lab','ch10_practice','ch10_debug','ch10_extend','ch10_project','ch10_quiz',
+            'ch11_intro','ch11_knowledge','ch11_lab','ch11_practice','ch11_debug','ch11_extend','ch11_project','ch11_quiz',
+            'ch12_intro','ch12_knowledge','ch12_lab','ch12_practice','ch12_debug','ch12_extend','ch12_project','ch12_quiz',
+            'ch13_intro','ch13_knowledge','ch13_lab','ch13_practice','ch13_debug','ch13_extend','ch13_project','ch13_quiz',
+            'ch14_intro','ch14_knowledge','ch14_lab','ch14_practice','ch14_debug','ch14_extend','ch14_project','ch14_quiz',
+            'ch15_intro','ch15_knowledge','ch15_lab','ch15_practice','ch15_debug','ch15_extend','ch15_project','ch15_quiz',
+            'ch16_intro','ch16_knowledge','ch16_lab','ch16_practice','ch16_debug','ch16_extend','ch16_project','ch16_quiz',
+            'ch17_intro','ch17_knowledge','ch17_lab','ch17_practice','ch17_debug','ch17_extend','ch17_project','ch17_quiz',
+            'ch18_intro','ch18_knowledge','ch18_lab','ch18_practice','ch18_debug','ch18_extend','ch18_project','ch18_quiz',
+            'ch19_intro','ch19_knowledge','ch19_lab','ch19_practice','ch19_debug','ch19_extend','ch19_project','ch19_quiz'
+        ];
         if (!validModules.includes(moduleId)) {
             return res.json({ success: false, error: '无效的模块ID' });
         }
@@ -512,8 +694,13 @@ app.post('/api/achievement/award', requireDB, async (req, res) => {
         if (!username || !achievementId) {
             return res.json({ success: false, error: '参数不完整' });
         }
-        // 成就ID白名单校验
-        const validAchievements = ['beginner', 'judge', 'debugger', 'creator', 'champion', 'tracer', 'explorer', 'coder'];
+        // 成就ID白名单校验（19章 + 5里程碑 + 旧成就）
+        const validAchievements = [
+            'ch1_done','ch2_done','ch3_done','ch4_done','ch5_done','ch6_done','ch7_done','ch8_done','ch9_done',
+            'ch10_done','ch11_done','ch12_done','ch13_done','ch14_done','ch15_done','ch16_done','ch17_done','ch18_done','ch19_done',
+            'milestone_beginner','milestone_flow','milestone_data','milestone_advance','champion',
+            'beginner','judge','debugger','creator','tracer','explorer','coder'
+        ];
         if (!validAchievements.includes(achievementId)) {
             return res.json({ success: false, error: '无效的成就ID' });
         }
@@ -600,7 +787,7 @@ app.post('/api/admin/logout', adminAuth, (req, res) => {
 app.use('/api/admin', adminAuth);
 
 // ---------- 获取所有学生列表（含统计数据，支持分页）----------
-app.get('/api/admin/students', async (req, res) => {
+app.get('/api/admin/students', adminAuth, requireDB, async (req, res) => {
     try {
         const page = Math.max(1, Math.trunc(parseInt(req.query.page) || 1));
         const pageSize = Math.min(100, Math.max(10, Math.trunc(parseInt(req.query.pageSize) || 50)));
@@ -630,17 +817,17 @@ app.get('/api/admin/students', async (req, res) => {
                 FROM login_logs GROUP BY student_id
             ) ll ON s.id = ll.student_id
             ORDER BY s.created_at DESC
-            LIMIT ${pageSize} OFFSET ${offset}
-        `);
+            LIMIT ? OFFSET ?
+        `, [pageSize, offset]);
         res.json({ success: true, students: rows, total, page, pageSize });
     } catch (err) {
         console.error('获取学生列表错误:', err);
-        res.json({ success: false, error: '服务器错误: ' + err.message });
+        res.json({ success: false, error: '查询学生列表失败' });
     }
 });
 
 // ---------- 获取单个学生详细数据 ----------
-app.get('/api/admin/student/:id', async (req, res) => {
+app.get('/api/admin/student/:id', adminAuth, requireDB, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
         if (isNaN(studentId)) return res.json({ success: false, error: '无效的学生ID' });
@@ -670,10 +857,17 @@ app.get('/api/admin/student/:id', async (req, res) => {
             [studentId]
         );
 
+        // 测验成绩（有分数的模块）
+        const [quizScores] = await pool.query(
+            'SELECT module_id, score, completed_at FROM learning_progress WHERE student_id = ? AND completed = 1 AND score > 0 ORDER BY module_id',
+            [studentId]
+        );
+
         res.json({
             success: true,
             student: students[0],
             modules,
+            quizScores,
             achievements,
             loginLogs: logs
         });
@@ -684,7 +878,7 @@ app.get('/api/admin/student/:id', async (req, res) => {
 });
 
 // ---------- 获取全局统计数据 ----------
-app.get('/api/admin/stats', async (req, res) => {
+app.get('/api/admin/stats', adminAuth, requireDB, async (req, res) => {
     try {
         const [[{ totalStudents }]] = await pool.query('SELECT COUNT(*) AS totalStudents FROM students');
         const [[{ totalCompleted }]] = await pool.query('SELECT COUNT(*) AS totalCompleted FROM learning_progress WHERE completed = 1');
@@ -724,7 +918,7 @@ app.get('/api/admin/stats', async (req, res) => {
 });
 
 // ---------- 删除学生 ----------
-app.delete('/api/admin/student/:id', async (req, res) => {
+app.delete('/api/admin/student/:id', adminAuth, requireDB, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
         if (isNaN(studentId)) return res.json({ success: false, error: '无效的学生ID' });
@@ -739,7 +933,7 @@ app.delete('/api/admin/student/:id', async (req, res) => {
 });
 
 // ---------- 批量导入学生 ----------
-app.post('/api/admin/students/import', async (req, res) => {
+app.post('/api/admin/students/import', adminAuth, requireDB, async (req, res) => {
     try {
         const { students } = req.body;
         if (!Array.isArray(students) || students.length === 0) {
@@ -807,7 +1001,7 @@ app.post('/api/admin/students/import', async (req, res) => {
 });
 
 // ---------- 批量修改学生信息（转班/毕业/改密）----------
-app.put('/api/admin/students/batch', async (req, res) => {
+app.put('/api/admin/students/batch', adminAuth, requireDB, async (req, res) => {
     try {
         const { ids, action, value } = req.body;
         if (!Array.isArray(ids) || ids.length === 0) {
@@ -900,7 +1094,7 @@ app.put('/api/admin/students/batch', async (req, res) => {
 
 // ---------- 系统公告 ----------
 // 获取公告列表（学生端）
-app.get('/api/notices', async (req, res) => {
+app.get('/api/notices', requireDB, async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT id, title, content, created_at FROM notices ORDER BY created_at DESC LIMIT 10');
         res.json({ success: true, notices: rows });
@@ -911,7 +1105,7 @@ app.get('/api/notices', async (req, res) => {
 });
 
 // 管理端获取公告
-app.get('/api/admin/notices', async (req, res) => {
+app.get('/api/admin/notices', adminAuth, requireDB, async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT id, title, content, created_at, updated_at FROM notices ORDER BY created_at DESC');
         res.json({ success: true, notices: rows });
@@ -922,7 +1116,7 @@ app.get('/api/admin/notices', async (req, res) => {
 });
 
 // 管理端发布公告
-app.post('/api/admin/notices', async (req, res) => {
+app.post('/api/admin/notices', adminAuth, requireDB, async (req, res) => {
     try {
         const { title, content } = req.body;
         if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
@@ -937,7 +1131,7 @@ app.post('/api/admin/notices', async (req, res) => {
 });
 
 // 管理端编辑公告
-app.put('/api/admin/notices/:id', async (req, res) => {
+app.put('/api/admin/notices/:id', adminAuth, requireDB, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
         if (isNaN(id)) return res.json({ success: false, error: '无效的公告ID' });
@@ -954,7 +1148,7 @@ app.put('/api/admin/notices/:id', async (req, res) => {
 });
 
 // 管理端删除公告
-app.delete('/api/admin/notices/:id', async (req, res) => {
+app.delete('/api/admin/notices/:id', adminAuth, requireDB, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
         if (isNaN(id)) return res.json({ success: false, error: '无效的公告ID' });
@@ -967,7 +1161,7 @@ app.delete('/api/admin/notices/:id', async (req, res) => {
 });
 
 // ---------- 修改管理员密码 ----------
-app.put('/api/admin/password', async (req, res) => {
+app.put('/api/admin/password', adminAuth, requireDB, async (req, res) => {
     try {
         const { oldPassword, newPassword } = req.body;
         if (!oldPassword || !newPassword) return res.json({ success: false, error: '密码不能为空' });
@@ -990,7 +1184,7 @@ app.put('/api/admin/password', async (req, res) => {
 });
 
 // ---------- 操作日志 ----------
-app.get('/api/admin/logs', async (req, res) => {
+app.get('/api/admin/logs', adminAuth, requireDB, async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT admin_name, action, detail, created_at FROM admin_logs ORDER BY created_at DESC LIMIT 100');
         res.json({ success: true, logs: rows });
@@ -1001,7 +1195,7 @@ app.get('/api/admin/logs', async (req, res) => {
 });
 
 // ---------- 数据备份 ----------
-app.get('/api/admin/backup', async (req, res) => {
+app.get('/api/admin/backup', adminAuth, requireDB, async (req, res) => {
     try {
         const [students] = await pool.query('SELECT * FROM students');
         const [progress] = await pool.query('SELECT * FROM learning_progress');
@@ -1020,7 +1214,7 @@ app.get('/api/admin/backup', async (req, res) => {
 });
 
 // ---------- 数据恢复 ----------
-app.post('/api/admin/restore', async (req, res) => {
+app.post('/api/admin/restore', adminAuth, requireDB, async (req, res) => {
     try {
         const data = req.body;
         if (!data.students || !Array.isArray(data.students)) return res.json({ success: false, error: '无效的备份文件' });
@@ -1067,12 +1261,12 @@ app.post('/api/admin/restore', async (req, res) => {
         }
     } catch (err) {
         console.error('恢复错误:', err);
-        res.json({ success: false, error: '服务器错误: ' + err.message });
+        res.json({ success: false, error: '恢复删除失败' });
     }
 });
 
 // ---------- 按班级统计 ----------
-app.get('/api/admin/stats/class', async (req, res) => {
+app.get('/api/admin/stats/class', adminAuth, requireDB, async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT 
@@ -1100,12 +1294,12 @@ app.get('/api/admin/stats/class', async (req, res) => {
         res.json({ success: true, classStats });
     } catch (err) {
         console.error('班级统计错误:', err);
-        res.json({ success: false, error: '服务器错误: ' + err.message });
+        res.json({ success: false, error: '查询班级统计失败' });
     }
 });
 
 // ---------- 班级统计导出 CSV ----------
-app.get('/api/admin/stats/class/export', async (req, res) => {
+app.get('/api/admin/stats/class/export', adminAuth, requireDB, async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT 
@@ -1146,7 +1340,7 @@ function fmtDate(d) {
 }
 
 // ---------- 数据导出（CSV）----------
-app.get('/api/admin/export', async (req, res) => {
+app.get('/api/admin/export', adminAuth, requireDB, async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT 
@@ -1203,7 +1397,928 @@ app.get('/api/admin/export', async (req, res) => {
         res.send(csv);
     } catch (err) {
         console.error('导出错误:', err);
-        res.status(500).json({ success: false, error: '服务器错误: ' + err.message });
+        res.status(500).json({ success: false, error: '导出失败' });
+    }
+});
+
+// ===================================================
+// 学生端 API - 错题本
+// ===================================================
+
+// 记录错题
+app.post('/api/mistakes', requireDB, async (req, res) => {
+    try {
+        const { username, chapterId, questionText, correctAnswer, studentAnswer } = req.body;
+        if (!username || !chapterId || !questionText || !correctAnswer || !studentAnswer) {
+            return res.json({ success: false, error: '参数不完整' });
+        }
+
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        await pool.query(
+            'INSERT INTO mistake_book (student_id, chapter_id, question_text, correct_answer, student_answer) VALUES (?, ?, ?, ?, ?)',
+            [students[0].id, chapterId, questionText, correctAnswer, studentAnswer]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('记录错题错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取错题列表
+app.get('/api/mistakes/:username', requireDB, async (req, res) => {
+    try {
+        const { username } = req.params;
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        const [rows] = await pool.query(
+            'SELECT id, chapter_id, question_text, correct_answer, student_answer, created_at FROM mistake_book WHERE student_id = ? ORDER BY created_at DESC',
+            [students[0].id]
+        );
+        res.json({ success: true, mistakes: rows });
+    } catch (err) {
+        console.error('获取错题错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 删除单条错题
+app.delete('/api/mistakes/:id', requireDB, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
+
+        const { username } = req.body;
+        if (!username) return res.json({ success: false, error: '缺少用户名' });
+
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        const [mistake] = await pool.query('SELECT id FROM mistake_book WHERE id = ? AND student_id = ?', [id, students[0].id]);
+        if (mistake.length === 0) return res.json({ success: false, error: '错题不存在或无权操作' });
+
+        await pool.query('DELETE FROM mistake_book WHERE id = ?', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('删除错题错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 学生端 API - 学习笔记
+// ===================================================
+
+// 保存笔记
+app.post('/api/notes', requireDB, async (req, res) => {
+    try {
+        const { username, chapterId, moduleId, content } = req.body;
+        if (!username || !chapterId || !content) {
+            return res.json({ success: false, error: '参数不完整' });
+        }
+
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        await pool.query(
+            'INSERT INTO study_notes (student_id, chapter_id, module_id, content) VALUES (?, ?, ?, ?)',
+            [students[0].id, chapterId, moduleId || '', content]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('保存笔记错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取某章节笔记
+app.get('/api/notes/:username/:chapterId', requireDB, async (req, res) => {
+    try {
+        const { username, chapterId } = req.params;
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        const [rows] = await pool.query(
+            'SELECT id, module_id, content, created_at, updated_at FROM study_notes WHERE student_id = ? AND chapter_id = ? ORDER BY updated_at DESC',
+            [students[0].id, chapterId]
+        );
+        res.json({ success: true, notes: rows });
+    } catch (err) {
+        console.error('获取笔记错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 更新笔记
+app.put('/api/notes/:id', requireDB, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
+
+        const { content } = req.body;
+        if (!content) return res.json({ success: false, error: '内容不能为空' });
+
+        await pool.query('UPDATE study_notes SET content = ? WHERE id = ?', [content, id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('更新笔记错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 学生端 API - 代码收藏
+// ===================================================
+
+// 收藏代码
+app.post('/api/snippets', requireDB, async (req, res) => {
+    try {
+        const { username, title, code, chapterId } = req.body;
+        if (!username || !title || !code) {
+            return res.json({ success: false, error: '参数不完整' });
+        }
+
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        await pool.query(
+            'INSERT INTO code_snippets (student_id, title, code, chapter_id) VALUES (?, ?, ?, ?)',
+            [students[0].id, title, code, chapterId || '']
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('收藏代码错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取收藏列表
+app.get('/api/snippets/:username', requireDB, async (req, res) => {
+    try {
+        const { username } = req.params;
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        const [rows] = await pool.query(
+            'SELECT id, title, code, chapter_id, created_at FROM code_snippets WHERE student_id = ? ORDER BY created_at DESC',
+            [students[0].id]
+        );
+        res.json({ success: true, snippets: rows });
+    } catch (err) {
+        console.error('获取收藏错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 删除收藏
+app.delete('/api/snippets/:id', requireDB, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
+
+        const { username } = req.body;
+        if (!username) return res.json({ success: false, error: '缺少用户名' });
+
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        const [snippet] = await pool.query('SELECT id FROM code_snippets WHERE id = ? AND student_id = ?', [id, students[0].id]);
+        if (snippet.length === 0) return res.json({ success: false, error: '收藏不存在或无权操作' });
+
+        await pool.query('DELETE FROM code_snippets WHERE id = ?', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('删除收藏错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 学生端 API - 排行榜
+// ===================================================
+
+app.get('/api/leaderboard', requireDB, async (req, res) => {
+    try {
+        const { grade, classNum } = req.query;
+        let sql = `
+            SELECT 
+                s.username, s.display_name, s.grade, s.class_num,
+                COALESCE(chapter_counts.cnt, 0) AS chapter_count,
+                COALESCE(ach_counts.cnt, 0) AS achievement_count,
+                (COALESCE(chapter_counts.cnt, 0) * 10 + COALESCE(ach_counts.cnt, 0)) AS score
+            FROM students s
+            LEFT JOIN (
+                SELECT student_id, COUNT(*) AS cnt
+                FROM learning_progress
+                WHERE completed = 1 AND module_id LIKE 'chapter_%'
+                GROUP BY student_id
+            ) chapter_counts ON s.id = chapter_counts.student_id
+            LEFT JOIN (
+                SELECT student_id, COUNT(*) AS cnt
+                FROM achievements
+                GROUP BY student_id
+            ) ach_counts ON s.id = ach_counts.student_id
+            WHERE s.status = 'active'
+        `;
+        const params = [];
+
+        if (grade) {
+            sql += ' AND s.grade = ?';
+            params.push(grade);
+        }
+        if (classNum) {
+            sql += ' AND s.class_num = ?';
+            params.push(parseInt(classNum));
+        }
+
+        sql += ' ORDER BY score DESC, s.display_name ASC LIMIT 50';
+
+        const [rows] = await pool.query(sql, params);
+        res.json({ success: true, leaderboard: rows });
+    } catch (err) {
+        console.error('排行榜错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 学生端 API - 学习报告
+// ===================================================
+
+app.get('/api/report/:username', requireDB, async (req, res) => {
+    try {
+        const { username } = req.params;
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        const studentId = students[0].id;
+
+        // 总章节完成数
+        const [[{ chapterCount }]] = await pool.query(
+            "SELECT COUNT(*) AS chapterCount FROM learning_progress WHERE student_id = ? AND completed = 1 AND module_id LIKE 'chapter_%'",
+            [studentId]
+        );
+
+        // 总成就数
+        const [[{ achievementCount }]] = await pool.query(
+            'SELECT COUNT(*) AS achievementCount FROM achievements WHERE student_id = ?',
+            [studentId]
+        );
+
+        // 连续学习天数
+        const [loginDates] = await pool.query(
+            'SELECT DISTINCT DATE(login_time) AS login_date FROM login_logs WHERE student_id = ? ORDER BY login_date DESC',
+            [studentId]
+        );
+        let streakDays = 0;
+        if (loginDates.length > 0) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            const lastLoginDate = new Date(loginDates[0].login_date);
+            lastLoginDate.setHours(0, 0, 0, 0);
+
+            if (lastLoginDate.getTime() >= yesterday.getTime()) {
+                streakDays = 1;
+                let current = new Date(lastLoginDate);
+                for (let i = 1; i < loginDates.length; i++) {
+                    const prev = new Date(loginDates[i].login_date);
+                    const expected = new Date(current);
+                    expected.setDate(expected.getDate() - 1);
+                    if (prev.getTime() === expected.getTime()) {
+                        streakDays++;
+                        current = prev;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 各章完成情况
+        const [chapterDetails] = await pool.query(
+            "SELECT module_id, score, completed_at FROM learning_progress WHERE student_id = ? AND completed = 1 AND module_id LIKE 'chapter_%' ORDER BY module_id",
+            [studentId]
+        );
+
+        // 所有模块完成详情
+        const [allModules] = await pool.query(
+            'SELECT module_id, score, completed_at FROM learning_progress WHERE student_id = ? AND completed = 1 ORDER BY module_id',
+            [studentId]
+        );
+
+        // 强项弱项分析：按章节统计得分
+        const chapterScoreMap = {};
+        for (const m of allModules) {
+            // 提取章节ID（如 ch1_intro -> ch1, chapter_ch1 -> ch1）
+            let chId = '';
+            if (m.module_id.startsWith('chapter_')) {
+                chId = m.module_id.replace('chapter_', '');
+            } else if (m.module_id.startsWith('ch') && m.module_id.includes('_')) {
+                chId = m.module_id.split('_')[0];
+            }
+            if (chId) {
+                if (!chapterScoreMap[chId]) chapterScoreMap[chId] = { total: 0, count: 0 };
+                chapterScoreMap[chId].total += m.score || 0;
+                chapterScoreMap[chId].count++;
+            }
+        }
+
+        const strengths = [];
+        const weaknesses = [];
+        for (const [ch, data] of Object.entries(chapterScoreMap)) {
+            const avg = data.count > 0 ? data.total / data.count : 0;
+            if (avg >= 80) strengths.push(ch);
+            else if (avg < 60 && data.count > 0) weaknesses.push(ch);
+        }
+
+        // 总学习天数
+        const [[{ totalDays }]] = await pool.query(
+            'SELECT COUNT(DISTINCT DATE(login_time)) AS totalDays FROM login_logs WHERE student_id = ?',
+            [studentId]
+        );
+
+        res.json({
+            success: true,
+            report: {
+                totalChapters: Number(chapterCount),
+                totalAchievements: Number(achievementCount),
+                streakDays,
+                totalDays: Number(totalDays),
+                chapterDetails: chapterDetails.map(m => ({
+                    moduleId: m.module_id,
+                    score: m.score,
+                    completedAt: m.completed_at
+                })),
+                strengths,
+                weaknesses
+            }
+        });
+    } catch (err) {
+        console.error('学习报告错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 学生端 API - 通知
+// ===================================================
+
+// 获取通知列表
+app.get('/api/notifications/:username', requireDB, async (req, res) => {
+    try {
+        const { username } = req.params;
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        const [rows] = await pool.query(
+            'SELECT id, title, content, type, is_read, created_at FROM notifications WHERE student_id = ? ORDER BY created_at DESC LIMIT 50',
+            [students[0].id]
+        );
+        res.json({ success: true, notifications: rows });
+    } catch (err) {
+        console.error('获取通知错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 标记已读
+app.put('/api/notifications/:id/read', requireDB, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
+
+        await pool.query('UPDATE notifications SET is_read = 1 WHERE id = ?', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('标记已读错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 学生端 API - 学习目标
+// ===================================================
+
+// 设置目标
+app.post('/api/goals', requireDB, async (req, res) => {
+    try {
+        const { username, goalText, targetChapters, startDate, endDate } = req.body;
+        if (!username || !goalText || !startDate || !endDate) {
+            return res.json({ success: false, error: '参数不完整' });
+        }
+
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        await pool.query(
+            'INSERT INTO student_goals (student_id, goal_text, target_chapters, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
+            [students[0].id, goalText, parseInt(targetChapters) || 0, startDate, endDate]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('设置目标错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取当前目标
+app.get('/api/goals/:username', requireDB, async (req, res) => {
+    try {
+        const { username } = req.params;
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        const [rows] = await pool.query(
+            'SELECT id, goal_text, target_chapters, start_date, end_date, completed, created_at FROM student_goals WHERE student_id = ? ORDER BY created_at DESC LIMIT 5',
+            [students[0].id]
+        );
+        res.json({ success: true, goals: rows });
+    } catch (err) {
+        console.error('获取目标错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 学生端 API - 讨论区
+// ===================================================
+
+// 获取讨论列表
+app.get('/api/discussions', requireDB, async (req, res) => {
+    try {
+        const { chapterId } = req.query;
+        let sql = `
+            SELECT dp.id, dp.title, dp.content, dp.chapter_id, dp.created_at,
+                   s.display_name, s.username,
+                   (SELECT COUNT(*) FROM discussion_replies WHERE post_id = dp.id) AS reply_count
+            FROM discussion_posts dp
+            JOIN students s ON dp.student_id = s.id
+        `;
+        const params = [];
+        if (chapterId) {
+            sql += ' WHERE dp.chapter_id = ?';
+            params.push(chapterId);
+        }
+        sql += ' ORDER BY dp.created_at DESC LIMIT 50';
+
+        const [rows] = await pool.query(sql, params);
+        res.json({ success: true, discussions: rows });
+    } catch (err) {
+        console.error('获取讨论错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 发帖
+app.post('/api/discussions', requireDB, async (req, res) => {
+    try {
+        const { username, title, content, chapterId } = req.body;
+        if (!username || !title || !content) {
+            return res.json({ success: false, error: '参数不完整' });
+        }
+
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        const [result] = await pool.query(
+            'INSERT INTO discussion_posts (student_id, title, content, chapter_id) VALUES (?, ?, ?, ?)',
+            [students[0].id, title, content, chapterId || '']
+        );
+        res.json({ success: true, id: result.insertId });
+    } catch (err) {
+        console.error('发帖错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取帖子详情（含回复）
+app.get('/api/discussions/:id', requireDB, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
+
+        const [posts] = await pool.query(
+            `SELECT dp.id, dp.title, dp.content, dp.chapter_id, dp.created_at,
+                    s.display_name, s.username
+             FROM discussion_posts dp
+             JOIN students s ON dp.student_id = s.id
+             WHERE dp.id = ?`,
+            [id]
+        );
+        if (posts.length === 0) return res.json({ success: false, error: '帖子不存在' });
+
+        const [replies] = await pool.query(
+            `SELECT dr.id, dr.content, dr.created_at, s.display_name, s.username
+             FROM discussion_replies dr
+             JOIN students s ON dr.student_id = s.id
+             WHERE dr.post_id = ?
+             ORDER BY dr.created_at ASC`,
+            [id]
+        );
+
+        res.json({ success: true, post: posts[0], replies });
+    } catch (err) {
+        console.error('获取帖子详情错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 回复帖子
+app.post('/api/discussions/:id/replies', requireDB, async (req, res) => {
+    try {
+        const postId = parseInt(req.params.id);
+        if (isNaN(postId)) return res.json({ success: false, error: '无效的ID' });
+
+        const { username, content } = req.body;
+        if (!username || !content) return res.json({ success: false, error: '参数不完整' });
+
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        await pool.query(
+            'INSERT INTO discussion_replies (post_id, student_id, content) VALUES (?, ?, ?)',
+            [postId, students[0].id, content]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('回复错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 学生端 API - 每日一题
+// ===================================================
+
+app.get('/api/daily-question', requireDB, async (req, res) => {
+    try {
+        const { date } = req.query;
+        let sql = 'SELECT id, question, options, answer, explanation, question_date FROM daily_questions';
+        let params = [];
+
+        if (date) {
+            sql += ' WHERE question_date = ?';
+            params.push(date);
+        } else {
+            sql += ' ORDER BY question_date DESC LIMIT 1';
+        }
+
+        const [rows] = await pool.query(sql, params);
+        if (rows.length === 0) {
+            return res.json({ success: false, error: '暂无题目' });
+        }
+        res.json({ success: true, question: rows[0] });
+    } catch (err) {
+        console.error('获取每日一题错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 管理端 API - 学习趋势
+// ===================================================
+
+app.get('/api/admin/trends', adminAuth, requireDB, async (req, res) => {
+    try {
+        const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 30));
+        const [moduleRows] = await pool.query(
+            `SELECT DATE(completed_at) AS dt, COUNT(*) AS cnt
+             FROM learning_progress WHERE completed = 1 AND completed_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+             GROUP BY DATE(completed_at) ORDER BY dt`,
+            [days]
+        );
+        const [loginRows] = await pool.query(
+            `SELECT DATE(login_time) AS dt, COUNT(DISTINCT student_id) AS cnt
+             FROM login_logs WHERE login_time >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+             GROUP BY DATE(login_time) ORDER BY dt`,
+            [days]
+        );
+
+        // 构建完整日期序列
+        const trendData = [];
+        const moduleMap = {};
+        const loginMap = {};
+        moduleRows.forEach(r => { moduleMap[r.dt] = r.cnt; });
+        loginRows.forEach(r => { loginMap[r.dt] = r.cnt; });
+
+        for (let i = days - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const ds = d.toISOString().split('T')[0];
+            trendData.push({
+                date: ds,
+                newModules: Number(moduleMap[ds]) || 0,
+                newLogins: Number(loginMap[ds]) || 0
+            });
+        }
+
+        res.json({ success: true, trends: trendData });
+    } catch (err) {
+        console.error('学习趋势错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 管理端 API - 章节完成率
+// ===================================================
+
+app.get('/api/admin/chapter-completion', adminAuth, requireDB, async (req, res) => {
+    try {
+        const [[{ totalStudents }]] = await pool.query(
+            "SELECT COUNT(*) AS totalStudents FROM students WHERE status = 'active'"
+        );
+
+        const [rows] = await pool.query(
+            `SELECT module_id, COUNT(*) AS completed_count
+             FROM learning_progress
+             WHERE completed = 1 AND module_id LIKE 'chapter_%'
+             GROUP BY module_id ORDER BY module_id`
+        );
+
+        const chapters = rows.map(r => ({
+            chapterId: r.module_id.replace('chapter_', ''),
+            completedCount: r.completed_count,
+            totalStudents: Number(totalStudents),
+            completionRate: totalStudents > 0 ? Math.round(r.completed_count / totalStudents * 100) : 0
+        }));
+
+        res.json({ success: true, chapters, totalStudents: Number(totalStudents) });
+    } catch (err) {
+        console.error('章节完成率错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 管理端 API - 测验成绩
+// ===================================================
+
+app.get('/api/admin/quiz-scores', adminAuth, requireDB, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT module_id, AVG(score) AS avg_score, COUNT(*) AS student_count,
+                    MAX(score) AS max_score, MIN(score) AS min_score
+             FROM learning_progress
+             WHERE completed = 1 AND score > 0 AND module_id LIKE '%quiz%'
+             GROUP BY module_id ORDER BY module_id`
+        );
+        const quizScores = rows.map(r => ({
+            moduleId: r.module_id,
+            avgScore: Math.round(Number(r.avg_score) * 10) / 10,
+            studentCount: r.student_count,
+            maxScore: r.max_score,
+            minScore: r.min_score
+        }));
+        res.json({ success: true, quizScores });
+    } catch (err) {
+        console.error('测验成绩错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 管理端 API - 作业管理
+// ===================================================
+
+// 布置作业
+app.post('/api/admin/assignments', adminAuth, requireDB, async (req, res) => {
+    try {
+        const { title, description, chapterId, dueDate } = req.body;
+        if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
+
+        await pool.query(
+            'INSERT INTO assignments (title, description, chapter_id, due_date, created_by) VALUES (?, ?, ?, ?, ?)',
+            [title.trim(), description || '', chapterId || '', dueDate || null, req.adminUser.username]
+        );
+        await logAdminAction(req.adminUser.username, '布置作业', title.trim());
+        res.json({ success: true });
+    } catch (err) {
+        console.error('布置作业错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取作业列表
+app.get('/api/admin/assignments', adminAuth, requireDB, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.created_by, a.created_at,
+                    (SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id = a.id) AS submission_count
+             FROM assignments a ORDER BY a.created_at DESC`
+        );
+        res.json({ success: true, assignments: rows });
+    } catch (err) {
+        console.error('获取作业列表错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 编辑作业
+app.put('/api/admin/assignments/:id', adminAuth, requireDB, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
+
+        const { title, description, chapterId, dueDate } = req.body;
+        if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
+
+        await pool.query(
+            'UPDATE assignments SET title = ?, description = ?, chapter_id = ?, due_date = ? WHERE id = ?',
+            [title.trim(), description || '', chapterId || '', dueDate || null, id]
+        );
+        await logAdminAction(req.adminUser.username, '编辑作业', title.trim());
+        res.json({ success: true });
+    } catch (err) {
+        console.error('编辑作业错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 删除作业
+app.delete('/api/admin/assignments/:id', adminAuth, requireDB, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
+
+        await pool.query('DELETE FROM assignments WHERE id = ?', [id]);
+        await logAdminAction(req.adminUser.username, '删除作业', `作业ID: ${id}`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('删除作业错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 查看提交情况
+app.get('/api/admin/assignments/:id/submissions', adminAuth, requireDB, async (req, res) => {
+    try {
+        const assignmentId = parseInt(req.params.id);
+        if (isNaN(assignmentId)) return res.json({ success: false, error: '无效的ID' });
+
+        const [rows] = await pool.query(
+            `SELECT ass.id, ass.content, ass.score, ass.submitted_at,
+                    s.display_name, s.username, s.grade, s.class_num
+             FROM assignment_submissions ass
+             JOIN students s ON ass.student_id = s.id
+             WHERE ass.assignment_id = ?
+             ORDER BY ass.submitted_at DESC`,
+            [assignmentId]
+        );
+        res.json({ success: true, submissions: rows });
+    } catch (err) {
+        console.error('获取提交情况错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 管理端 API - 活跃度监控
+// ===================================================
+
+app.get('/api/admin/inactive-students', adminAuth, requireDB, async (req, res) => {
+    try {
+        const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 7));
+
+        const [rows] = await pool.query(
+            `SELECT s.id, s.username, s.display_name, s.grade, s.class_num,
+                    MAX(ll.login_time) AS last_login
+             FROM students s
+             LEFT JOIN login_logs ll ON s.id = ll.student_id
+             WHERE s.status = 'active'
+             GROUP BY s.id
+             HAVING last_login IS NULL OR last_login < DATE_SUB(NOW(), INTERVAL ? DAY)
+             ORDER BY last_login ASC`,
+            [days]
+        );
+        res.json({ success: true, inactiveStudents: rows, days });
+    } catch (err) {
+        console.error('活跃度监控错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
+// 管理端 API - 每日一题管理
+// ===================================================
+
+// 添加每日一题
+app.post('/api/admin/daily-questions', adminAuth, requireDB, async (req, res) => {
+    try {
+        const { question, options, answer, explanation, questionDate } = req.body;
+        if (!question || !answer || !questionDate) {
+            return res.json({ success: false, error: '参数不完整' });
+        }
+
+        await pool.query(
+            'INSERT INTO daily_questions (question, options, answer, explanation, question_date) VALUES (?, ?, ?, ?, ?)',
+            [question, options ? JSON.stringify(options) : null, answer, explanation || '', questionDate]
+        );
+        await logAdminAction(req.adminUser.username, '添加每日一题', questionDate);
+        res.json({ success: true });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.json({ success: false, error: '该日期已有题目' });
+        }
+        console.error('添加每日一题错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 删除每日一题
+app.delete('/api/admin/daily-questions/:id', adminAuth, requireDB, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
+
+        await pool.query('DELETE FROM daily_questions WHERE id = ?', [id]);
+        await logAdminAction(req.adminUser.username, '删除每日一题', `ID: ${id}`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('删除每日一题错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取每日一题列表
+app.get('/api/admin/daily-questions', adminAuth, requireDB, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT id, question, options, answer, explanation, question_date, created_at FROM daily_questions ORDER BY question_date DESC LIMIT 30'
+        );
+        res.json({ success: true, questions: rows });
+    } catch (err) {
+        console.error('获取每日一题错误:', err);
+        res.json({ success: false, error: '获取每日一题失败' });
+    }
+});
+
+// 获取管理员列表
+app.get('/api/admin/admins', adminAuth, requireDB, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT id, username, display_name, role, created_at FROM admins ORDER BY created_at DESC'
+        );
+        res.json({ success: true, admins: rows });
+    } catch (err) {
+        console.error('获取管理员列表错误:', err);
+        res.json({ success: false, error: '获取管理员列表失败' });
+    }
+});
+
+// ===================================================
+// 管理端 API - 增强导出
+// ===================================================
+
+app.get('/api/admin/export/excel', adminAuth, requireDB, async (req, res) => {
+    try {
+        const [rows] = await pool.query(`
+            SELECT 
+                s.id, s.username, s.display_name, s.grade, s.class_num, s.status,
+                s.created_at,
+                COALESCE(lp.module_count, 0) AS module_count,
+                COALESCE(ach.ach_count, 0) AS ach_count,
+                COALESCE(ll.login_days, 0) AS login_days,
+                ll.last_login
+            FROM students s
+            LEFT JOIN (
+                SELECT student_id, COUNT(DISTINCT module_id) AS module_count
+                FROM learning_progress WHERE completed = 1 GROUP BY student_id
+            ) lp ON s.id = lp.student_id
+            LEFT JOIN (
+                SELECT student_id, COUNT(*) AS ach_count
+                FROM achievements GROUP BY student_id
+            ) ach ON s.id = ach.student_id
+            LEFT JOIN (
+                SELECT student_id, COUNT(DISTINCT DATE(login_time)) AS login_days,
+                       MAX(login_time) AS last_login
+                FROM login_logs GROUP BY student_id
+            ) ll ON s.id = ll.student_id
+            ORDER BY s.grade, s.class_num, s.display_name
+        `);
+
+        // 获取每个学生的各章完成详情
+        for (const row of rows) {
+            const [chapters] = await pool.query(
+                "SELECT module_id, completed_at FROM learning_progress WHERE student_id = ? AND completed = 1 AND module_id LIKE 'chapter_%' ORDER BY module_id",
+                [row.id]
+            );
+            row.chapterDetails = chapters.map(c => ({
+                chapterId: c.module_id.replace('chapter_', ''),
+                completedAt: c.completed_at
+            }));
+        }
+
+        res.json({ success: true, students: rows, exportedAt: new Date().toISOString() });
+    } catch (err) {
+        console.error('增强导出错误:', err);
+        res.json({ success: false, error: '服务器错误' });
     }
 });
 
@@ -1257,7 +2372,7 @@ app.use((err, req, res, next) => {
             }
         }
         console.log('===========================================');
-        console.log(`  Python 变量学习平台已启动`);
+        console.log(`  Python 基础学习平台已启动`);
         console.log(`  本机访问：http://localhost:${PORT}`);
         if (localIPs.length > 0) {
             console.log(`  局域网访问：http://${localIPs[0]}:${PORT}`);

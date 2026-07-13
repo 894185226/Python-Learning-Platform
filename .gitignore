@@ -1,0 +1,10 @@
+node_modules/
+package-lock.json
+*.log
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+__pycache__/
+*.pyc
+.trae/

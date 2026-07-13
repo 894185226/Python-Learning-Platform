@@ -1,0 +1,12 @@
+{
+  "name": "pythonvariablelesson",
+  "version": "1.0.0",
+  "description": "Python基础学习平台",
+  "main": "server.js",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "mysql2": "^3.22.3"
+  }
+}

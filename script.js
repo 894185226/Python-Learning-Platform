@@ -2731,32 +2731,32 @@ function initScrollReveal() {
     }
 }
 
-// 章节子模块导航吸顶效果
+// 章节子模块导航吸顶效果（一体化：主导航+次级导航联动）
 function stickyChapterNav() {
-    const STICKY_TOP = 60; // 主导航栏高度，nav 至此即吸顶
+    const MAIN_NAV_HEIGHT = 60; // 主导航栏高度
     const topBar = document.querySelector('.w3-top');
     const navs = document.querySelectorAll('.chapter-module-nav');
     if (navs.length === 0) return;
 
     const currentY = window.scrollY;
-    // 始终更新滚动位置，避免从非吸顶状态切换时使用陈旧值
     if (stickyChapterNav._lastY === undefined) stickyChapterNav._lastY = currentY;
     const isScrollingDown = currentY > stickyChapterNav._lastY;
+    const isScrollingUp = currentY < stickyChapterNav._lastY;
     stickyChapterNav._lastY = currentY;
 
     let anySticky = false;
     navs.forEach(nav => {
-        const rect = nav.getBoundingClientRect();
         const parent = nav.parentElement;
         if (!parent) return;
         const parentRect = parent.getBoundingClientRect();
-        const shouldStick = rect.top <= STICKY_TOP && parentRect.bottom > STICKY_TOP + rect.height;
+        const shouldStick = parentRect.top <= MAIN_NAV_HEIGHT && parentRect.bottom > MAIN_NAV_HEIGHT + nav.offsetHeight;
+
         if (shouldStick && !nav.classList.contains('is-sticky')) {
             nav.classList.add('is-sticky');
             nav.style.width = parent.offsetWidth + 'px';
             if (!nav._placeholder) {
                 nav._placeholder = document.createElement('div');
-                nav._placeholder.style.height = rect.height + 'px';
+                nav._placeholder.style.height = nav.offsetHeight + 'px';
                 nav._placeholder.style.width = '100%';
                 nav._placeholder.style.flexShrink = '0';
             }
@@ -2771,17 +2771,24 @@ function stickyChapterNav() {
         if (nav.classList.contains('is-sticky')) anySticky = true;
     });
 
+    // 一体化逻辑：次级导航吸顶后，主导航和次级导航联动
     if (anySticky) {
         navs.forEach(nav => {
             if (!nav.classList.contains('is-sticky')) return;
+
             if (isScrollingDown) {
+                // 下滑：主导航隐藏上移，次级导航置顶
                 nav.classList.add('nav-top-zero');
                 if (topBar) topBar.classList.add('nav-hidden');
-            } else {
+            } else if (isScrollingUp && currentY <= MAIN_NAV_HEIGHT) {
+                // 上滑到顶部：主导航恢复，次级导航回到主导航下方
                 nav.classList.remove('nav-top-zero');
                 if (topBar) topBar.classList.remove('nav-hidden');
             }
         });
+    } else {
+        // 没有吸顶的导航时，确保主导航显示
+        if (topBar) topBar.classList.remove('nav-hidden');
     }
 }
 
@@ -2827,11 +2834,15 @@ function initNavScrollBehavior() {
             navbar.classList.remove('scrolled');
         }
         
-        // 向下滚动超过 200px 时隐藏导航栏，向上滚动时显示
-        if (scrollY > 200 && scrollY > lastScrollY) {
-            if (topBar) topBar.classList.add('nav-hidden');
-        } else {
-            if (topBar) topBar.classList.remove('nav-hidden');
+        // 仅在非章节页面（无 chapter-module-nav）时控制主导航显隐
+        // 章节页面的导航栏由 stickyChapterNav() 统一管理
+        const hasChapterNav = document.querySelector('.chapter-module-nav');
+        if (!hasChapterNav) {
+            if (scrollY > 200 && scrollY > lastScrollY) {
+                if (topBar) topBar.classList.add('nav-hidden');
+            } else if (scrollY < lastScrollY) {
+                if (topBar) topBar.classList.remove('nav-hidden');
+            }
         }
         
         lastScrollY = scrollY;
@@ -2845,7 +2856,6 @@ function initNavScrollBehavior() {
         }
     }, { passive: true });
 
-    // 初始状态
     updateNavState();
 }
 
@@ -3289,6 +3299,7 @@ function switchToVariableChapterBody() {
     ch2Container.innerHTML = `
         <div class="chapter-landing">
             <div class="chapter-module-nav" id="chapterModNav-ch2">
+                <div class="mod-nav-inner">
                 <button class="mod-nav-btn" onclick="startVariableModule('intro')">🎬 情境导入</button>
                 <button class="mod-nav-btn" onclick="startVariableModule('lab')">🧪 类比实验室</button>
                 <button class="mod-nav-btn" onclick="startVariableModule('lesson')">📚 知识讲解</button>
@@ -3299,6 +3310,7 @@ function switchToVariableChapterBody() {
                 <button class="mod-nav-btn" onclick="startVariableModule('extend')">🚀 扩展思维</button>
                 <button class="mod-nav-btn" onclick="startVariableModule('project')">🎨 创意项目</button>
                 <button class="mod-nav-btn" onclick="startVariableModule('test')">📝 课堂小测</button>
+                </div>
             </div>
             <div class="chapter-hero" id="ch2-hero">
                 <div class="chapter-badge-tag">核心概念</div>
@@ -3411,11 +3423,13 @@ function renderChapterContent(chapterId, container) {
         <div class="chapter-landing">
             <!-- 子模块导航 -->
             <div class="chapter-module-nav" id="chapterModNav-${chapterId}">
-                ${chapter.modules.map((mod, i) => `
-                    <button class="mod-nav-btn" onclick="switchChapterModule('${chapterId}', '${mod.id}', ${i})">
-                        ${mod.icon} ${mod.title}
-                    </button>
-                `).join('')}
+                <div class="mod-nav-inner">
+                    ${chapter.modules.map((mod, i) => `
+                        <button class="mod-nav-btn" onclick="switchChapterModule('${chapterId}', '${mod.id}', ${i})">
+                            ${mod.icon} ${mod.title}
+                        </button>
+                    `).join('')}
+                </div>
             </div>
 
             <!-- 章节Hero -->

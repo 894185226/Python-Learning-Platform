@@ -5,6 +5,11 @@
     box-sizing: border-box;
 }
 
+html {
+    scroll-padding-top: 76px; /* 防止固定导航栏遮挡锚点内容 */
+    scroll-behavior: smooth;
+}
+
 /* 全局聚焦样式 */
 button:focus-visible,
 a:focus-visible,
@@ -824,6 +829,28 @@ body, .w3-bar, .w3-bar .w3-button, .search-form, .search-input,
 [data-theme="dark"] .learning-stats h3,
 [data-theme="dark"] .recap h3 {
     color: #e0e0e0;
+}
+
+[data-theme="dark"] .exploration-map,
+[data-theme="dark"] .achievements,
+[data-theme="dark"] .recap,
+[data-theme="dark"] .learning-stats {
+    background: #2d2d44;
+}
+
+[data-theme="dark"] .map-item {
+    background: #3a3a5a;
+    color: #ddd;
+}
+
+[data-theme="dark"] .map-item.completed {
+    background: #1a3a2a;
+    color: #7affb8;
+}
+
+[data-theme="dark"] .achievement-item {
+    background: #3a3a5a;
+    color: #ddd;
 }
 
 [data-theme="dark"] .mnemonic {

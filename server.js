@@ -22,8 +22,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(__dirname, {
     maxAge: '1h',           // 静态文件缓存1小时，减少局域网带宽消耗
     setHeaders: (res, filePath) => {
-        // HTML 文件不缓存，确保总是获取最新版本
-        if (filePath.endsWith('.html')) {
+        // HTML/CSS/JS 文件不缓存，确保总是获取最新版本
+        if (filePath.endsWith('.html') || filePath.endsWith('.css') || filePath.endsWith('.js')) {
             res.setHeader('Cache-Control', 'no-cache');
         }
     }

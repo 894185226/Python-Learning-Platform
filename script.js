@@ -2820,25 +2820,24 @@ function stickyChapterNav() {
     const currentY = window.scrollY;
     if (stickyChapterNav._lastY === undefined) stickyChapterNav._lastY = currentY;
     const isScrollingDown = currentY > stickyChapterNav._lastY;
+    const isScrollingUp = currentY < stickyChapterNav._lastY;
     stickyChapterNav._lastY = currentY;
 
-    // 判断是否有导航栏已处于吸顶位置（scrollY > 0 即已滚动过 hero 区域）
-    const isPastHero = currentY > 100;
-
     navs.forEach(nav => {
-        if (isPastHero && isScrollingDown) {
+        if (isScrollingDown && currentY > 100) {
             // 下滑经过 hero 后：主导航隐藏，次级导航置顶
             nav.classList.add('nav-top-zero');
             if (topBar) topBar.classList.add('nav-hidden');
-        } else if (!isScrollingDown && currentY <= MAIN_NAV_HEIGHT + 50) {
-            // 上滑到顶部附近：主导航恢复，次级导航回到主导航下方
+        } else if (isScrollingUp) {
+            // 上滑：主导航恢复，次级导航回到主导航下方
             nav.classList.remove('nav-top-zero');
             if (topBar) topBar.classList.remove('nav-hidden');
         }
     });
 
-    // 如果回滚到顶部，确保主导航显示
+    // 回滚到顶部时确保主导航显示
     if (currentY <= MAIN_NAV_HEIGHT) {
+        navs.forEach(nav => nav.classList.remove('nav-top-zero'));
         if (topBar) topBar.classList.remove('nav-hidden');
     }
 }

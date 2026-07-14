@@ -1,6 +1,8 @@
 -- ===================================================
--- Python 基础学习平台 - 数据库初始化脚本
+-- Python 基础学习平台 - 数据库初始化脚本（参考文档）
 -- 适用：MySQL 8.0+
+-- 注意：server.js 启动时会自动创建数据库和所有表，
+--       此文件仅作为参考文档，无需手动执行。
 -- ===================================================
 
 -- 1. 创建数据库
@@ -16,7 +18,7 @@ USE python_var_lesson;
 CREATE TABLE IF NOT EXISTS students (
     id          INT AUTO_INCREMENT PRIMARY KEY COMMENT '学生唯一编号',
     username    VARCHAR(50)  NOT NULL UNIQUE COMMENT '登录用户名',
-    password    VARCHAR(60)  NOT NULL COMMENT '密码（bcrypt 哈希，兼容旧 SHA256）',
+    password    VARCHAR(60)  NOT NULL COMMENT '密码（bcrypt 哈希）',
     display_name VARCHAR(50) NOT NULL COMMENT '真实姓名/显示名称',
     grade       VARCHAR(20)  DEFAULT '' COMMENT '年级',
     class_num   INT          DEFAULT 0 COMMENT '班级编号',
@@ -32,9 +34,9 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE TABLE IF NOT EXISTS learning_progress (
     id          INT AUTO_INCREMENT PRIMARY KEY COMMENT '记录编号',
     student_id  INT          NOT NULL COMMENT '学生编号（外键）',
-    module_id   VARCHAR(30)  NOT NULL COMMENT '模块标识（如 intro, lesson, lab）',
-    completed   TINYINT(1)   DEFAULT 1 COMMENT '是否完成（1=完成）',
-    score       INT          DEFAULT 0 COMMENT '得分（如小测分数，0表示无得分模块）',
+    module_id   VARCHAR(30)  NOT NULL COMMENT '模块标识',
+    completed   TINYINT(1)   DEFAULT 1 COMMENT '是否完成',
+    score       INT          DEFAULT 0 COMMENT '得分',
     completed_at DATETIME    DEFAULT CURRENT_TIMESTAMP COMMENT '完成时间',
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
     UNIQUE KEY uk_student_module (student_id, module_id)
@@ -46,7 +48,7 @@ CREATE TABLE IF NOT EXISTS learning_progress (
 CREATE TABLE IF NOT EXISTS achievements (
     id              INT AUTO_INCREMENT PRIMARY KEY COMMENT '记录编号',
     student_id      INT          NOT NULL COMMENT '学生编号（外键）',
-    achievement_id  VARCHAR(30)  NOT NULL COMMENT '成就标识（如 beginner, judge）',
+    achievement_id  VARCHAR(30)  NOT NULL COMMENT '成就标识',
     earned_at       DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '获得时间',
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
     UNIQUE KEY uk_student_ach (student_id, achievement_id)
@@ -72,6 +74,7 @@ CREATE TABLE IF NOT EXISTS admins (
     username    VARCHAR(50)  NOT NULL UNIQUE COMMENT '登录用户名',
     password    VARCHAR(60)  NOT NULL COMMENT '密码（bcrypt 哈希）',
     display_name VARCHAR(50) NOT NULL DEFAULT '管理员' COMMENT '显示名称',
+    role        VARCHAR(20)  DEFAULT 'admin' COMMENT '角色',
     created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
 ) ENGINE=InnoDB COMMENT='管理员账号表';
 
@@ -99,14 +102,144 @@ CREATE TABLE IF NOT EXISTS admin_logs (
 ) ENGINE=InnoDB COMMENT='管理员操作日志表';
 
 -- ===================================================
--- 9. 插入测试数据（可选）
+-- 9. 错题本
 -- ===================================================
-INSERT IGNORE INTO students (username, password, display_name, grade, class_num, status) VALUES
-  ('test001', SHA2('1234', 256), '张三', '七年级', 3, 'active'),
-  ('test002', SHA2('1234', 256), '李四', '七年级', 3, 'active');
+CREATE TABLE IF NOT EXISTS mistake_book (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    chapter_id VARCHAR(10) NOT NULL COMMENT '章节ID',
+    question_text TEXT NOT NULL COMMENT '题目内容',
+    correct_answer VARCHAR(500) NOT NULL COMMENT '正确答案',
+    student_answer VARCHAR(500) NOT NULL COMMENT '学生答案',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    INDEX idx_student_chapter (student_id, chapter_id)
+) ENGINE=InnoDB COMMENT='错题本';
 
 -- ===================================================
--- 10. 插入默认管理员账号
+-- 10. 学习笔记
 -- ===================================================
-INSERT IGNORE INTO admins (username, password, display_name) VALUES
-  ('admin', SHA2('admin123', 256), '教师管理员');
+CREATE TABLE IF NOT EXISTS study_notes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    chapter_id VARCHAR(10) NOT NULL,
+    module_id VARCHAR(30) DEFAULT '',
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    INDEX idx_student_chapter (student_id, chapter_id)
+) ENGINE=InnoDB COMMENT='学习笔记';
+
+-- ===================================================
+-- 11. 代码收藏
+-- ===================================================
+CREATE TABLE IF NOT EXISTS code_snippets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    code TEXT NOT NULL,
+    chapter_id VARCHAR(10) DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='代码收藏';
+
+-- ===================================================
+-- 12. 作业表
+-- ===================================================
+CREATE TABLE IF NOT EXISTS assignments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    chapter_id VARCHAR(10) DEFAULT '',
+    due_date DATE,
+    created_by VARCHAR(50) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_due (due_date)
+) ENGINE=InnoDB COMMENT='作业';
+
+-- ===================================================
+-- 13. 作业提交
+-- ===================================================
+CREATE TABLE IF NOT EXISTS assignment_submissions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    assignment_id INT NOT NULL,
+    student_id INT NOT NULL,
+    content TEXT,
+    score INT DEFAULT 0,
+    submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_assignment_student (assignment_id, student_id)
+) ENGINE=InnoDB COMMENT='作业提交';
+
+-- ===================================================
+-- 14. 每日一题
+-- ===================================================
+CREATE TABLE IF NOT EXISTS daily_questions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    question TEXT NOT NULL,
+    options JSON COMMENT '选项列表JSON',
+    answer VARCHAR(10) NOT NULL COMMENT '正确答案',
+    explanation TEXT COMMENT '解析',
+    question_date DATE NOT NULL UNIQUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB COMMENT='每日一题';
+
+-- ===================================================
+-- 15. 学习目标
+-- ===================================================
+CREATE TABLE IF NOT EXISTS student_goals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    goal_text VARCHAR(500) NOT NULL,
+    target_chapters INT DEFAULT 0,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    completed TINYINT(1) DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    INDEX idx_student (student_id)
+) ENGINE=InnoDB COMMENT='学习目标';
+
+-- ===================================================
+-- 16. 通知
+-- ===================================================
+CREATE TABLE IF NOT EXISTS notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT,
+    type VARCHAR(30) DEFAULT 'system' COMMENT 'system/achievement/assignment',
+    is_read TINYINT(1) DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    INDEX idx_student_read (student_id, is_read)
+) ENGINE=InnoDB COMMENT='通知';
+
+-- ===================================================
+-- 17. 讨论帖
+-- ===================================================
+CREATE TABLE IF NOT EXISTS discussion_posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    chapter_id VARCHAR(10) DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    INDEX idx_chapter (chapter_id)
+) ENGINE=InnoDB COMMENT='讨论帖';
+
+-- ===================================================
+-- 18. 讨论回复
+-- ===================================================
+CREATE TABLE IF NOT EXISTS discussion_replies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    post_id INT NOT NULL,
+    student_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES discussion_posts(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='讨论回复';

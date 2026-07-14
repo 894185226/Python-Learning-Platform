@@ -2179,6 +2179,79 @@ app.get('/api/admin/assignments/:id/submissions', adminAuth, requireDB, async (r
 });
 
 // ===================================================
+// 学生端 API - 作业
+// ===================================================
+
+// 获取作业列表（学生端，含提交状态）
+app.get('/api/assignments', requireDB, async (req, res) => {
+    try {
+        const { username } = req.query;
+        const [rows] = await pool.query(
+            `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.created_by, a.created_at
+             FROM assignments a ORDER BY a.created_at DESC`
+        );
+
+        // 如果提供了用户名，查询提交状态
+        if (username) {
+            const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+            if (students.length > 0) {
+                const studentId = students[0].id;
+                const [submissions] = await pool.query(
+                    'SELECT assignment_id, score, submitted_at FROM assignment_submissions WHERE student_id = ?',
+                    [studentId]
+                );
+                const subMap = {};
+                submissions.forEach(s => {
+                    subMap[s.assignment_id] = { score: s.score, submittedAt: s.submitted_at };
+                });
+                rows.forEach(r => {
+                    r.submission = subMap[r.id] || null;
+                });
+            }
+        }
+
+        res.json({ success: true, assignments: rows });
+    } catch (err) {
+        console.error('获取作业列表错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 提交作业
+app.post('/api/assignments/:id/submit', requireDB, async (req, res) => {
+    try {
+        const assignmentId = parseInt(req.params.id);
+        if (isNaN(assignmentId)) return res.json({ success: false, error: '无效的作业ID' });
+
+        const { username, content } = req.body;
+        if (!username || !content) {
+            return res.json({ success: false, error: '参数不完整' });
+        }
+        if (content.length > 10000) {
+            return res.json({ success: false, error: '作业内容过长（最多10000字）' });
+        }
+
+        const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+        if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+        // 检查作业是否存在
+        const [assignments] = await pool.query('SELECT id FROM assignments WHERE id = ?', [assignmentId]);
+        if (assignments.length === 0) return res.json({ success: false, error: '作业不存在' });
+
+        await pool.query(
+            `INSERT INTO assignment_submissions (assignment_id, student_id, content)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE content = VALUES(content), submitted_at = NOW()`,
+            [assignmentId, students[0].id, content]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('提交作业错误:', err);
+        res.json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ===================================================
 // 管理端 API - 活跃度监控
 // ===================================================
 

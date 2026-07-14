@@ -79,20 +79,28 @@ function showLoginWelcome(user) {
     `;
     document.body.appendChild(overlay);
 
-    // 点击遮罩可提前关闭
+    // 点击遮罩可提前关闭（once: true 自动清理监听器）
     overlay.addEventListener('click', () => {
         dismissWelcome(overlay);
-    });
+    }, { once: true });
 
     // 2秒后自动消失
-    setTimeout(() => {
+    const timer = setTimeout(() => {
         dismissWelcome(overlay);
     }, 2000);
+
+    // 存储计时器以便清理
+    overlay._timer = timer;
 }
 
 function dismissWelcome(overlay) {
     if (overlay._dismissing) return;
     overlay._dismissing = true;
+    // 清理计时器
+    if (overlay._timer) {
+        clearTimeout(overlay._timer);
+        overlay._timer = null;
+    }
     overlay.classList.add('removing');
     setTimeout(() => {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);

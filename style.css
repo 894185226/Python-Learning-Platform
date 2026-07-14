@@ -6238,6 +6238,24 @@ img:not([src]) {
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
+/* ch2 变量模块：nav 使用 position:fixed 替代 sticky */
+/* 原因：ch2 模块内容渲染在外部 section 中，位于 DOM 顶部，#chapter-ch2 在 DOM 底部 */
+/* sticky 无法跨越 DOM 顺序生效，故改用 fixed */
+#chapter-ch2 .chapter-module-nav {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    z-index: 998;
+}
+#chapter-ch2 .chapter-module-nav.nav-top-zero {
+    top: 0;
+    z-index: 1000;
+}
+#chapter-ch2 .chapter-landing {
+    padding-top: 44px; /* 补偿 fixed nav 占据的高度 */
+}
+
 .chapter-module-nav .mod-nav-btn {
     padding: 0 16px;
     border-radius: 0;
@@ -6357,6 +6375,12 @@ img:not([src]) {
         padding: 0 8px;
         overflow-x: auto;
         height: 40px;
+    }
+    #chapter-ch2 .chapter-module-nav {
+        height: 40px;
+    }
+    #chapter-ch2 .chapter-landing {
+        padding-top: 40px;
     }
     .chapter-module-nav .mod-nav-btn {
         padding: 0 10px;

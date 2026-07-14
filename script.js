@@ -1843,6 +1843,7 @@ function switchModule(moduleId) {
     setTimeout(() => {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (isDark) applyThemeToChapterContent(true);
+        shuffleDebugButtons();
     }, 300);
 }
 
@@ -3635,6 +3636,7 @@ function startVariableModule(moduleId) {
     setTimeout(() => {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (isDark) applyThemeToChapterContent(true);
+        shuffleDebugButtons();
     }, 80);
 }
 
@@ -3697,6 +3699,7 @@ function renderChapterContent(chapterId, container) {
     setTimeout(() => {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (isDark) applyThemeToChapterContent(true);
+        shuffleDebugButtons();
     }, 100);
 }
 
@@ -3772,6 +3775,7 @@ function switchChapterModule(chapterId, moduleId, index) {
     setTimeout(() => {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (isDark) applyThemeToChapterContent(true);
+        shuffleDebugButtons();
     }, 80);
 }
 

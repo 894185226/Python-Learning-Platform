@@ -3345,23 +3345,23 @@ function switchToVariableChapterBody() {
     }
     ch2Container.classList.add('active');
 
-    // 渲染第2章Hero + 模块导航
+    // 渲染第2章：导航栏在 .chapter-landing 外部，确保 sticky 有完整页面高度作为上下文
     ch2Container.innerHTML = `
-        <div class="chapter-landing">
-            <div class="chapter-module-nav" id="chapterModNav-ch2">
-                <div class="mod-nav-inner">
-                <button class="mod-nav-btn" onclick="startVariableModule('intro')">🎬 情境导入</button>
-                <button class="mod-nav-btn" onclick="startVariableModule('lab')">🧪 类比实验室</button>
-                <button class="mod-nav-btn" onclick="startVariableModule('lesson')">📚 知识讲解</button>
-                <button class="mod-nav-btn" onclick="startVariableModule('judge')">⚖️ 命名小法官</button>
-                <button class="mod-nav-btn" onclick="startVariableModule('practice')">💻 实践操作</button>
-                <button class="mod-nav-btn" onclick="startVariableModule('trace')">🔍 值追踪挑战</button>
-                <button class="mod-nav-btn" onclick="startVariableModule('debug')">🏥 调试诊所</button>
-                <button class="mod-nav-btn" onclick="startVariableModule('extend')">🚀 扩展思维</button>
-                <button class="mod-nav-btn" onclick="startVariableModule('project')">🎨 创意项目</button>
-                <button class="mod-nav-btn" onclick="startVariableModule('test')">📝 课堂小测</button>
-                </div>
+        <div class="chapter-module-nav" id="chapterModNav-ch2">
+            <div class="mod-nav-inner">
+            <button class="mod-nav-btn" onclick="startVariableModule('intro')">🎬 情境导入</button>
+            <button class="mod-nav-btn" onclick="startVariableModule('lab')">🧪 类比实验室</button>
+            <button class="mod-nav-btn" onclick="startVariableModule('lesson')">📚 知识讲解</button>
+            <button class="mod-nav-btn" onclick="startVariableModule('judge')">⚖️ 命名小法官</button>
+            <button class="mod-nav-btn" onclick="startVariableModule('practice')">💻 实践操作</button>
+            <button class="mod-nav-btn" onclick="startVariableModule('trace')">🔍 值追踪挑战</button>
+            <button class="mod-nav-btn" onclick="startVariableModule('debug')">🏥 调试诊所</button>
+            <button class="mod-nav-btn" onclick="startVariableModule('extend')">🚀 扩展思维</button>
+            <button class="mod-nav-btn" onclick="startVariableModule('project')">🎨 创意项目</button>
+            <button class="mod-nav-btn" onclick="startVariableModule('test')">📝 课堂小测</button>
             </div>
+        </div>
+        <div class="chapter-landing">
             <div class="chapter-hero" id="ch2-hero">
                 <div class="chapter-badge-tag">核心概念</div>
                 <h1>📦 变量</h1>
@@ -3376,13 +3376,6 @@ function switchToVariableChapterBody() {
                 </div>
             </div>
             <div class="chapter-content" id="chapterContent-ch2">
-                <div class="ch-module-wrap">
-                    <div style="text-align:center;padding:48px 0;">
-                        <div style="font-size:48px;margin-bottom:16px;">📦</div>
-                        <h3 style="color:var(--w3-text-color);margin-bottom:8px;">变量 - 会变的小盒子</h3>
-                        <p style="color:var(--text-secondary);margin-top:8px;font-size:14px;">10个交互模块，从情境导入到课堂小测，完整学习变量知识</p>
-                    </div>
-                </div>
             </div>
         </div>
     `;

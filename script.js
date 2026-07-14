@@ -80,6 +80,9 @@ function setButtonLoading(btn, loading) {
     }
 }
 
+// 第2章(变量)子模块 ID 列表，用于 hash 路由判断
+const CH2_MODULE_IDS = ['intro', 'lab', 'lesson', 'judge', 'practice', 'trace', 'debug', 'extend', 'project', 'test'];
+
 // 暗色主题切换
 const THEME_KEY = 'pv_theme';
 function initTheme() {
@@ -1263,14 +1266,29 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('hashchange', () => {
         const hash = window.location.hash.replace('#', '');
         if (hash && hash !== state.currentModule) {
-            switchModule(hash);
+            // 第2章子模块：需要先重建 ch2 容器和导航栏
+            if (CH2_MODULE_IDS.includes(hash)) {
+                switchChapter('ch2');
+                // switchChapter('ch2') 会调用 switchToVariableChapterBody('intro')
+                // 如果 hash 不是 'intro'，需要额外切换到正确的模块
+                if (hash !== 'intro') {
+                    setTimeout(() => startVariableModule(hash), 100);
+                }
+            } else {
+                switchModule(hash);
+            }
         }
     });
 
-    // 初始 hash 处理（支持书签直接跳转）
+    // 初始 hash 处理（支持书签直接跳转 / Ctrl+Shift+R 刷新恢复）
     const initHash = window.location.hash.replace('#', '');
     if (initHash && initHash !== 'welcome') {
-        switchModule(initHash);
+        if (CH2_MODULE_IDS.includes(initHash)) {
+            // 第2章子模块：先创建 ch2 容器，再打开对应模块
+            switchToVariableChapterBody(initHash);
+        } else {
+            switchModule(initHash);
+        }
     }
 });
 
@@ -3318,7 +3336,9 @@ function switchChapter(chapterId) {
 }
 
 // 切换到变量章节(第2章) - 显示变量模块交互内容(内部函数)
-function switchToVariableChapterBody() {
+// initialModule: 可选，指定初始打开的子模块，默认 'intro'
+function switchToVariableChapterBody(initialModule) {
+    initialModule = initialModule || 'intro';
     // 显示侧边栏切换按钮
     showSidebarToggle();
 
@@ -3392,9 +3412,9 @@ function switchToVariableChapterBody() {
         history.pushState(null, '', targetHash2);
     }
 
-    // 自动打开第一个子模块（情境导入）
+    // 自动打开初始子模块
     setTimeout(() => {
-        startVariableModule('intro');
+        startVariableModule(initialModule);
     }, 50);
 }
 
@@ -3661,6 +3681,12 @@ window.addEventListener('popstate', () => {
     if (hash === state.currentModule) return;
     if (hash && hash.startsWith('ch')) {
         switchChapter(hash);
+    } else if (CH2_MODULE_IDS.includes(hash)) {
+        // 第2章子模块：需要重建 ch2 容器和导航栏
+        switchChapter('ch2');
+        if (hash !== 'intro') {
+            setTimeout(() => startVariableModule(hash), 100);
+        }
     } else if (hash === 'achievement' || hash === 'welcome') {
         // 非章节模块：交由 switchModule 处理，避免被重置回首页
         switchModule(hash);

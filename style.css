@@ -876,13 +876,55 @@ body, .w3-bar, .w3-bar .w3-button, .search-form, .search-input,
 [data-theme="dark"] .ch-card h4 { color: #e0e0e0; }
 [data-theme="dark"] .ch-card p { color: #aaa; }
 [data-theme="dark"] .ch-card.green { background: #1a3a2a; border-color: rgba(4,170,109,0.2); }
-[data-theme="dark"] .ch-card.green h4, [data-theme="dark"] .ch-card.green p { color: #8fdfb3; }
+[data-theme="dark"] .ch-card.green h4, [data-theme="dark"] .ch-card.green p { color: #7affb8 !important; }
 [data-theme="dark"] .ch-card.yellow { background: #3a3520; border-color: rgba(255,244,163,0.2); }
-[data-theme="dark"] .ch-card.yellow h4, [data-theme="dark"] .ch-card.yellow p { color: #f0e68c; }
+[data-theme="dark"] .ch-card.yellow h4, [data-theme="dark"] .ch-card.yellow p { color: #ffe880 !important; }
 [data-theme="dark"] .ch-card.pink { background: #3a2028; border-color: rgba(255,192,199,0.2); }
-[data-theme="dark"] .ch-card.pink h4, [data-theme="dark"] .ch-card.pink p { color: #f0a0b0; }
+[data-theme="dark"] .ch-card.pink h4, [data-theme="dark"] .ch-card.pink p { color: #ffa0b8 !important; }
 [data-theme="dark"] .ch-card.cyan { background: #1a3035; border-color: rgba(150,212,212,0.2); }
-[data-theme="dark"] .ch-card.cyan h4, [data-theme="dark"] .ch-card.cyan p { color: #8fd4d4; }
+[data-theme="dark"] .ch-card.cyan h4, [data-theme="dark"] .ch-card.cyan p { color: #80e8e8 !important; }
+
+/* 暗色主题：卡片悬停效果 */
+[data-theme="dark"] .ch-card:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    border-color: rgba(255,255,255,0.15);
+}
+[data-theme="dark"] .ch-card.green:hover { box-shadow: 0 4px 24px rgba(4,170,109,0.2); }
+[data-theme="dark"] .ch-card.yellow:hover { box-shadow: 0 4px 24px rgba(255,244,163,0.2); }
+[data-theme="dark"] .ch-card.pink:hover { box-shadow: 0 4px 24px rgba(255,192,199,0.2); }
+[data-theme="dark"] .ch-card.cyan:hover { box-shadow: 0 4px 24px rgba(150,212,212,0.2); }
+
+/* 暗色主题：首页四色模块适配（#welcome 区域） */
+[data-theme="dark"] #welcome .w3-row[style*="D9EEE1"],
+[data-theme="dark"] #welcome div[style*="background-color:#D9EEE1"] {
+    background-color: #1a3a2a !important;
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] #welcome .w3-row[style*="FFF4A3"],
+[data-theme="dark"] #welcome div[style*="background-color:#FFF4A3"] {
+    background-color: #3a3520 !important;
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] #welcome .w3-row[style*="FFC0C7"],
+[data-theme="dark"] #welcome div[style*="background-color:#FFC0C7"] {
+    background-color: #3a2028 !important;
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] #welcome .w3-row[style*="96D4D4"],
+[data-theme="dark"] #welcome div[style*="background-color:#96D4D4"] {
+    background-color: #1a3035 !important;
+    color: #e0e0e0 !important;
+}
+/* 暗色主题：首页四色模块内的白色卡片 */
+[data-theme="dark"] #welcome div[style*="background:#fff"],
+[data-theme="dark"] #welcome div[style*="background-color:#fff"] {
+    background: #2d2d44 !important;
+    background-color: #2d2d44 !important;
+    color: #ddd !important;
+}
+[data-theme="dark"] #welcome div[style*="background:#f5f5f5"] {
+    background: #1a1a2e !important;
+}
 
 [data-theme="dark"] .ch-step-item {
     background: #2d2d44;
@@ -6161,7 +6203,7 @@ img:not([src]) {
     color: #fff;
 }
 
-/* 章节子模块导航 - 随页面滚动，滚出视野后吸附到顶部 */
+/* 章节子模块导航 - position:sticky 始终吸附在主导航下方 */
 .chapter-module-nav {
     display: flex;
     flex-wrap: nowrap;
@@ -6170,12 +6212,13 @@ img:not([src]) {
     background: #1a1a2e;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     justify-content: center;
-    position: relative;
+    position: sticky;
+    top: 60px;
     width: 100%;
-    z-index: 999;
+    z-index: 998;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    transition: box-shadow 0.2s ease;
+    transition: top 0.3s ease, box-shadow 0.2s ease;
     height: 44px;
     align-items: stretch;
 }
@@ -6188,17 +6231,11 @@ img:not([src]) {
     width: 100%;
     align-items: stretch;
 }
-.chapter-module-nav.is-sticky {
-    position: fixed;
-    top: 60px;
-    left: 0;
-    right: 0;
-    z-index: 999;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}
-.chapter-module-nav.is-sticky.nav-top-zero {
+/* 下滑时主导航隐藏，次级导航置顶 */
+.chapter-module-nav.nav-top-zero {
     top: 0;
     z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .chapter-module-nav .mod-nav-btn {

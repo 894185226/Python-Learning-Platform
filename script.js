@@ -92,6 +92,11 @@ function initTheme() {
         document.documentElement.setAttribute('data-theme', 'dark');
         updateThemeIcon(true);
     }
+    // 初始加载时应用暗色主题到章节内容
+    setTimeout(() => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        applyThemeToChapterContent(isDark);
+    }, 300);
 }
 
 function toggleTheme() {
@@ -104,6 +109,8 @@ function toggleTheme() {
         localStorage.setItem(THEME_KEY, 'dark');
     }
     updateThemeIcon(!isDark);
+    // 暗色主题：修复 chapters.js 中的内联样式
+    applyThemeToChapterContent(!isDark);
 }
 
 function updateThemeIcon(isDark) {
@@ -115,6 +122,77 @@ function updateThemeIcon(isDark) {
     if (mobileIcon) {
         mobileIcon.className = isDark ? 'far fa-moon' : 'fas fa-sun';
     }
+}
+
+// 暗色主题：修复内联样式（CSS无法覆盖内联样式）
+// 同时处理章节内容区和首页模块区
+function applyThemeToChapterContent(isDark) {
+    const wrappers = document.querySelectorAll('.ch-module-wrap, .chapter-content, #welcome');
+    wrappers.forEach(wrap => {
+        const all = wrap.querySelectorAll('[style]');
+        all.forEach(el => {
+            // 跳过导航栏和主题无关的元素
+            if (el.closest('.w3-top') || el.closest('.w3-sidebar') || el.closest('nav')) return;
+            const style = el.getAttribute('style') || '';
+            let newStyle = style;
+
+            if (isDark) {
+                // 文字颜色：深色→浅色
+                newStyle = newStyle.replace(/color:\s*#000(?!0)/g, 'color:#e0e0e0');
+                newStyle = newStyle.replace(/color:\s*#333/g, 'color:#ddd');
+                newStyle = newStyle.replace(/color:\s*#555/g, 'color:#bbb');
+                newStyle = newStyle.replace(/color:\s*#666/g, 'color:#aaa');
+                newStyle = newStyle.replace(/color:\s*#777/g, 'color:#999');
+                newStyle = newStyle.replace(/color:\s*#999/g, 'color:#888');
+                // 背景：白色→深色
+                newStyle = newStyle.replace(/background:\s*#fff\b/g, 'background:#2d2d44');
+                newStyle = newStyle.replace(/background:\s*#ffffff/g, 'background:#2d2d44');
+                newStyle = newStyle.replace(/background:\s*#f5f5f5/g, 'background:#1a1a2e');
+                newStyle = newStyle.replace(/background:\s*#fafafa/g, 'background:#1a1a2e');
+                // 浅色卡片背景 → 深色
+                newStyle = newStyle.replace(/background-color:\s*#D9EEE1/g, 'background-color:#1a3a2a');
+                newStyle = newStyle.replace(/background-color:\s*#FFF4A3/g, 'background-color:#3a3520');
+                newStyle = newStyle.replace(/background-color:\s*#FFC0C7/g, 'background-color:#3a2028');
+                newStyle = newStyle.replace(/background-color:\s*#96D4D4/g, 'background-color:#1a3035');
+                newStyle = newStyle.replace(/background:\s*#D9EEE1/g, 'background:#1a3a2a');
+                newStyle = newStyle.replace(/background:\s*#FFF4A3/g, 'background:#3a3520');
+                newStyle = newStyle.replace(/background:\s*#FFC0C7/g, 'background:#3a2028');
+                newStyle = newStyle.replace(/background:\s*#96D4D4/g, 'background:#1a3035');
+                // 边框
+                newStyle = newStyle.replace(/border:\s*2px solid #ff4d4f/g, 'border:2px solid #ff6b6b');
+                newStyle = newStyle.replace(/background:\s*#fff3f3/g, 'background:#2a1a1a');
+                // 按钮背景
+                newStyle = newStyle.replace(/background:\s*#e0e0e0/g, 'background:#3a3a4a');
+                // 浅色文字（在深色区域内的浅色文字保持不变）
+                newStyle = newStyle.replace(/color:\s*#ccc/g, 'color:#aaa');
+            } else {
+                // 亮色主题：恢复原始颜色
+                newStyle = newStyle.replace(/color:\s*#e0e0e0/g, 'color:#000');
+                newStyle = newStyle.replace(/color:\s*#ddd/g, 'color:#333');
+                newStyle = newStyle.replace(/color:\s*#bbb/g, 'color:#555');
+                newStyle = newStyle.replace(/color:\s*#aaa/g, 'color:#666');
+                newStyle = newStyle.replace(/color:\s*#999/g, 'color:#777');
+                newStyle = newStyle.replace(/color:\s*#888/g, 'color:#999');
+                newStyle = newStyle.replace(/background:\s*#2d2d44/g, 'background:#fff');
+                newStyle = newStyle.replace(/background:\s*#1a1a2e/g, 'background:#f5f5f5');
+                newStyle = newStyle.replace(/background-color:\s*#1a3a2a/g, 'background-color:#D9EEE1');
+                newStyle = newStyle.replace(/background-color:\s*#3a3520/g, 'background-color:#FFF4A3');
+                newStyle = newStyle.replace(/background-color:\s*#3a2028/g, 'background-color:#FFC0C7');
+                newStyle = newStyle.replace(/background-color:\s*#1a3035/g, 'background-color:#96D4D4');
+                newStyle = newStyle.replace(/background:\s*#1a3a2a/g, 'background:#D9EEE1');
+                newStyle = newStyle.replace(/background:\s*#3a3520/g, 'background:#FFF4A3');
+                newStyle = newStyle.replace(/background:\s*#3a2028/g, 'background:#FFC0C7');
+                newStyle = newStyle.replace(/background:\s*#1a3035/g, 'background:#96D4D4');
+                newStyle = newStyle.replace(/border:\s*2px solid #ff6b6b/g, 'border:2px solid #ff4d4f');
+                newStyle = newStyle.replace(/background:\s*#2a1a1a/g, 'background:#fff3f3');
+                newStyle = newStyle.replace(/background:\s*#3a3a4a/g, 'background:#e0e0e0');
+            }
+
+            if (newStyle !== style) {
+                el.setAttribute('style', newStyle);
+            }
+        });
+    });
 }
 
 // 图片懒加载渐入
@@ -2732,8 +2810,9 @@ function initScrollReveal() {
 }
 
 // 章节子模块导航吸顶效果（一体化：主导航+次级导航联动）
+// 使用 position:sticky 实现，JS 仅处理主导航显隐
 function stickyChapterNav() {
-    const MAIN_NAV_HEIGHT = 60; // 主导航栏高度
+    const MAIN_NAV_HEIGHT = 60;
     const topBar = document.querySelector('.w3-top');
     const navs = document.querySelectorAll('.chapter-module-nav');
     if (navs.length === 0) return;
@@ -2741,53 +2820,25 @@ function stickyChapterNav() {
     const currentY = window.scrollY;
     if (stickyChapterNav._lastY === undefined) stickyChapterNav._lastY = currentY;
     const isScrollingDown = currentY > stickyChapterNav._lastY;
-    const isScrollingUp = currentY < stickyChapterNav._lastY;
     stickyChapterNav._lastY = currentY;
 
-    let anySticky = false;
-    navs.forEach(nav => {
-        const parent = nav.parentElement;
-        if (!parent) return;
-        const parentRect = parent.getBoundingClientRect();
-        const shouldStick = parentRect.top <= MAIN_NAV_HEIGHT && parentRect.bottom > MAIN_NAV_HEIGHT + nav.offsetHeight;
+    // 判断是否有导航栏已处于吸顶位置（scrollY > 0 即已滚动过 hero 区域）
+    const isPastHero = currentY > 100;
 
-        if (shouldStick && !nav.classList.contains('is-sticky')) {
-            nav.classList.add('is-sticky');
-            nav.style.width = parent.offsetWidth + 'px';
-            if (!nav._placeholder) {
-                nav._placeholder = document.createElement('div');
-                nav._placeholder.style.height = nav.offsetHeight + 'px';
-                nav._placeholder.style.width = '100%';
-                nav._placeholder.style.flexShrink = '0';
-            }
-            nav.parentNode.insertBefore(nav._placeholder, nav);
-        } else if (!shouldStick && nav.classList.contains('is-sticky')) {
-            nav.classList.remove('is-sticky', 'nav-top-zero');
-            nav.style.width = '';
-            if (nav._placeholder && nav._placeholder.parentNode) {
-                nav._placeholder.parentNode.removeChild(nav._placeholder);
-            }
+    navs.forEach(nav => {
+        if (isPastHero && isScrollingDown) {
+            // 下滑经过 hero 后：主导航隐藏，次级导航置顶
+            nav.classList.add('nav-top-zero');
+            if (topBar) topBar.classList.add('nav-hidden');
+        } else if (!isScrollingDown && currentY <= MAIN_NAV_HEIGHT + 50) {
+            // 上滑到顶部附近：主导航恢复，次级导航回到主导航下方
+            nav.classList.remove('nav-top-zero');
+            if (topBar) topBar.classList.remove('nav-hidden');
         }
-        if (nav.classList.contains('is-sticky')) anySticky = true;
     });
 
-    // 一体化逻辑：次级导航吸顶后，主导航和次级导航联动
-    if (anySticky) {
-        navs.forEach(nav => {
-            if (!nav.classList.contains('is-sticky')) return;
-
-            if (isScrollingDown) {
-                // 下滑：主导航隐藏上移，次级导航置顶
-                nav.classList.add('nav-top-zero');
-                if (topBar) topBar.classList.add('nav-hidden');
-            } else if (isScrollingUp && currentY <= MAIN_NAV_HEIGHT) {
-                // 上滑到顶部：主导航恢复，次级导航回到主导航下方
-                nav.classList.remove('nav-top-zero');
-                if (topBar) topBar.classList.remove('nav-hidden');
-            }
-        });
-    } else {
-        // 没有吸顶的导航时，确保主导航显示
+    // 如果回滚到顶部，确保主导航显示
+    if (currentY <= MAIN_NAV_HEIGHT) {
         if (topBar) topBar.classList.remove('nav-hidden');
     }
 }
@@ -3330,7 +3381,6 @@ function switchToVariableChapterBody() {
                     <div style="text-align:center;padding:48px 0;">
                         <div style="font-size:48px;margin-bottom:16px;">📦</div>
                         <h3 style="color:var(--w3-text-color);margin-bottom:8px;">变量 - 会变的小盒子</h3>
-                        <p style="color:var(--text-secondary);">点击上方子模块导航，选择要学习的内容</p>
                         <p style="color:var(--text-secondary);margin-top:8px;font-size:14px;">10个交互模块，从情境导入到课堂小测，完整学习变量知识</p>
                     </div>
                 </div>
@@ -3453,7 +3503,6 @@ function renderChapterContent(chapterId, container) {
                     <div style="text-align:center;padding:48px 0;">
                         <div style="font-size:48px;margin-bottom:16px;">${chapter.icon}</div>
                         <h3 style="color:var(--w3-text-color);margin-bottom:8px;">${chapter.title} - ${chapter.subtitle}</h3>
-                        <p style="color:var(--text-secondary);">点击上方子模块导航开始学习</p>
                         <p style="color:var(--text-secondary);margin-top:8px;">${chapter.desc}</p>
                     </div>
                 </div>
@@ -3467,6 +3516,12 @@ function renderChapterContent(chapterId, container) {
             switchChapterModule(chapterId, chapter.modules[0].id, 0);
         }, 50);
     }
+
+    // 暗色主题：修复内联样式
+    setTimeout(() => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) applyThemeToChapterContent(true);
+    }, 100);
 }
 
 // 切换到章节内的子模块

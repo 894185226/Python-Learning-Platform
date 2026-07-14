@@ -65,6 +65,40 @@ function showToast(message, type = 'error') {
     }, 3000);
 }
 
+// 登录成功欢迎动画
+function showLoginWelcome(user) {
+    const overlay = document.createElement('div');
+    overlay.className = 'login-welcome-overlay';
+    overlay.innerHTML = `
+        <div class="login-welcome-card">
+            <div class="login-welcome-icon">👋</div>
+            <h2 class="login-welcome-title">欢迎回来！</h2>
+            <p class="login-welcome-name">${user.displayName || user.username}</p>
+            <p class="login-welcome-subtitle">正在为你加载学习内容...</p>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // 点击遮罩可提前关闭
+    overlay.addEventListener('click', () => {
+        dismissWelcome(overlay);
+    });
+
+    // 2秒后自动消失
+    setTimeout(() => {
+        dismissWelcome(overlay);
+    }, 2000);
+}
+
+function dismissWelcome(overlay) {
+    if (overlay._dismissing) return;
+    overlay._dismissing = true;
+    overlay.classList.add('removing');
+    setTimeout(() => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }, 500);
+}
+
 // 按钮加载态管理
 function setButtonLoading(btn, loading) {
     if (!btn) return;
@@ -180,6 +214,10 @@ function applyThemeToChapterContent(isDark) {
             newStyle = newStyle.replace(/color:\s*#C586C0\b/gi, 'color:#C586C0'); // 保持
             newStyle = newStyle.replace(/color:\s*#CE9178\b/gi, 'color:#CE9178'); // 保持
             newStyle = newStyle.replace(/color:\s*#f92672\b/gi, 'color:#f92672'); // 保持Monokai注释色
+            newStyle = newStyle.replace(/color:\s*#0a0\b/gi, 'color:#4ec94e'); // 代码绿色→更亮
+            newStyle = newStyle.replace(/color:\s*#905\b/gi, 'color:#c586c0'); // 代码紫色→更亮
+            newStyle = newStyle.replace(/color:\s*#005cc5\b/gi, 'color:#569cd6'); // 代码蓝色
+            newStyle = newStyle.replace(/color:\s*#d73a49\b/gi, 'color:#ff6b6b'); // 代码红色
             // 白色文字在浅色背景上 → 深色背景上保持白色
             newStyle = newStyle.replace(/color:\s*#fff\b/gi, 'color:#fff');
             newStyle = newStyle.replace(/color:\s*#ffffff\b/gi, 'color:#fff');
@@ -691,6 +729,7 @@ async function handleLogin(event) {
 
     setCurrentUser(result.user);
     closeLoginModal();
+    showLoginWelcome(result.user);
     updateLoginUI();
     document.getElementById('loginUsername').value = '';
     document.getElementById('loginPassword').value = '';

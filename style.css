@@ -926,6 +926,35 @@ body, .w3-bar, .w3-bar .w3-button, .search-form, .search-input,
     background: #1a1a2e !important;
 }
 
+/* 暗色主题：首页所有文字确保可读 */
+[data-theme="dark"] #welcome .w3-row[style*="color:#000"],
+[data-theme="dark"] #welcome .w3-row[style*="color:#000"] p,
+[data-theme="dark"] #welcome .w3-row[style*="color:#000"] h2,
+[data-theme="dark"] #welcome .w3-row[style*="color:#000"] h3 {
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] #welcome div[style*="color:#333"] {
+    color: #ddd !important;
+}
+[data-theme="dark"] #welcome .w3-card-2[style*="color:#333"] {
+    color: #ddd !important;
+}
+[data-theme="dark"] #welcome .w3-card-2[style*="background:#fff"] {
+    background: #2d2d44 !important;
+    color: #ddd !important;
+}
+[data-theme="dark"] #welcome .w3-card-2[style*="background:#fff"] h3,
+[data-theme="dark"] #welcome .w3-card-2[style*="background:#fff"] p {
+    color: #ddd !important;
+}
+[data-theme="dark"] #welcome div[style*="background:#f5f5f5"][style*="border-left"] {
+    background: #1a1a2e !important;
+    border-left-color: #04AA6D !important;
+}
+[data-theme="dark"] #welcome span[style*="color:#999"] {
+    color: #888 !important;
+}
+
 [data-theme="dark"] .ch-step-item {
     background: #2d2d44;
     border-color: rgba(255,255,255,0.06);
@@ -3987,6 +4016,127 @@ body {
 
 .achievement-toast.toast-success .achievement-toast-title {
     color: #4caf50;
+}
+
+/* ===== 登录成功欢迎动画 ===== */
+.login-welcome-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10001;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    animation: welcomeFadeIn 0.3s ease;
+}
+
+.login-welcome-card {
+    background: #1a1a2e;
+    border: 1px solid rgba(4, 170, 109, 0.3);
+    border-radius: 20px;
+    padding: 48px 56px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 80px rgba(4, 170, 109, 0.1);
+    animation: welcomeScaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 420px;
+    width: 90%;
+}
+
+.login-welcome-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+    animation: welcomeBounce 0.6s ease 0.2s both;
+}
+
+.login-welcome-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #04AA6D;
+    margin: 0 0 8px 0;
+}
+
+.login-welcome-name {
+    font-size: 20px;
+    font-weight: 600;
+    color: #e0e0e0;
+    margin: 0 0 16px 0;
+}
+
+.login-welcome-subtitle {
+    font-size: 14px;
+    color: #888;
+    margin: 0;
+}
+
+.login-welcome-overlay.removing {
+    animation: welcomeFadeOut 0.5s ease forwards;
+}
+
+.login-welcome-overlay.removing .login-welcome-card {
+    animation: welcomeScaleOut 0.4s ease forwards;
+}
+
+@keyframes welcomeFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes welcomeFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes welcomeScaleIn {
+    from {
+        transform: scale(0.7);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes welcomeScaleOut {
+    from {
+        transform: scale(1);
+        opacity: 1;
+    }
+    to {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+}
+
+@keyframes welcomeBounce {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+/* 亮色主题适配 */
+[data-theme="light"] .login-welcome-overlay {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+}
+
+[data-theme="light"] .login-welcome-card {
+    background: #fff;
+    border: 1px solid rgba(4, 170, 109, 0.2);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 80px rgba(4, 170, 109, 0.05);
+}
+
+[data-theme="light"] .login-welcome-title {
+    color: #04AA6D;
+}
+
+[data-theme="light"] .login-welcome-name {
+    color: #333;
+}
+
+[data-theme="light"] .login-welcome-subtitle {
+    color: #888;
 }
 
 /* 搜索高亮 */

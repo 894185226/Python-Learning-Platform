@@ -128,73 +128,98 @@ function updateThemeIcon(isDark) {
 }
 
 // 暗色主题：修复内联样式（CSS无法覆盖内联样式）
-// 同时处理章节内容区和首页模块区
+// 扫描 main 内所有带 style 属性的元素，排除导航栏
+// 使用 data-original-style 存储原始样式，避免亮↔暗反复切换导致样式污染
 function applyThemeToChapterContent(isDark) {
-    const wrappers = document.querySelectorAll('.ch-module-wrap, .chapter-content, #welcome');
-    wrappers.forEach(wrap => {
-        const all = wrap.querySelectorAll('[style]');
-        all.forEach(el => {
-            // 跳过导航栏和主题无关的元素
-            if (el.closest('.w3-top') || el.closest('.w3-sidebar') || el.closest('nav')) return;
-            const style = el.getAttribute('style') || '';
-            let newStyle = style;
+    // 扫描整个 main 区域（覆盖所有模块、章节、外部 section）
+    const main = document.querySelector('main');
+    if (!main) return;
 
-            if (isDark) {
-                // 文字颜色：深色→浅色
-                newStyle = newStyle.replace(/color:\s*#000(?!0)/g, 'color:#e0e0e0');
-                newStyle = newStyle.replace(/color:\s*#333/g, 'color:#ddd');
-                newStyle = newStyle.replace(/color:\s*#555/g, 'color:#bbb');
-                newStyle = newStyle.replace(/color:\s*#666/g, 'color:#aaa');
-                newStyle = newStyle.replace(/color:\s*#777/g, 'color:#999');
-                newStyle = newStyle.replace(/color:\s*#999/g, 'color:#888');
-                // 背景：白色→深色
-                newStyle = newStyle.replace(/background:\s*#fff\b/g, 'background:#2d2d44');
-                newStyle = newStyle.replace(/background:\s*#ffffff/g, 'background:#2d2d44');
-                newStyle = newStyle.replace(/background:\s*#f5f5f5/g, 'background:#1a1a2e');
-                newStyle = newStyle.replace(/background:\s*#fafafa/g, 'background:#1a1a2e');
-                // 浅色卡片背景 → 深色
-                newStyle = newStyle.replace(/background-color:\s*#D9EEE1/g, 'background-color:#1a3a2a');
-                newStyle = newStyle.replace(/background-color:\s*#FFF4A3/g, 'background-color:#3a3520');
-                newStyle = newStyle.replace(/background-color:\s*#FFC0C7/g, 'background-color:#3a2028');
-                newStyle = newStyle.replace(/background-color:\s*#96D4D4/g, 'background-color:#1a3035');
-                newStyle = newStyle.replace(/background:\s*#D9EEE1/g, 'background:#1a3a2a');
-                newStyle = newStyle.replace(/background:\s*#FFF4A3/g, 'background:#3a3520');
-                newStyle = newStyle.replace(/background:\s*#FFC0C7/g, 'background:#3a2028');
-                newStyle = newStyle.replace(/background:\s*#96D4D4/g, 'background:#1a3035');
-                // 边框
-                newStyle = newStyle.replace(/border:\s*2px solid #ff4d4f/g, 'border:2px solid #ff6b6b');
-                newStyle = newStyle.replace(/background:\s*#fff3f3/g, 'background:#2a1a1a');
-                // 按钮背景
-                newStyle = newStyle.replace(/background:\s*#e0e0e0/g, 'background:#3a3a4a');
-                // 浅色文字（在深色区域内的浅色文字保持不变）
-                newStyle = newStyle.replace(/color:\s*#ccc/g, 'color:#aaa');
-            } else {
-                // 亮色主题：恢复原始颜色
-                newStyle = newStyle.replace(/color:\s*#e0e0e0/g, 'color:#000');
-                newStyle = newStyle.replace(/color:\s*#ddd/g, 'color:#333');
-                newStyle = newStyle.replace(/color:\s*#bbb/g, 'color:#555');
-                newStyle = newStyle.replace(/color:\s*#aaa/g, 'color:#666');
-                newStyle = newStyle.replace(/color:\s*#999/g, 'color:#777');
-                newStyle = newStyle.replace(/color:\s*#888/g, 'color:#999');
-                newStyle = newStyle.replace(/background:\s*#2d2d44/g, 'background:#fff');
-                newStyle = newStyle.replace(/background:\s*#1a1a2e/g, 'background:#f5f5f5');
-                newStyle = newStyle.replace(/background-color:\s*#1a3a2a/g, 'background-color:#D9EEE1');
-                newStyle = newStyle.replace(/background-color:\s*#3a3520/g, 'background-color:#FFF4A3');
-                newStyle = newStyle.replace(/background-color:\s*#3a2028/g, 'background-color:#FFC0C7');
-                newStyle = newStyle.replace(/background-color:\s*#1a3035/g, 'background-color:#96D4D4');
-                newStyle = newStyle.replace(/background:\s*#1a3a2a/g, 'background:#D9EEE1');
-                newStyle = newStyle.replace(/background:\s*#3a3520/g, 'background:#FFF4A3');
-                newStyle = newStyle.replace(/background:\s*#3a2028/g, 'background:#FFC0C7');
-                newStyle = newStyle.replace(/background:\s*#1a3035/g, 'background:#96D4D4');
-                newStyle = newStyle.replace(/border:\s*2px solid #ff6b6b/g, 'border:2px solid #ff4d4f');
-                newStyle = newStyle.replace(/background:\s*#2a1a1a/g, 'background:#fff3f3');
-                newStyle = newStyle.replace(/background:\s*#3a3a4a/g, 'background:#e0e0e0');
+    const allStyled = main.querySelectorAll('[style]');
+    allStyled.forEach(el => {
+        // 跳过导航栏和主题无关的元素
+        if (el.closest('.w3-top') || el.closest('.w3-sidebar') || el.closest('nav') || el.closest('.w3-dropdown-content')) return;
+
+        const currentStyle = el.getAttribute('style') || '';
+
+        if (isDark) {
+            // 首次暗色主题：保存原始样式，再进行转换
+            if (!el.hasAttribute('data-original-style')) {
+                el.setAttribute('data-original-style', currentStyle);
             }
+            const original = el.getAttribute('data-original-style') || currentStyle;
+            let newStyle = original;
 
-            if (newStyle !== style) {
+            // === 文字颜色 ===
+            newStyle = newStyle.replace(/color:\s*#000000\b/gi, 'color:#e0e0e0');
+            newStyle = newStyle.replace(/color:\s*#000\b/gi, 'color:#e0e0e0');
+            newStyle = newStyle.replace(/color:\s*#333333\b/gi, 'color:#ddd');
+            newStyle = newStyle.replace(/color:\s*#333\b/gi, 'color:#ddd');
+            newStyle = newStyle.replace(/color:\s*#555\b/gi, 'color:#bbb');
+            newStyle = newStyle.replace(/color:\s*#666\b/gi, 'color:#aaa');
+            newStyle = newStyle.replace(/color:\s*#777\b/gi, 'color:#999');
+            newStyle = newStyle.replace(/color:\s*#999999\b/gi, 'color:#888');
+            newStyle = newStyle.replace(/color:\s*#999\b/gi, 'color:#888');
+            newStyle = newStyle.replace(/color:\s*#aaa\b/gi, 'color:#999');
+            newStyle = newStyle.replace(/color:\s*#ccc\b/gi, 'color:#aaa');
+            newStyle = newStyle.replace(/color:\s*#7F7F7F\b/gi, 'color:#999');
+            // 特色颜色保持可辨识度
+            newStyle = newStyle.replace(/color:\s*#667eea\b/gi, 'color:#8ea0ff');
+            newStyle = newStyle.replace(/color:\s*#ff9800\b/gi, 'color:#ffb74d');
+            newStyle = newStyle.replace(/color:\s*#e91e63\b/gi, 'color:#f06292');
+            newStyle = newStyle.replace(/color:\s*#1890ff\b/gi, 'color:#42a5f5');
+            newStyle = newStyle.replace(/color:\s*#ff4d4f\b/gi, 'color:#ff6b6b');
+            newStyle = newStyle.replace(/color:\s*#D73A49\b/gi, 'color:#ff6b6b');
+            newStyle = newStyle.replace(/color:\s*#005CC5\b/gi, 'color:#569cd6');
+            newStyle = newStyle.replace(/color:\s*#04AA6D\b/gi, 'color:#04AA6D'); // 保持品牌绿色
+            newStyle = newStyle.replace(/color:\s*#FFD700\b/gi, 'color:#FFD700'); // 保持金色
+            newStyle = newStyle.replace(/color:\s*#a6e22e\b/gi, 'color:#a6e22e'); // 保持亮绿
+            newStyle = newStyle.replace(/color:\s*#569cd6\b/gi, 'color:#569cd6'); // 保持
+            newStyle = newStyle.replace(/color:\s*#d4d4d4\b/gi, 'color:#d4d4d4'); // 保持
+            newStyle = newStyle.replace(/color:\s*#B5CEA8\b/gi, 'color:#B5CEA8'); // 保持
+            newStyle = newStyle.replace(/color:\s*#C586C0\b/gi, 'color:#C586C0'); // 保持
+            newStyle = newStyle.replace(/color:\s*#CE9178\b/gi, 'color:#CE9178'); // 保持
+            newStyle = newStyle.replace(/color:\s*#f92672\b/gi, 'color:#f92672'); // 保持Monokai注释色
+            // 白色文字在浅色背景上 → 深色背景上保持白色
+            newStyle = newStyle.replace(/color:\s*#fff\b/gi, 'color:#fff');
+            newStyle = newStyle.replace(/color:\s*#ffffff\b/gi, 'color:#fff');
+
+            // === 背景颜色 ===
+            newStyle = newStyle.replace(/background:\s*#fff\b/gi, 'background:#2d2d44');
+            newStyle = newStyle.replace(/background:\s*#ffffff\b/gi, 'background:#2d2d44');
+            newStyle = newStyle.replace(/background:\s*#f5f5f5\b/gi, 'background:#1a1a2e');
+            newStyle = newStyle.replace(/background:\s*#fafafa\b/gi, 'background:#1a1a2e');
+            newStyle = newStyle.replace(/background:\s*#D9EEE1\b/gi, 'background:#1a3a2a');
+            newStyle = newStyle.replace(/background:\s*#FFF4A3\b/gi, 'background:#3a3520');
+            newStyle = newStyle.replace(/background:\s*#FFC0C7\b/gi, 'background:#3a2028');
+            newStyle = newStyle.replace(/background:\s*#96D4D4\b/gi, 'background:#1a3035');
+            newStyle = newStyle.replace(/background:\s*#e0e0e0\b/gi, 'background:#3a3a4a');
+            newStyle = newStyle.replace(/background:\s*#fff3f3\b/gi, 'background:#2a1a1a');
+            newStyle = newStyle.replace(/background:\s*#282A35\b/gi, 'background:#282A35'); // 保持
+            newStyle = newStyle.replace(/background:\s*#1a1a2e\b/gi, 'background:#1a1a2e'); // 保持
+            newStyle = newStyle.replace(/background:\s*#0d0d1a\b/gi, 'background:#0d0d1a'); // 保持
+            newStyle = newStyle.replace(/background:\s*#1e1e1e\b/gi, 'background:#1e1e1e'); // 保持
+            newStyle = newStyle.replace(/background:\s*#0f0f1a\b/gi, 'background:#0f0f1a'); // 保持
+            newStyle = newStyle.replace(/background:\s*#16162a\b/gi, 'background:#16162a'); // 保持
+            newStyle = newStyle.replace(/background-color:\s*#D9EEE1\b/gi, 'background-color:#1a3a2a');
+            newStyle = newStyle.replace(/background-color:\s*#FFF4A3\b/gi, 'background-color:#3a3520');
+            newStyle = newStyle.replace(/background-color:\s*#FFC0C7\b/gi, 'background-color:#3a2028');
+            newStyle = newStyle.replace(/background-color:\s*#96D4D4\b/gi, 'background-color:#1a3035');
+
+            // === 边框 ===
+            newStyle = newStyle.replace(/border:\s*2px solid #ff4d4f\b/gi, 'border:2px solid #ff6b6b');
+
+            if (newStyle !== currentStyle) {
                 el.setAttribute('style', newStyle);
             }
-        });
+        } else {
+            // 亮色主题：恢复原始样式
+            const original = el.getAttribute('data-original-style');
+            if (original) {
+                el.setAttribute('style', original);
+                el.removeAttribute('data-original-style');
+            }
+        }
     });
 }
 
@@ -1686,6 +1711,12 @@ function switchModule(moduleId) {
     setTimeout(() => {
         targetModule.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
+
+    // 暗色主题：处理模块内联样式（延迟以覆盖异步渲染的模块）
+    setTimeout(() => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) applyThemeToChapterContent(true);
+    }, 300);
 }
 
 // 更新导航栏激活状态
@@ -3472,6 +3503,12 @@ function startVariableModule(moduleId) {
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // 暗色主题：处理新渲染内容的内联样式
+    setTimeout(() => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) applyThemeToChapterContent(true);
+    }, 80);
 }
 
 // 渲染章节内容
@@ -3603,6 +3640,12 @@ function switchChapterModule(chapterId, moduleId, index) {
 
     // 滚动到内容区
     contentArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // 暗色主题：处理新渲染内容的内联样式
+    setTimeout(() => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) applyThemeToChapterContent(true);
+    }, 80);
 }
 
 // 开始章节学习(从第一个子模块开始)

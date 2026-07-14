@@ -573,7 +573,7 @@ app.get('/api/progress/:username', requireDB, async (req, res) => {
             'SELECT id FROM students WHERE username = ?', [username]
         );
         if (students.length === 0) {
-            return res.json({ modules: {}, achievements: {}, loginDates: [], chapters: {} });
+            return res.json({ success: true, modules: {}, achievements: {}, loginDates: [], chapters: {} });
         }
 
         const studentId = students[0].id;
@@ -618,10 +618,10 @@ app.get('/api/progress/:username', requireDB, async (req, res) => {
             return d.toISOString().split('T')[0];
         });
 
-        res.json({ modules: moduleMap, achievements: achMap, loginDates, chapters: chapterMap });
+        res.json({ success: true, modules: moduleMap, achievements: achMap, loginDates, chapters: chapterMap });
     } catch (err) {
         console.error('获取进度错误:', err);
-        res.json({ modules: {}, achievements: {}, loginDates: [], chapters: {} });
+        res.json({ success: false, modules: {}, achievements: {}, loginDates: [], chapters: {} });
     }
 });
 

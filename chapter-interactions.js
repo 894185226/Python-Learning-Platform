@@ -335,13 +335,15 @@ function runCh6Practice() {
 
 var ch6SecretNumber = 0;
 function startCh6Carousel() {
-    var carousel = document.getElementById('ch6-carousel-display');
+    var carousel = document.getElementById('ch6-carousel');
+    var carouselText = document.getElementById('ch6-carousel-text');
     if (!carousel) return;
     var items = ['🎁', '🎈', '🎉', '🎊', '🎀', '✨', '🌟', '💫'];
     var i = 0;
     if (carousel._interval) clearInterval(carousel._interval);
     carousel._interval = setInterval(function() {
         carousel.textContent = items[i % items.length];
+        if (carouselText) carouselText.textContent = '旋转中... 第' + (i + 1) + '圈';
         i++;
     }, 200);
 }
@@ -397,25 +399,28 @@ function runCh7Practice() {
 }
 
 function startCh7Line() {
-    var line = document.getElementById('ch7-line-display');
+    var line = document.getElementById('ch7-line');
+    var lineMsg = document.getElementById('ch7-line-msg');
     if (!line) return;
-    line.textContent = '🏭 流水线启动中...';
-    var steps = ['📦 原料 →', '🔧 加工 →', '✅ 质检 →', '📮 包装 →', '🚚 出货'];
+    if (lineMsg) lineMsg.textContent = '🏭 流水线启动中...';
+    var steps = ['📦 原料', '🔧 加工', '✅ 质检', '📮 包装', '🚚 出货'];
     var i = 0;
     if (line._interval) clearInterval(line._interval);
     line._interval = setInterval(function() {
         if (i < steps.length) {
-            line.textContent = steps.slice(0, i + 1).join(' ');
+            line.innerHTML = steps.slice(0, i + 1).join(' → ');
+            if (lineMsg) lineMsg.textContent = '步骤 ' + (i + 1) + '/' + steps.length;
             i++;
         } else {
-            line.textContent = '✅ 流水线完成！';
+            line.innerHTML = '✅ 流水线完成！';
+            if (lineMsg) lineMsg.textContent = '所有步骤已完成！';
             clearInterval(line._interval);
         }
     }, 500);
 }
 
 function simulateCh7Continue() {
-    var output = document.getElementById('ch7-sim-output');
+    var output = document.getElementById('ch7-line-msg');
     if (!output) return;
     output.innerHTML = '<span style="color:#a6e22e;">模拟 continue：</span><br>' +
         'for i in range(1, 6):<br>' +
@@ -425,7 +430,7 @@ function simulateCh7Continue() {
 }
 
 function simulateCh7Break() {
-    var output = document.getElementById('ch7-sim-output');
+    var output = document.getElementById('ch7-line-msg');
     if (!output) return;
     output.innerHTML = '<span style="color:#a6e22e;">模拟 break：</span><br>' +
         'for i in range(1, 6):<br>' +
@@ -494,13 +499,14 @@ function runCh8Practice() {
 }
 
 function updateCh8Table() {
-    var rows = parseInt(document.getElementById('ch8-table-rows').value) || 5;
-    var table = document.getElementById('ch8-multi-table');
+    var rows = parseInt(document.getElementById('ch8-rows').value) || 3;
+    var cols = parseInt(document.getElementById('ch8-cols').value) || 3;
+    var table = document.getElementById('ch8-table');
     if (!table) return;
 
     var html = '';
     for (var i = 1; i <= rows; i++) {
-        for (var j = 1; j <= i; j++) {
+        for (var j = 1; j <= cols; j++) {
             html += j + '×' + i + '=' + (i * j) + ' ';
         }
         html += '<br>';
@@ -544,6 +550,23 @@ function runCh9Practice() {
     output.style.color = (hasInput && hasPrint) ? '#04AA6D' : '#ff9800';
 }
 
+function calcCh9(op) {
+    var num1 = parseFloat(document.getElementById('ch9-num1').value) || 0;
+    var num2 = parseFloat(document.getElementById('ch9-num2').value) || 0;
+    var resultEl = document.getElementById('ch9-calc-result');
+    var formulaEl = document.getElementById('ch9-calc-formula');
+    if (!resultEl) return;
+
+    var result;
+    if (op === '+') result = num1 + num2;
+    else if (op === '-') result = num1 - num2;
+    else if (op === '*') result = num1 * num2;
+    else if (op === '/') result = num2 !== 0 ? (num1 / num2).toFixed(2) : '错误(除数不能为0)';
+
+    resultEl.textContent = result;
+    if (formulaEl) formulaEl.textContent = num1 + ' ' + op + ' ' + num2 + ' = ' + result;
+}
+
 // 第9章拖拽组装初始化
 (function initCh9DragDrop() {
     var observer = new MutationObserver(function() {
@@ -578,6 +601,35 @@ function runCh10Practice() {
     output.style.color = (hasFor && hasMultiply) ? '#04AA6D' : '#ff9800';
 }
 
+function drawCh10Stars() {
+    var rows = parseInt(document.getElementById('ch10-rows').value) || 5;
+    var char = document.getElementById('ch10-char').value || '⭐';
+    var canvas = document.getElementById('ch10-canvas');
+    if (!canvas) return;
+    var html = '';
+    for (var i = 1; i <= rows; i++) {
+        html += char.repeat(i) + '\n';
+    }
+    canvas.textContent = html;
+}
+
+function generateCh10Logo() {
+    var size = parseInt(document.getElementById('ch10-logo-size').value) || 5;
+    var char = document.getElementById('ch10-logo-char').value || '★';
+    var logo = document.getElementById('ch10-logo');
+    if (!logo) return;
+
+    // 生成菱形图案
+    var html = '';
+    for (var i = 1; i <= size; i++) {
+        html += '&nbsp;'.repeat(size - i) + char.repeat(2 * i - 1) + '<br>';
+    }
+    for (var i = size - 1; i >= 1; i--) {
+        html += '&nbsp;'.repeat(size - i) + char.repeat(2 * i - 1) + '<br>';
+    }
+    logo.innerHTML = html;
+}
+
 // ============================================================
 // 第11章：列表
 // ============================================================
@@ -601,17 +653,37 @@ function runCh11Practice() {
     output.style.color = hasList ? '#04AA6D' : '#ff9800';
 }
 
-function addToCh11Cart() {
-    var item = document.getElementById('ch11-item').value;
+function addToCh11Cart(item) {
     var cart = document.getElementById('ch11-cart');
+    var countEl = document.getElementById('ch11-cart-count');
     if (!cart || !item) return;
 
     var current = cart.textContent || '';
-    if (current.indexOf('购物车是空的') >= 0 || current === '') {
+    if (current === '[]' || current === '' || current.indexOf('购物车是空的') >= 0) {
         cart.textContent = '[' + item + ']';
     } else {
         cart.textContent = current.replace(']', ', ' + item + ']');
     }
+    // 更新商品数量
+    if (countEl) {
+        var items = cart.textContent.replace('[', '').replace(']', '').split(', ');
+        countEl.textContent = '共' + items.length + '件商品';
+    }
+}
+
+function addCh11Friend() {
+    var nameInput = document.getElementById('ch11-friend-name');
+    var friendsEl = document.getElementById('ch11-friends');
+    if (!nameInput || !friendsEl) return;
+    var name = nameInput.value.trim();
+    if (!name) return;
+    var current = friendsEl.textContent || '';
+    if (current === '[]' || current === '') {
+        friendsEl.textContent = '[' + name + ']';
+    } else {
+        friendsEl.textContent = current.replace(']', ', ' + name + ']');
+    }
+    nameInput.value = '';
 }
 
 // ============================================================
@@ -636,11 +708,47 @@ function runCh12Practice() {
     output.style.color = ops.length > 0 ? '#04AA6D' : '#ff9800';
 }
 
-function opCh12List() {
-    var list = document.getElementById('ch12-list-display');
-    if (!list) return;
-    var items = ['苹果', '香蕉', '橘子', '葡萄', '西瓜'];
-    list.textContent = '[' + items.join(', ') + ']';
+var ch12ListData = [3, 1, 4, 1, 5, 9];
+
+function opCh12List(op) {
+    var listEl = document.getElementById('ch12-list');
+    var infoEl = document.getElementById('ch12-list-info');
+    if (!listEl) return;
+
+    if (op === 'append') {
+        ch12ListData.push(Math.floor(Math.random() * 10));
+    } else if (op === 'pop') {
+        if (ch12ListData.length > 0) ch12ListData.pop();
+    } else if (op === 'sort') {
+        ch12ListData.sort(function(a, b) { return a - b; });
+    } else if (op === 'reset') {
+        ch12ListData = [3, 1, 4, 1, 5, 9];
+    }
+
+    listEl.textContent = '[' + ch12ListData.join(', ') + ']';
+    if (infoEl) infoEl.textContent = '长度: ' + ch12ListData.length;
+}
+
+function addCh12Score() {
+    var scoreInput = document.getElementById('ch12-score');
+    var scoresEl = document.getElementById('ch12-scores');
+    var statsEl = document.getElementById('ch12-stats');
+    if (!scoreInput || !scoresEl) return;
+    var score = parseInt(scoreInput.value);
+    if (isNaN(score) || score < 0 || score > 100) return;
+
+    if (!window._ch12Scores) window._ch12Scores = [];
+    window._ch12Scores.push(score);
+    scoresEl.textContent = '[' + window._ch12Scores.join(', ') + ']';
+    scoreInput.value = '';
+
+    if (statsEl && window._ch12Scores.length > 0) {
+        var sum = window._ch12Scores.reduce(function(a, b) { return a + b; }, 0);
+        var avg = (sum / window._ch12Scores.length).toFixed(1);
+        var max = Math.max.apply(null, window._ch12Scores);
+        var min = Math.min.apply(null, window._ch12Scores);
+        statsEl.textContent = '平均: ' + avg + ' | 最高: ' + max + ' | 最低: ' + min;
+    }
 }
 
 // ============================================================
@@ -675,6 +783,27 @@ function runCh13Practice() {
     });
     observer.observe(document.body, { childList: true, subtree: true });
 })();
+
+var ch13LotteryPool = [];
+
+function lotteryNoRepeat() {
+    var resultEl = document.getElementById('ch13-lottery-result');
+    if (!resultEl) return;
+    var prizes = ['🎁 文具套装', '📚 笔记本', '🖊️ 钢笔', '🎨 水彩笔', '🧮 计算器', '📐 尺子套装', '🎒 书包', '🏆 大奖'];
+
+    if (ch13LotteryPool.length >= prizes.length) {
+        resultEl.innerHTML = '🎉 所有奖品都已抽完！<br>' + resultEl.innerHTML;
+        return;
+    }
+
+    var available = [];
+    for (var i = 0; i < prizes.length; i++) {
+        if (ch13LotteryPool.indexOf(i) === -1) available.push(i);
+    }
+    var idx = available[Math.floor(Math.random() * available.length)];
+    ch13LotteryPool.push(idx);
+    resultEl.innerHTML = '🎯 抽中了：' + prizes[idx] + '<br>' + resultEl.innerHTML;
+}
 
 // ============================================================
 // 第14章：字典
@@ -714,6 +843,31 @@ function queryCh14Dict() {
     }
 }
 
+function queryCh14Book() {
+    var bookName = document.getElementById('ch14-book-name').value.trim();
+    var resultEl = document.getElementById('ch14-book-result');
+    if (!resultEl) return;
+
+    var library = {
+        'Python入门': '张三',
+        '算法导论': '李四',
+        '数据结构': '王五',
+        '计算机网络': '赵六',
+        '操作系统': '钱七'
+    };
+
+    if (library[bookName]) {
+        resultEl.textContent = '《' + bookName + '》作者：' + library[bookName];
+        resultEl.style.color = '#04AA6D';
+    } else if (bookName === '') {
+        resultEl.textContent = '请输入书名进行查询';
+        resultEl.style.color = '#ff9800';
+    } else {
+        resultEl.textContent = '未找到《' + bookName + '》';
+        resultEl.style.color = '#ff4d4f';
+    }
+}
+
 // ============================================================
 // 第15章：字符串操作
 // ============================================================
@@ -747,6 +901,20 @@ function sliceCh15Str() {
     }
 }
 
+function encryptCh15() {
+    var msg = document.getElementById('ch15-msg').value;
+    var cipherEl = document.getElementById('ch15-cipher');
+    if (!cipherEl || !msg) return;
+    // 反转 + 简单替换加密
+    var encrypted = msg.split('').reverse().join('');
+    // 将每个字符的编码+1
+    var enhanced = '';
+    for (var i = 0; i < encrypted.length; i++) {
+        enhanced += String.fromCharCode(encrypted.charCodeAt(i) + 1);
+    }
+    cipherEl.textContent = enhanced;
+}
+
 // ============================================================
 // 第16章：函数
 // ============================================================
@@ -771,32 +939,37 @@ function runCh16Practice() {
 }
 
 function updateCh16Test() {
-    var funcName = document.getElementById('ch16-func-select').value;
-    var input = document.getElementById('ch16-test-input').value;
+    var dataType = document.getElementById('ch16-data-type').value;
     var result = document.getElementById('ch16-test-result');
     if (!result) return;
 
-    var builtins = {
-        'len': function(v) { return v.length; },
-        'max': function(v) { var arr = v.split(',').map(Number); return Math.max.apply(null, arr); },
-        'min': function(v) { var arr = v.split(',').map(Number); return Math.min.apply(null, arr); },
-        'sum': function(v) { var arr = v.split(',').map(Number); return arr.reduce(function(a, b) { return a + b; }, 0); },
-        'int': function(v) { return parseInt(v); },
-        'str': function(v) { return '"' + v + '"'; },
-        'float': function(v) { return parseFloat(v); },
-        'bool': function(v) { return v ? 'True' : 'False'; }
+    var dataMap = {
+        'list': { data: [1, 5, 3, 2, 4], label: '列表 [1, 5, 3, 2, 4]' },
+        'str': { data: 'Python', label: '字符串 "Python"' },
+        'tuple': { data: [10, 20, 30], label: '元组 (10, 20, 30)' }
     };
 
-    var fn = builtins[funcName];
-    if (fn) {
-        try {
-            result.textContent = funcName + '(' + input + ') = ' + fn(input);
-            result.style.color = '#04AA6D';
-        } catch (e) {
-            result.textContent = '错误：' + e.message;
-            result.style.color = '#ff4d4f';
-        }
+    var info = dataMap[dataType];
+    if (!info) return;
+
+    var d = info.data;
+    var html = '<strong>' + info.label + '</strong><br>';
+    html += 'len() = ' + d.length + '<br>';
+
+    if (dataType === 'str') {
+        html += 'upper() = "' + d.toUpperCase() + '"<br>';
+        html += '类型: str → ' + typeof d + '<br>';
+    } else {
+        var arr = Array.isArray(d) ? d : [d];
+        html += 'max() = ' + Math.max.apply(null, arr) + '<br>';
+        html += 'min() = ' + Math.min.apply(null, arr) + '<br>';
+        html += 'sum() = ' + arr.reduce(function(a, b) { return a + b; }, 0) + '<br>';
+        html += '类型: ' + (Array.isArray(d) ? 'list' : 'tuple') + '<br>';
     }
+    html += 'bool() = ' + (d ? 'True' : 'False');
+
+    result.innerHTML = html;
+    result.style.color = '#a6e22e';
 }
 
 function testCh16Func() {
@@ -824,18 +997,40 @@ function runCh17Practice() {
     output.style.color = (hasBin || hasInt) ? '#04AA6D' : '#ff9800';
 }
 
-function toggleCh17Bit() {
-    var bits = document.querySelectorAll('.ch17-bit');
+function toggleCh17Bit(bit) {
+    var bulb = document.getElementById('ch17-bit' + bit);
     var decimal = document.getElementById('ch17-decimal');
-    if (!bits.length || !decimal) return;
+    var binary = document.getElementById('ch17-binary');
+    if (!bulb || !decimal) return;
 
+    // 切换灯泡状态
+    if (bulb.style.background === 'rgb(255, 193, 7)' || bulb.style.background === '#ffc107') {
+        bulb.style.background = '#333';
+        bulb.style.boxShadow = 'none';
+    } else {
+        bulb.style.background = '#ffc107';
+        bulb.style.boxShadow = '0 0 20px #ffc107';
+    }
+
+    // 计算十进制值
     var value = 0;
-    bits.forEach(function(bit, i) {
-        if (bit.classList.contains('active')) {
-            value += Math.pow(2, bits.length - 1 - i);
-        }
-    });
+    var binStr = '';
+    for (var i = 3; i >= 0; i--) {
+        var b = document.getElementById('ch17-bit' + i);
+        var isOn = b && (b.style.background === 'rgb(255, 193, 7)' || b.style.background === '#ffc107');
+        binStr = (isOn ? '1' : '0') + binStr;
+        if (isOn) value += Math.pow(2, i);
+    }
     decimal.textContent = value;
+    if (binary) binary.textContent = '二进制: ' + binStr;
+}
+
+function convertCh17Base() {
+    var input = document.getElementById('ch17-dec-input');
+    var result = document.getElementById('ch17-convert-result');
+    if (!input || !result) return;
+    var n = parseInt(input.value) || 0;
+    result.innerHTML = '二进制: ' + n.toString(2) + '<br>八进制: ' + n.toString(8) + '<br>十六进制: ' + n.toString(16).toUpperCase();
 }
 
 // ============================================================
@@ -853,6 +1048,18 @@ function runCh18Practice() {
             color: hasSteps ? '#04AA6D' : '#ff9800'
         };
     });
+}
+
+var ch18Order = [];
+var ch18Total = 0;
+
+function orderCh18(item, price) {
+    ch18Order.push(item);
+    ch18Total += price;
+    var orderEl = document.getElementById('ch18-order');
+    var totalEl = document.getElementById('ch18-total');
+    if (orderEl) orderEl.textContent = ch18Order.join(' + ');
+    if (totalEl) totalEl.textContent = '总计: ¥' + ch18Total;
 }
 
 // ============================================================
@@ -880,20 +1087,18 @@ function runCh19Practice() {
 }
 
 function updateCh19Display() {
-    var topic = document.getElementById('ch19-topic').value;
+    var num = parseInt(document.getElementById('ch19-num').value) || 0;
     var display = document.getElementById('ch19-display');
     if (!display) return;
+    display.innerHTML = '十进制: ' + num + '<br>二进制: 0b' + num.toString(2) + '<br>八进制: 0o' + num.toString(8) + '<br>十六进制: 0x' + num.toString(16).toUpperCase() + '<br>浮点: ' + num + '.0<br>布尔: ' + (num ? 'True' : 'False');
+}
 
-    var topics = {
-        'variables': '变量：存储数据的容器，如 name = "小明"',
-        'types': '数据类型：int(整数), float(浮点), str(字符串), bool(布尔)',
-        'conditions': '条件判断：if/elif/else 让程序做选择',
-        'loops': '循环：for/while 让程序重复执行',
-        'lists': '列表：用[]存储多个数据，如 [1,2,3]',
-        'functions': '函数：用def定义可复用的代码块'
-    };
-
-    display.textContent = topics[topic] || '请选择一个知识点';
+function convertCh19Base() {
+    var input = document.getElementById('ch19-base-input');
+    var result = document.getElementById('ch19-base-result');
+    if (!input || !result) return;
+    var n = parseInt(input.value) || 0;
+    result.innerHTML = '二进制: ' + n.toString(2) + '<br>八进制: ' + n.toString(8) + '<br>十六进制: ' + n.toString(16).toUpperCase() + '<br>bool: ' + (n ? 'True' : 'False');
 }
 
 // ============================================================

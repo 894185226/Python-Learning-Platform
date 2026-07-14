@@ -6108,17 +6108,22 @@ img:not([src]) {
 
 /* 章节首页样式 */
 .chapter-landing {
-    min-height: calc(100vh - 50px);
     display: flex;
     flex-direction: column;
+    padding-bottom: 40px; /* 底部留白，避免内容贴底 */
 }
 
 .chapter-hero {
+    min-height: 280px;
     padding: 0 16px 40px;
     text-align: center;
     background: #282A35;
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .chapter-hero::before {
@@ -6302,7 +6307,6 @@ img:not([src]) {
 
 /* 章节内容区 */
 .chapter-content {
-    flex: 1;
     padding: 0;
     background: #fafafa;
 }
@@ -7449,7 +7453,8 @@ img:not([src]) {
    新功能模块样式 - 学习笔记
    ================================================================ */
 .note-panel {
-    margin: 24px 0;
+    max-width: 960px;
+    margin: 24px auto;
     border: 1px solid var(--border-light);
     border-radius: 12px;
     overflow: hidden;

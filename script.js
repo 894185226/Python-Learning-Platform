@@ -169,6 +169,86 @@ function updateThemeIcon(isDark) {
     }
 }
 
+// 暗色主题：预处理 HTML 字符串（在插入 DOM 前替换颜色，消除闪烁）
+// 与 applyThemeToChapterContent 保持相同的颜色映射
+function preprocessHTMLForDark(html) {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (!isDark) return html;
+
+    // 匹配 style="..." 属性（不包含 data-original-style）
+    return html.replace(/style="([^"]*)"/gi, (match, styleContent) => {
+        const original = styleContent;
+        let s = styleContent;
+
+        // === 文字颜色 ===
+        s = s.replace(/color:\s*#000000\b/gi, 'color:#e0e0e0');
+        s = s.replace(/color:\s*#000\b/gi, 'color:#e0e0e0');
+        s = s.replace(/color:\s*#333333\b/gi, 'color:#ddd');
+        s = s.replace(/color:\s*#333\b/gi, 'color:#ddd');
+        s = s.replace(/color:\s*#555\b/gi, 'color:#bbb');
+        s = s.replace(/color:\s*#666\b/gi, 'color:#aaa');
+        s = s.replace(/color:\s*#777\b/gi, 'color:#999');
+        s = s.replace(/color:\s*#999999\b/gi, 'color:#888');
+        s = s.replace(/color:\s*#999\b/gi, 'color:#888');
+        s = s.replace(/color:\s*#aaa\b/gi, 'color:#999');
+        s = s.replace(/color:\s*#ccc\b/gi, 'color:#aaa');
+        s = s.replace(/color:\s*#7F7F7F\b/gi, 'color:#999');
+        s = s.replace(/color:\s*#667eea\b/gi, 'color:#8ea0ff');
+        s = s.replace(/color:\s*#ff9800\b/gi, 'color:#ffb74d');
+        s = s.replace(/color:\s*#e91e63\b/gi, 'color:#f06292');
+        s = s.replace(/color:\s*#1890ff\b/gi, 'color:#42a5f5');
+        s = s.replace(/color:\s*#ff4d4f\b/gi, 'color:#ff6b6b');
+        s = s.replace(/color:\s*#D73A49\b/gi, 'color:#ff6b6b');
+        s = s.replace(/color:\s*#005CC5\b/gi, 'color:#569cd6');
+        s = s.replace(/color:\s*#04AA6D\b/gi, 'color:#04AA6D');
+        s = s.replace(/color:\s*#FFD700\b/gi, 'color:#FFD700');
+        s = s.replace(/color:\s*#a6e22e\b/gi, 'color:#a6e22e');
+        s = s.replace(/color:\s*#569cd6\b/gi, 'color:#569cd6');
+        s = s.replace(/color:\s*#d4d4d4\b/gi, 'color:#d4d4d4');
+        s = s.replace(/color:\s*#B5CEA8\b/gi, 'color:#B5CEA8');
+        s = s.replace(/color:\s*#C586C0\b/gi, 'color:#C586C0');
+        s = s.replace(/color:\s*#CE9178\b/gi, 'color:#CE9178');
+        s = s.replace(/color:\s*#f92672\b/gi, 'color:#f92672');
+        s = s.replace(/color:\s*#0a0\b/gi, 'color:#4ec94e');
+        s = s.replace(/color:\s*#905\b/gi, 'color:#c586c0');
+        s = s.replace(/color:\s*#005cc5\b/gi, 'color:#569cd6');
+        s = s.replace(/color:\s*#d73a49\b/gi, 'color:#ff6b6b');
+        s = s.replace(/color:\s*#fff\b/gi, 'color:#fff');
+        s = s.replace(/color:\s*#ffffff\b/gi, 'color:#fff');
+
+        // === 背景颜色 ===
+        s = s.replace(/background:\s*#fff\b/gi, 'background:#2d2d44');
+        s = s.replace(/background:\s*#ffffff\b/gi, 'background:#2d2d44');
+        s = s.replace(/background:\s*#f5f5f5\b/gi, 'background:#1a1a2e');
+        s = s.replace(/background:\s*#fafafa\b/gi, 'background:#1a1a2e');
+        s = s.replace(/background:\s*#D9EEE1\b/gi, 'background:#1a3a2a');
+        s = s.replace(/background:\s*#FFF4A3\b/gi, 'background:#3a3520');
+        s = s.replace(/background:\s*#FFC0C7\b/gi, 'background:#3a2028');
+        s = s.replace(/background:\s*#96D4D4\b/gi, 'background:#1a3035');
+        s = s.replace(/background:\s*#e0e0e0\b/gi, 'background:#3a3a4a');
+        s = s.replace(/background:\s*#fff3f3\b/gi, 'background:#2a1a1a');
+        s = s.replace(/background:\s*#282A35\b/gi, 'background:#282A35');
+        s = s.replace(/background:\s*#1a1a2e\b/gi, 'background:#1a1a2e');
+        s = s.replace(/background:\s*#0d0d1a\b/gi, 'background:#0d0d1a');
+        s = s.replace(/background:\s*#1e1e1e\b/gi, 'background:#1e1e1e');
+        s = s.replace(/background:\s*#0f0f1a\b/gi, 'background:#0f0f1a');
+        s = s.replace(/background:\s*#16162a\b/gi, 'background:#16162a');
+        s = s.replace(/background-color:\s*#D9EEE1\b/gi, 'background-color:#1a3a2a');
+        s = s.replace(/background-color:\s*#FFF4A3\b/gi, 'background-color:#3a3520');
+        s = s.replace(/background-color:\s*#FFC0C7\b/gi, 'background-color:#3a2028');
+        s = s.replace(/background-color:\s*#96D4D4\b/gi, 'background-color:#1a3035');
+
+        // === 边框 ===
+        s = s.replace(/border:\s*2px solid #ff4d4f\b/gi, 'border:2px solid #ff6b6b');
+
+        // 如果样式有变化，保留原始样式供亮色主题恢复
+        if (s !== original) {
+            return 'style="' + s + '" data-original-style="' + original + '"';
+        }
+        return 'style="' + s + '"';
+    });
+}
+
 // 暗色主题：修复内联样式（CSS无法覆盖内联样式）
 // 扫描 main 内所有带 style 属性的元素，排除导航栏
 // 使用 data-original-style 存储原始样式，避免亮↔暗反复切换导致样式污染
@@ -3565,7 +3645,7 @@ function renderChapterContent(chapterId, container) {
 
     const bgColor = chapter.color || '#04AA6D';
 
-    container.innerHTML = `
+    container.innerHTML = preprocessHTMLForDark(`
         <div class="chapter-landing">
             <!-- 子模块导航 -->
             <div class="chapter-module-nav" id="chapterModNav-${chapterId}">
@@ -3604,7 +3684,7 @@ function renderChapterContent(chapterId, container) {
                 </div>
             </div>
         </div>
-    `;
+    `);
 
     // 自动打开第一个子模块（情境导入）
     if (chapter.modules && chapter.modules.length > 0) {
@@ -3652,7 +3732,7 @@ function switchChapterModule(chapterId, moduleId, index) {
     if (!contentArea) return;
 
     if (typeof module.render === 'function') {
-        contentArea.innerHTML = '<div class="ch-module-wrap">' + module.render() + '</div>';
+        contentArea.innerHTML = '<div class="ch-module-wrap">' + preprocessHTMLForDark(module.render()) + '</div>';
     } else {
         contentArea.innerHTML = `
             <div class="ch-module-wrap">

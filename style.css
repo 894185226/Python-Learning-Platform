@@ -853,6 +853,28 @@ body, .w3-bar, .w3-bar .w3-button, .search-form, .search-input,
     color: #ddd;
 }
 
+[data-theme="dark"] .achievement-item .ach-info h4 {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .achievement-item .ach-info p {
+    color: #aaa;
+}
+
+[data-theme="dark"] .achievement-item.locked {
+    opacity: 0.6;
+    filter: grayscale(40%);
+    background: #2a2a3a;
+}
+
+[data-theme="dark"] .achievement-item.locked .ach-info h4 {
+    color: #999;
+}
+
+[data-theme="dark"] .achievement-item.locked .ach-info p {
+    color: #777;
+}
+
 [data-theme="dark"] .mnemonic {
     background: #2d2d44;
     color: #ccc;

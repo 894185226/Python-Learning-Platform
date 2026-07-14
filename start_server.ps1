@@ -65,13 +65,26 @@ if ($portInUse) {
     Write-Host "[OK] Port 3000 freed" -ForegroundColor Green
 }
 
-# Detect LAN IP
+# Detect LAN IP (prefer classroom fixed IP range 10.20.30.xxx)
 $lanIP = $null
+$allIPs = @()
 $ipConfig = & ipconfig 2>$null
 $ipConfig | Select-String "IPv4" | ForEach-Object {
     $ip = ($_ -replace '.*:\s*', '').Trim()
-    if ($ip -ne "127.0.0.1" -and -not $lanIP) { $lanIP = $ip }
+    if ($ip -ne "127.0.0.1") { $allIPs += $ip }
 }
+
+# Priority 1: classroom fixed IP range (10.20.30.xxx)
+$lanIP = $allIPs | Where-Object { $_ -match "^10\.20\.30\." } | Select-Object -First 1
+
+# Priority 2: any 10.x.x.x address
+if (-not $lanIP) { $lanIP = $allIPs | Where-Object { $_ -match "^10\." } | Select-Object -First 1 }
+
+# Priority 3: any 192.168.x.x address
+if (-not $lanIP) { $lanIP = $allIPs | Where-Object { $_ -match "^192\.168\." } | Select-Object -First 1 }
+
+# Priority 4: any other non-loopback address
+if (-not $lanIP) { $lanIP = $allIPs | Select-Object -First 1 }
 
 # Configure firewall
 Write-Host "[INFO] Configuring Windows Firewall..." -ForegroundColor Cyan

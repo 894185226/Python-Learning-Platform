@@ -37,26 +37,32 @@ function shuffleDebugButtons() {
 }
 
 // ============================================================
-// 通用测验检查函数
+// 通用测验检查函数（使用 data-correct 属性）
 // ============================================================
-function checkQuiz(chapterNum, correctAnswers) {
+function checkQuiz(chapterNum) {
     const resultEl = document.getElementById('ch' + chapterNum + '-quiz-result');
     let correctCount = 0;
-    const totalQuestions = Object.keys(correctAnswers).length;
+    let totalQuestions = 0;
 
-    for (let i = 1; i <= totalQuestions; i++) {
-        const radios = document.getElementsByName('ch' + chapterNum + 'q' + i);
+    // 查找该章节的所有问题（按 radio name 分组）
+    const allRadios = document.querySelectorAll('input[type="radio"][name^="ch' + chapterNum + 'q"]');
+    const questionNames = new Set();
+    allRadios.forEach(function(r) { questionNames.add(r.name); });
+    totalQuestions = questionNames.size;
+
+    questionNames.forEach(function(name) {
+        const radios = document.getElementsByName(name);
         let selected = null;
-        for (const radio of radios) {
-            if (radio.checked) {
-                selected = radio.value;
+        for (var i = 0; i < radios.length; i++) {
+            if (radios[i].checked) {
+                selected = radios[i];
                 break;
             }
         }
-        if (selected === String(correctAnswers[i])) {
+        if (selected && selected.getAttribute('data-correct') === 'true') {
             correctCount++;
         }
-    }
+    });
 
     if (resultEl) {
         const percentage = Math.round((correctCount / totalQuestions) * 100);
@@ -67,6 +73,45 @@ function checkQuiz(chapterNum, correctAnswers) {
         resultEl.innerHTML = emoji + ' 得分：' + correctCount + '/' + totalQuestions + '（' + percentage + '分）';
         resultEl.style.color = color;
     }
+}
+
+// ============================================================
+// 测验选项随机排列
+// ============================================================
+function shuffleQuizOptions() {
+    // 查找所有 quiz 容器
+    var quizContainers = document.querySelectorAll('[id$="-quiz-result"]');
+    quizContainers.forEach(function(resultEl) {
+        var quizSection = resultEl.parentElement;
+        if (!quizSection) return;
+
+        // 找到所有问题卡片
+        var questionCards = quizSection.querySelectorAll('.w3-card-2');
+        questionCards.forEach(function(card) {
+            // 检查是否已经随机化过
+            if (card.getAttribute('data-shuffled') === 'true') return;
+            card.setAttribute('data-shuffled', 'true');
+
+            // 找到所有 label 选项
+            var labels = card.querySelectorAll('label');
+            if (labels.length <= 1) return;
+
+            // Fisher-Yates 洗牌
+            var arr = Array.from(labels);
+            for (var i = arr.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
+            }
+
+            // 重新排列 DOM
+            var parent = labels[0].parentElement;
+            arr.forEach(function(label) {
+                parent.appendChild(label);
+            });
+        });
+    });
 }
 
 // ============================================================
@@ -98,9 +143,7 @@ function escapeHtml(str) {
 // ============================================================
 // 第1章：认识Python
 // ============================================================
-function checkCh1Quiz() {
-    checkQuiz(1, { 1: 1, 2: 1, 3: 2, 4: 1, 5: 1 });
-}
+function checkCh1Quiz() { checkQuiz(1); }
 
 var ch1PracticeLevel = 1;
 var ch1PracticeData = {
@@ -165,9 +208,7 @@ function runCh1Practice() {
 // ============================================================
 // 第3章：变量类型
 // ============================================================
-function checkCh3Quiz() {
-    checkQuiz(3, { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1 });
-}
+function checkCh3Quiz() { checkQuiz(3); }
 
 function runCh3Practice() {
     var code = document.getElementById('ch3-practice-code').value;
@@ -235,9 +276,7 @@ function generateCh3Card() {
 // ============================================================
 // 第4章：条件判断
 // ============================================================
-function checkCh4Quiz() {
-    checkQuiz(4, { 1: 1, 2: 1, 3: 1, 4: 1, 5: 0 });
-}
+function checkCh4Quiz() { checkQuiz(4); }
 
 function runCh4Practice() {
     var code = document.getElementById('ch4-practice-code').value;
@@ -301,9 +340,7 @@ function runCh4Mood() {
 // ============================================================
 // 第5章：if进阶
 // ============================================================
-function checkCh5Quiz() {
-    checkQuiz(5, { 1: 1, 2: 1, 3: 0, 4: 0, 5: 2 });
-}
+function checkCh5Quiz() { checkQuiz(5); }
 
 function runCh5Practice() {
     var code = document.getElementById('ch5-practice-code').value;
@@ -377,9 +414,7 @@ function runCh5Equip() {
 // ============================================================
 // 第6章：while循环
 // ============================================================
-function checkCh6Quiz() {
-    checkQuiz(6, { 1: 1, 2: 1, 3: 1, 4: 1, 5: 0 });
-}
+function checkCh6Quiz() { checkQuiz(6); }
 
 function runCh6Practice() {
     var code = document.getElementById('ch6-practice-code').value;
@@ -448,9 +483,7 @@ function guessCh6Number() {
 // ============================================================
 // 第7章：break与continue
 // ============================================================
-function checkCh7Quiz() {
-    checkQuiz(7, { 1: 1, 2: 0, 3: 1, 4: 1, 5: 1 });
-}
+function checkCh7Quiz() { checkQuiz(7); }
 
 function runCh7Practice() {
     var code = document.getElementById('ch7-practice-code').value;
@@ -556,9 +589,7 @@ function startCh7Lottery() {
 // ============================================================
 // 第8章：嵌套循环
 // ============================================================
-function checkCh8Quiz() {
-    checkQuiz(8, { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1 });
-}
+function checkCh8Quiz() { checkQuiz(8); }
 
 function runCh8Practice() {
     var code = document.getElementById('ch8-practice-code').value;
@@ -612,9 +643,7 @@ function generateCh8Pattern() {
 // ============================================================
 // 第9章：综合练习
 // ============================================================
-function checkCh9Quiz() {
-    checkQuiz(9, { 1: 1, 2: 1, 3: 0 });
-}
+function checkCh9Quiz() { checkQuiz(9); }
 
 function runCh9Practice() {
     var code = document.getElementById('ch9-practice-code').value;
@@ -671,9 +700,7 @@ function calcCh9(op) {
 // ============================================================
 // 第10章：字符串进阶
 // ============================================================
-function checkCh10Quiz() {
-    checkQuiz(10, { 1: 0, 2: 1, 3: 0, 4: 0, 5: 1 });
-}
+function checkCh10Quiz() { checkQuiz(10); }
 
 function runCh10Practice() {
     var code = document.getElementById('ch10-practice-code').value;
@@ -727,9 +754,7 @@ function generateCh10Logo() {
 // ============================================================
 // 第11章：列表
 // ============================================================
-function checkCh11Quiz() {
-    checkQuiz(11, { 1: 0, 2: 1, 3: 1, 4: 0, 5: 1 });
-}
+function checkCh11Quiz() { checkQuiz(11); }
 
 function runCh11Practice() {
     var code = document.getElementById('ch11-practice-code').value;
@@ -789,9 +814,7 @@ function addCh11Friend() {
 // ============================================================
 // 第12章：列表操作
 // ============================================================
-function checkCh12Quiz() {
-    checkQuiz(12, { 1: 0, 2: 1, 3: 1, 4: 1, 5: 0 });
-}
+function checkCh12Quiz() { checkQuiz(12); }
 
 function runCh12Practice() {
     var code = document.getElementById('ch12-practice-code').value;
@@ -860,9 +883,7 @@ function addCh12Score() {
 // ============================================================
 // 第13章：元组与集合
 // ============================================================
-function checkCh13Quiz() {
-    checkQuiz(13, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-}
+function checkCh13Quiz() { checkQuiz(13); }
 
 function runCh13Practice() {
     var code = document.getElementById('ch13-practice-code').value;
@@ -920,9 +941,7 @@ function lotteryNoRepeat() {
 // ============================================================
 // 第14章：字典
 // ============================================================
-function checkCh14Quiz() {
-    checkQuiz(14, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-}
+function checkCh14Quiz() { checkQuiz(14); }
 
 function runCh14Practice() {
     var code = document.getElementById('ch14-practice-code').value;
@@ -994,9 +1013,7 @@ function queryCh14Book() {
 // ============================================================
 // 第15章：字符串操作
 // ============================================================
-function checkCh15Quiz() {
-    checkQuiz(15, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-}
+function checkCh15Quiz() { checkQuiz(15); }
 
 function runCh15Practice() {
     var code = document.getElementById('ch15-practice-code').value;
@@ -1050,9 +1067,7 @@ function encryptCh15() {
 // ============================================================
 // 第16章：函数
 // ============================================================
-function checkCh16Quiz() {
-    checkQuiz(16, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-}
+function checkCh16Quiz() { checkQuiz(16); }
 
 function runCh16Practice() {
     var code = document.getElementById('ch16-practice-code').value;
@@ -1117,9 +1132,7 @@ function testCh16Func() {
 // ============================================================
 // 第17章：二进制
 // ============================================================
-function checkCh17Quiz() {
-    checkQuiz(17, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-}
+function checkCh17Quiz() { checkQuiz(17); }
 
 function runCh17Practice() {
     var code = document.getElementById('ch17-practice-code').value;
@@ -1180,9 +1193,7 @@ function convertCh17Base() {
 // ============================================================
 // 第18章：编程思维
 // ============================================================
-function checkCh18Quiz() {
-    checkQuiz(18, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-}
+function checkCh18Quiz() { checkQuiz(18); }
 
 function runCh18Practice() {
     runPractice(18, function(code) {
@@ -1258,9 +1269,7 @@ function checkCh18Flowchart() {
 // ============================================================
 // 第19章：综合复习
 // ============================================================
-function checkCh19Quiz() {
-    checkQuiz(19, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-}
+function checkCh19Quiz() { checkQuiz(19); }
 
 function runCh19Practice() {
     var code = document.getElementById('ch19-practice-code').value;

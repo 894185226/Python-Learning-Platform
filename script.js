@@ -1844,6 +1844,7 @@ function switchModule(moduleId) {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (isDark) applyThemeToChapterContent(true);
         shuffleDebugButtons();
+        shuffleQuizOptions();
     }, 300);
 }
 
@@ -3637,6 +3638,7 @@ function startVariableModule(moduleId) {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (isDark) applyThemeToChapterContent(true);
         shuffleDebugButtons();
+        shuffleQuizOptions();
     }, 80);
 }
 
@@ -3700,6 +3702,7 @@ function renderChapterContent(chapterId, container) {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (isDark) applyThemeToChapterContent(true);
         shuffleDebugButtons();
+        shuffleQuizOptions();
     }, 100);
 }
 
@@ -3776,6 +3779,7 @@ function switchChapterModule(chapterId, moduleId, index) {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         if (isDark) applyThemeToChapterContent(true);
         shuffleDebugButtons();
+        shuffleQuizOptions();
     }, 80);
 }
 

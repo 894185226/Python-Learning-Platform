@@ -6,7 +6,7 @@
 }
 
 html {
-    scroll-padding-top: 76px; /* 防止固定导航栏遮挡锚点内容 */
+    scroll-padding-top: 104px; /* 主导航(60px) + 子模块导航(44px)，防止固定导航栏遮挡锚点内容 */
     scroll-behavior: smooth;
 }
 
@@ -6452,7 +6452,12 @@ img:not([src]) {
     z-index: 1000;
 }
 #chapter-ch2 .chapter-landing {
-    padding-top: 44px; /* 补偿 fixed nav 占据的高度 */
+    padding-top: 104px; /* 补偿主导航(60px) + fixed子模块导航(44px)占据的高度 */
+}
+
+/* ch2 子模块内容（.module 元素在 .chapter-landing 外部，需单独补偿） */
+body.in-ch2 .module.active {
+    padding-top: 104px;
 }
 
 .chapter-module-nav .mod-nav-btn {
@@ -6578,7 +6583,10 @@ img:not([src]) {
         height: 40px;
     }
     #chapter-ch2 .chapter-landing {
-        padding-top: 40px;
+        padding-top: 100px; /* 补偿主导航(60px) + 子模块导航(40px) */
+    }
+    body.in-ch2 .module.active {
+        padding-top: 100px;
     }
     .chapter-module-nav .mod-nav-btn {
         padding: 0 10px;

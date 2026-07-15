@@ -193,7 +193,7 @@
                 </button>
             </div>
             <div class="w3-container w3-padding-24">
-                <form id="loginForm" onsubmit="return handleLogin(event)">
+                <form id="loginForm" onsubmit="handleLogin(event); return false;">
                     <div class="form-group">
                         <label><i class="fas fa-user"></i> 用户名</label>
                         <input type="text" id="loginUsername" class="form-input" placeholder="请输入用户名" required>
@@ -224,7 +224,7 @@
                 </button>
             </div>
             <div class="w3-container w3-padding-24">
-                <form id="registerForm" onsubmit="return handleRegister(event)">
+                <form id="registerForm" onsubmit="handleRegister(event); return false;">
                     <div class="form-group">
                         <label><i class="far fa-id-card"></i> 真实姓名</label>
                         <input type="text" id="regDisplayName" class="form-input" placeholder="请输入你的姓名" required>

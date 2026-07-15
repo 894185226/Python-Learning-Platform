@@ -816,6 +816,11 @@ async function handleLogin(event) {
     }
 
     setCurrentUser(result.user);
+    
+    // 在 closeLoginModal 前保存待跳转目标（closeLoginModal 会清空 pending 值）
+    const pendingChapter = pendingChapterId;
+    const pendingModule = pendingModuleId;
+    
     closeLoginModal();
     showLoginWelcome(result.user);
     updateLoginUI();
@@ -831,20 +836,14 @@ async function handleLogin(event) {
 
     // 如果有待跳转的目标，自动跳转
     // 优先处理章节跳转（含子模块）
-    if (pendingChapterId) {
-        const chapterId = pendingChapterId;
-        const moduleId = pendingModuleId;
-        pendingChapterId = null;
-        pendingModuleId = null;
-        switchChapter(chapterId);
+    if (pendingChapter) {
+        switchChapter(pendingChapter);
         // 如果同时有待跳转的子模块，在章节渲染完成后跳转
-        if (moduleId && moduleId !== chapterId) {
-            setTimeout(() => switchChapterModule(chapterId, moduleId, 0), 200);
+        if (pendingModule && pendingModule !== pendingChapter) {
+            setTimeout(() => switchChapterModule(pendingChapter, pendingModule, 0), 200);
         }
-    } else if (pendingModuleId) {
-        const target = pendingModuleId;
-        pendingModuleId = null;
-        switchModule(target);
+    } else if (pendingModule) {
+        switchModule(pendingModule);
     }
     
     return false;
@@ -901,6 +900,11 @@ async function handleRegister(event) {
 
     // 注册成功，自动登录
     setCurrentUser({ username, displayName, grade, classNum });
+    
+    // 在 closeRegisterModal 前保存待跳转目标（closeRegisterModal 会清空 pending 值）
+    const pendingChapter = pendingChapterId;
+    const pendingModule = pendingModuleId;
+    
     closeRegisterModal();
     updateLoginUI();
     document.getElementById('regUsername').value = '';
@@ -912,19 +916,13 @@ async function handleRegister(event) {
 
     // 如果有待跳转的目标，自动跳转
     // 优先处理章节跳转（含子模块）
-    if (pendingChapterId) {
-        const chapterId = pendingChapterId;
-        const moduleId = pendingModuleId;
-        pendingChapterId = null;
-        pendingModuleId = null;
-        switchChapter(chapterId);
-        if (moduleId && moduleId !== chapterId) {
-            setTimeout(() => switchChapterModule(chapterId, moduleId, 0), 200);
+    if (pendingChapter) {
+        switchChapter(pendingChapter);
+        if (pendingModule && pendingModule !== pendingChapter) {
+            setTimeout(() => switchChapterModule(pendingChapter, pendingModule, 0), 200);
         }
-    } else if (pendingModuleId) {
-        const target = pendingModuleId;
-        pendingModuleId = null;
-        switchModule(target);
+    } else if (pendingModule) {
+        switchModule(pendingModule);
     }
     
     return false;
@@ -1795,6 +1793,7 @@ function switchModule(moduleId) {
         hideSidebarToggle();
         currentChapter = null;
         currentChapterModule = null;
+        document.body.classList.remove('in-ch2'); // 离开 ch2 时清除标记
     }
 
     // 更新 URL hash（避免重复添加历史记录导致后退需要两次）
@@ -3456,6 +3455,11 @@ function switchChapter(chapterId) {
     currentChapter = chapterId;
     currentChapterModule = null;
 
+    // 离开 ch2 时清除标记
+    if (chapterId !== 'ch2') {
+        document.body.classList.remove('in-ch2');
+    }
+
     // 隐藏所有模块（包括welcome首页）
     document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
 
@@ -3514,6 +3518,9 @@ function switchToVariableChapterBody(initialModule) {
 
     currentChapter = 'ch2';
     currentChapterModule = null;
+
+    // 标记进入 ch2，使子模块内容获得导航栏补偿
+    document.body.classList.add('in-ch2');
 
     // 隐藏所有动态章节容器
     document.querySelectorAll('.chapter-section').forEach(c => c.classList.remove('active'));

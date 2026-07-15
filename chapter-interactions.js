@@ -200,12 +200,19 @@ function generateCh3Card() {
     var height = document.getElementById('ch3-height').value || '1.55';
     var isStudent = document.getElementById('ch3-student').value || 'True';
 
-    document.getElementById('ch3-preview-name').textContent = name;
-    document.getElementById('ch3-preview-age').textContent = '年龄: ' + age + ' (int)';
-    document.getElementById('ch3-preview-height').textContent = '身高: ' + height + 'm (float)';
-    document.getElementById('ch3-preview-student').textContent = '学生: ' + isStudent + ' (bool)';
+    var previewName = document.getElementById('ch3-preview-name');
+    var previewAge = document.getElementById('ch3-preview-age');
+    var previewHeight = document.getElementById('ch3-preview-height');
+    var previewStudent = document.getElementById('ch3-preview-student');
+    var cardCode = document.getElementById('ch3-card-code');
+    if (!previewName || !previewAge || !previewHeight || !previewStudent || !cardCode) return;
 
-    document.getElementById('ch3-card-code').innerHTML =
+    previewName.textContent = name;
+    previewAge.textContent = '年龄: ' + age + ' (int)';
+    previewHeight.textContent = '身高: ' + height + 'm (float)';
+    previewStudent.textContent = '学生: ' + isStudent + ' (bool)';
+
+    cardCode.innerHTML =
         'name = "' + escapeHtml(name) + '"  <span style="color:#888;"># str</span><br>' +
         'age = ' + age + '  <span style="color:#888;"># int</span><br>' +
         'height = ' + height + '  <span style="color:#888;"># float</span><br>' +
@@ -1014,13 +1021,16 @@ function runCh15Practice() {
 }
 
 function sliceCh15Str() {
-    var text = document.getElementById('ch15-str-input').value || 'Python';
-    var start = parseInt(document.getElementById('ch15-slice-start').value) || 0;
-    var end = parseInt(document.getElementById('ch15-slice-end').value) || 3;
+    var textEl = document.getElementById('ch15-str-input');
+    var startEl = document.getElementById('ch15-slice-start');
+    var endEl = document.getElementById('ch15-slice-end');
     var result = document.getElementById('ch15-slice-result');
-    if (result) {
-        result.textContent = text.slice(start, end);
-    }
+    if (!textEl || !startEl || !endEl || !result) return;
+
+    var text = textEl.value || 'Python';
+    var start = parseInt(startEl.value) || 0;
+    var end = parseInt(endEl.value) || 3;
+    result.textContent = text.slice(start, end);
 }
 
 function encryptCh15() {

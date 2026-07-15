@@ -1421,10 +1421,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // 第2章子模块：需要先重建 ch2 容器和导航栏
             if (CH2_MODULE_IDS.includes(hash)) {
                 switchChapter('ch2');
-                // switchChapter('ch2') 会调用 switchToVariableChapterBody('intro')
-                // 如果 hash 不是 'intro'，需要额外切换到正确的模块
                 if (hash !== 'intro') {
                     setTimeout(() => startVariableModule(hash), 100);
+                }
+            } else if (/^ch\d+$/.test(hash)) {
+                // 章节ID（ch1, ch3...）→ 路由到 switchChapter
+                // 避免重复调用：如果当前章节已经是目标章节则跳过
+                if (currentChapter !== hash) {
+                    switchChapter(hash);
                 }
             } else {
                 switchModule(hash);
@@ -1436,8 +1440,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const initHash = window.location.hash.replace('#', '');
     if (initHash && initHash !== 'welcome') {
         if (CH2_MODULE_IDS.includes(initHash)) {
-            // 第2章子模块：先创建 ch2 容器，再打开对应模块
             switchToVariableChapterBody(initHash);
+        } else if (/^ch\d+$/.test(initHash)) {
+            // 章节ID → 延迟执行（等待 DOM 就绪）
+            setTimeout(() => switchChapter(initHash), 100);
         } else {
             switchModule(initHash);
         }

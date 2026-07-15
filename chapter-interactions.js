@@ -7,8 +7,8 @@
 // 调试诊所按钮随机排序
 // ============================================================
 function shuffleDebugButtons() {
-    // 查找所有调试诊所的按钮容器
-    var debugContainers = document.querySelectorAll('[id$="-debug-fb"]');
+    // 查找所有调试诊所的反馈容器（支持 -debug-fb 和 -debug-feedback 两种ID）
+    var debugContainers = document.querySelectorAll('[id$="-debug-fb"], [id$="-debug-feedback"]');
     debugContainers.forEach(function(fb) {
         var parent = fb.parentElement;
         if (!parent) return;
@@ -85,9 +85,11 @@ function shuffleQuizOptions() {
         var quizSection = resultEl.parentElement;
         if (!quizSection) return;
 
-        // 找到所有问题卡片
+        // 找到所有问题卡片（只处理包含 radio 选项的卡片）
         var questionCards = quizSection.querySelectorAll('.w3-card-2');
         questionCards.forEach(function(card) {
+            // 跳过没有 radio 选项的卡片（如提示卡片、示例卡片等）
+            if (!card.querySelector('input[type="radio"]')) return;
             // 检查是否已经随机化过
             if (card.getAttribute('data-shuffled') === 'true') return;
             card.setAttribute('data-shuffled', 'true');

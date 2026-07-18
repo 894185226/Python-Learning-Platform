@@ -1831,8 +1831,11 @@ function switchModule(moduleId) {
     // 过渡动画：先淡出当前模块
     var currentActive = document.querySelector('.module.active');
     if (currentActive && currentActive !== targetModule) {
+        var transitionDone = false;
         currentActive.classList.add('module-transitioning');
         var onTransitionEnd = function() {
+            if (transitionDone) return;
+            transitionDone = true;
             currentActive.classList.remove('module-transitioning');
             currentActive.classList.remove('active');
             targetModule.classList.add('active');
@@ -1843,7 +1846,7 @@ function switchModule(moduleId) {
         currentActive.addEventListener('animationend', onTransitionEnd);
         // 兜底：如果动画事件未触发，1.5倍动画时长后强制执行
         setTimeout(function() {
-            if (currentActive.classList.contains('module-transitioning')) {
+            if (!transitionDone) {
                 onTransitionEnd();
             }
         }, 250);

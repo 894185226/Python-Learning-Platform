@@ -7573,8 +7573,8 @@ body.in-ch2 .module.active {
     align-items: center;
     gap: 0;
     padding: 8px 16px;
-    background: var(--ch-bg-card);
-    border-bottom: 1px solid var(--ch-border);
+    background: #1a1a2e;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -7614,10 +7614,21 @@ body.in-ch2 .module.active {
 .chapter-progress-connector {
     width: 20px;
     height: 2px;
-    background: var(--ch-border);
+    background: rgba(255,255,255,0.15);
     flex-shrink: 0;
 }
 .chapter-progress-connector.done {
+    background: var(--w3-green);
+}
+
+[data-theme="light"] .chapter-progress-bar {
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+}
+[data-theme="light"] .chapter-progress-connector {
+    background: #ddd;
+}
+[data-theme="light"] .chapter-progress-connector.done {
     background: var(--w3-green);
 }
 

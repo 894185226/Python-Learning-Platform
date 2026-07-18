@@ -65,6 +65,11 @@ function checkQuiz(chapterNum) {
     });
 
     if (resultEl) {
+        if (totalQuestions === 0) {
+            resultEl.innerHTML = '💡 未找到题目，请检查页面内容';
+            resultEl.style.color = '#ff9800';
+            return;
+        }
         const percentage = Math.round((correctCount / totalQuestions) * 100);
         let emoji = '🌟';
         let color = '#04AA6D';
@@ -1234,17 +1239,10 @@ function checkCh18Flowchart() {
     var correctOrder = ['start', 'input', 'judge', 'pass', 'fail', 'end'];
     var altCorrect = ['start', 'input', 'judge', 'fail', 'pass', 'end']; // 两种分支顺序都正确
 
-    var isCorrect = true;
-    if (order.length === correctOrder.length) {
-        for (var i = 0; i < order.length; i++) {
-            if (order[i] !== correctOrder[i] && order[i] !== altCorrect[i]) {
-                isCorrect = false;
-                break;
-            }
-        }
-    } else {
-        isCorrect = false;
-    }
+    // 将整个顺序与两个有效顺序逐一比对，避免混合匹配
+    var isCorrect = (order.length === correctOrder.length) &&
+        (order.every(function(v, i) { return v === correctOrder[i]; }) ||
+         order.every(function(v, i) { return v === altCorrect[i]; }));
 
     if (isCorrect) {
         result.innerHTML = '✅ 正确！流程图顺序：开始 → 输入 → 判断 → 输出 → 结束';

@@ -21,8 +21,11 @@
     <link rel="stylesheet" href="lib/monokai.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/monokai.min.css'">
 </head>
 <body>
+    <!-- 无障碍：跳到主内容 -->
+    <a href="#main-content" class="skip-to-content" aria-label="跳到主内容">跳到主内容</a>
+
     <!-- 顶部导航栏 - W3Schools风格 -->
-    <div class="w3-top">
+    <div class="w3-top" role="navigation" aria-label="主导航">
         <div class="w3-bar w3-wide">
             <a href="#" class="w3-bar-item w3-button w3-hover-none w3-left logo-link">
                 <span class="logo-text"><span class="logo-emoji">🐍</span> Python基础学习</span>
@@ -63,7 +66,7 @@
             <!-- 搜索框 -->
             <div class="w3-bar-item w3-right w3-hide-small search-container">
                 <form class="search-form" onsubmit="return search('search-input')">
-                    <input type="text" id="search-input" placeholder="搜索教程..." class="search-input" autocomplete="off" oninput="showSearchSuggestions('search-input')" onfocus="showSearchSuggestions('search-input')">
+                    <input type="text" id="search-input" placeholder="搜索教程..." class="search-input" autocomplete="off" oninput="showSearchSuggestions('search-input')" onfocus="showSearchSuggestions('search-input')" aria-label="搜索教程">
                     <button type="submit" class="search-btn">
                         <i class="fas fa-search"></i>
                     </button>
@@ -184,7 +187,7 @@
 
     <!-- 登录/注册弹窗 -->
     <!-- 登录弹窗 -->
-    <div class="w3-modal" id="loginModal" onclick="if(event.target===this)closeAllModals()">
+    <div class="w3-modal" id="loginModal" onclick="if(event.target===this)closeAllModals()" role="dialog" aria-modal="true" aria-label="用户登录">
         <div class="w3-modal-content w3-animate-zoom w3-card-4 login-modal-content">
             <div class="w3-bar w3-green">
                 <span class="w3-bar-item w3-large">🐍 登录</span>
@@ -196,7 +199,7 @@
                 <form id="loginForm" onsubmit="handleLogin(event); return false;">
                     <div class="form-group">
                         <label><i class="fas fa-user"></i> 用户名</label>
-                        <input type="text" id="loginUsername" class="form-input" placeholder="请输入用户名" required>
+                        <input type="text" id="loginUsername" class="form-input" placeholder="请输入用户名" required aria-label="用户名">
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-lock"></i> 密码</label>
@@ -282,7 +285,7 @@
     <!-- 侧边栏遮罩 -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
-    <main class="main-content">
+    <main class="main-content" id="main-content" role="main">
         <!-- 0. 欢迎开始模块 -->
         <section id="welcome" class="module active">
             <!-- Hero区域 - 暗色科技风格 -->

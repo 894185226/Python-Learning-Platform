@@ -50,6 +50,14 @@ function checkQuiz(chapterNum) {
     allRadios.forEach(function(r) { questionNames.add(r.name); });
     totalQuestions = questionNames.size;
 
+    // 先清除之前的高亮
+    document.querySelectorAll('.quiz-option-correct, .quiz-option-incorrect, .quiz-option-correct-highlight').forEach(function(el) {
+        el.classList.remove('quiz-option-correct', 'quiz-option-incorrect', 'quiz-option-correct-highlight');
+    });
+    document.querySelectorAll('.quiz-card-checked').forEach(function(el) {
+        el.classList.remove('quiz-card-checked');
+    });
+
     questionNames.forEach(function(name) {
         const radios = document.getElementsByName(name);
         let selected = null;
@@ -59,8 +67,28 @@ function checkQuiz(chapterNum) {
                 break;
             }
         }
-        if (selected && selected.getAttribute('data-correct') === 'true') {
-            correctCount++;
+
+        // 高亮每道题的正确选项
+        for (var j = 0; j < radios.length; j++) {
+            var label = radios[j].closest('label');
+            if (radios[j].getAttribute('data-correct') === 'true') {
+                if (label) label.classList.add('quiz-option-correct-highlight');
+            }
+            // 如果用户选了这道题且是正确答案
+            if (radios[j] === selected && radios[j].getAttribute('data-correct') === 'true') {
+                if (label) label.classList.add('quiz-option-correct');
+                correctCount++;
+            }
+            // 如果用户选了这道题但是错误答案
+            if (radios[j] === selected && radios[j].getAttribute('data-correct') !== 'true') {
+                if (label) label.classList.add('quiz-option-incorrect');
+            }
+        }
+
+        // 标记问题卡片为已检查
+        if (radios.length > 0) {
+            var card = radios[0].closest('.w3-card-2, .w3-card');
+            if (card) card.classList.add('quiz-card-checked');
         }
     });
 

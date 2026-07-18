@@ -122,6 +122,51 @@ function setButtonLoading(btn, loading) {
     }
 }
 
+// ============================================================
+// Toast 消息提示系统
+// ============================================================
+function showToast(message, type, duration) {
+    type = type || 'info';
+    duration = duration || 3000;
+
+    // 确保容器存在
+    var container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    var icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    var toast = document.createElement('div');
+    toast.className = 'toast-item toast-' + type;
+    toast.innerHTML = '<span>' + (icons[type] || '') + ' ' + message + '</span><span class="toast-close">&times;</span>';
+
+    // 点击关闭
+    toast.addEventListener('click', function() { removeToast(toast); });
+
+    container.appendChild(toast);
+
+    // 自动移除
+    var timer = setTimeout(function() { removeToast(toast); }, duration);
+    toast._timer = timer;
+}
+
+function removeToast(toast) {
+    if (toast._removing) return;
+    toast._removing = true;
+    clearTimeout(toast._timer);
+    toast.classList.add('toast-removing');
+    toast.addEventListener('animationend', function() {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+    });
+    // 兜底
+    setTimeout(function() {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 350);
+}
+
 // 第2章(变量)子模块 ID 列表，用于 hash 路由判断
 const CH2_MODULE_IDS = ['intro', 'lab', 'lesson', 'judge', 'practice', 'trace', 'debug', 'extend', 'project', 'test'];
 
@@ -1782,9 +1827,30 @@ function switchModule(moduleId) {
     if (state.currentModule === 'intro') {
         stopIntroAnimations();
     }
-    
-    modules.forEach(module => module.classList.remove('active'));
-    targetModule.classList.add('active');
+
+    // 过渡动画：先淡出当前模块
+    var currentActive = document.querySelector('.module.active');
+    if (currentActive && currentActive !== targetModule) {
+        currentActive.classList.add('module-transitioning');
+        var onTransitionEnd = function() {
+            currentActive.classList.remove('module-transitioning');
+            currentActive.classList.remove('active');
+            targetModule.classList.add('active');
+            targetModule.classList.add('module-showing');
+            setTimeout(function() { targetModule.classList.remove('module-showing'); }, 260);
+            currentActive.removeEventListener('animationend', onTransitionEnd);
+        };
+        currentActive.addEventListener('animationend', onTransitionEnd);
+        // 兜底：如果动画事件未触发，1.5倍动画时长后强制执行
+        setTimeout(function() {
+            if (currentActive.classList.contains('module-transitioning')) {
+                onTransitionEnd();
+            }
+        }, 250);
+    } else {
+        modules.forEach(module => module.classList.remove('active'));
+        targetModule.classList.add('active');
+    }
     state.currentModule = moduleId;
 
     // 如果切换到成就墙或首页，隐藏所有章节容器
@@ -3460,48 +3526,69 @@ function switchChapter(chapterId) {
         document.body.classList.remove('in-ch2');
     }
 
-    // 隐藏所有模块（包括welcome首页）
-    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+    // 过渡动画：先淡出当前内容
+    var currentChapterSection = document.querySelector('.chapter-section.active');
+    var currentModule = document.querySelector('.module.active');
+    var hasCurrentContent = currentChapterSection || currentModule;
 
-    // 隐藏所有动态章节容器
-    document.querySelectorAll('.chapter-section').forEach(c => c.classList.remove('active'));
+    var doSwitch = function() {
+        // 隐藏所有模块（包括welcome首页）
+        document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
 
-    // 显示侧边栏切换按钮（进入章节后显示）
-    showSidebarToggle();
+        // 隐藏所有动态章节容器
+        document.querySelectorAll('.chapter-section').forEach(c => c.classList.remove('active'));
 
-    // 特殊处理：第2章(变量)使用现有HTML内容
-    if (chapterId === 'ch2') {
-        switchToVariableChapterBody();
-        return;
-    }
+        // 显示侧边栏切换按钮（进入章节后显示）
+        showSidebarToggle();
 
-    // 显示/创建章节容器
-    let chapterContainer = document.getElementById('chapter-' + chapterId);
-    if (!chapterContainer) {
-        chapterContainer = document.createElement('div');
-        chapterContainer.id = 'chapter-' + chapterId;
-        chapterContainer.className = 'chapter-section';
-        document.querySelector('main').appendChild(chapterContainer);
-    }
-    chapterContainer.classList.add('active');
+        // 特殊处理：第2章(变量)使用现有HTML内容
+        if (chapterId === 'ch2') {
+            switchToVariableChapterBody();
+            return;
+        }
 
-    // 渲染章节内容
-    renderChapterContent(chapterId, chapterContainer);
+        // 显示/创建章节容器
+        var chapterContainer = document.getElementById('chapter-' + chapterId);
+        if (!chapterContainer) {
+            chapterContainer = document.createElement('div');
+            chapterContainer.id = 'chapter-' + chapterId;
+            chapterContainer.className = 'chapter-section';
+            document.querySelector('main').appendChild(chapterContainer);
+        }
+        chapterContainer.classList.add('active');
+        chapterContainer.classList.add('chapter-section-showing');
+        setTimeout(function() { chapterContainer.classList.remove('chapter-section-showing'); }, 260);
 
-    // 更新侧边栏高亮
-    updateSidebarActive(chapterId);
+        // 渲染章节内容
+        renderChapterContent(chapterId, chapterContainer);
 
-    // 滚动到顶部
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    // 平滑滚动后触发吸顶检查
-    setTimeout(() => stickyChapterNav(), 200);
+        // 更新侧边栏高亮
+        updateSidebarActive(chapterId);
 
-    // 更新URL hash（避免重复添加历史记录导致后退死循环）
-    const targetHash = '#' + chapterId;
-    if (window.location.hash === targetHash) {
-        history.replaceState(null, '', targetHash);
+        // 滚动到顶部
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // 平滑滚动后触发吸顶检查
+        setTimeout(function() { stickyChapterNav(); }, 200);
+
+        // 更新URL hash（避免重复添加历史记录导致后退死循环）
+        var targetHash = '#' + chapterId;
+        if (window.location.hash === targetHash) {
+            history.replaceState(null, '', targetHash);
+        } else {
+            history.pushState(null, '', targetHash);
+        }
+    };
+
+    if (hasCurrentContent) {
+        if (currentChapterSection) currentChapterSection.classList.add('chapter-section-transitioning');
+        if (currentModule) currentModule.classList.add('module-transitioning');
+        setTimeout(function() {
+            if (currentChapterSection) currentChapterSection.classList.remove('chapter-section-transitioning');
+            if (currentModule) currentModule.classList.remove('module-transitioning');
+            doSwitch();
+        }, 160);
     } else {
-        history.pushState(null, '', targetHash);
+        doSwitch();
     }
 }
 
@@ -3675,6 +3762,14 @@ function renderChapterContent(chapterId, container) {
                 </div>
             </div>
 
+            <!-- 章节进度指示器 -->
+            <div class="chapter-progress-bar" id="chapterProgressBar-${chapterId}">
+                ${chapter.modules.map((mod, i) => `
+                    ${i > 0 ? '<div class="chapter-progress-connector"></div>' : ''}
+                    <span class="chapter-progress-step" onclick="switchChapterModule('${chapterId}', '${mod.id}', ${i})">${mod.icon} ${mod.title}</span>
+                `).join('')}
+            </div>
+
             <!-- 章节Hero -->
             <div class="chapter-hero">
                 <div class="chapter-badge-tag">${chapter.badge || '学习'}</div>
@@ -3716,6 +3811,7 @@ function renderChapterContent(chapterId, container) {
         if (isDark) applyThemeToChapterContent(true);
         shuffleDebugButtons();
         shuffleQuizOptions();
+        setTimeout(function() { initCodeMirrorForPractice(); }, 150);
     }, 100);
 }
 
@@ -3745,6 +3841,9 @@ function switchChapterModule(chapterId, moduleId, index) {
             btn.classList.toggle('active', i === index);
         });
     }
+
+    // 更新进度指示器
+    updateChapterProgress(chapterId, index);
 
     // 渲染模块内容
     const contentArea = document.getElementById('chapterContent-' + chapterId);
@@ -3793,8 +3892,82 @@ function switchChapterModule(chapterId, moduleId, index) {
         if (isDark) applyThemeToChapterContent(true);
         shuffleDebugButtons();
         shuffleQuizOptions();
+        // 初始化 CodeMirror 语法高亮
+        setTimeout(function() { initCodeMirrorForPractice(); }, 150);
     }, 80);
 }
+
+// 更新章节进度指示器
+function updateChapterProgress(chapterId, currentIndex) {
+    var bar = document.getElementById('chapterProgressBar-' + chapterId);
+    if (!bar) return;
+    var steps = bar.querySelectorAll('.chapter-progress-step');
+    var connectors = bar.querySelectorAll('.chapter-progress-connector');
+    steps.forEach(function(step, i) {
+        step.classList.remove('active', 'completed');
+        if (i < currentIndex) step.classList.add('completed');
+        if (i === currentIndex) step.classList.add('active');
+    });
+    connectors.forEach(function(conn, i) {
+        if (i < currentIndex) conn.classList.add('done');
+        else conn.classList.remove('done');
+    });
+}
+
+// ============================================================
+// CodeMirror 语法高亮初始化
+// ============================================================
+var _cmInstances = {};
+function initCodeMirrorForPractice() {
+    if (typeof CodeMirror === 'undefined') return;
+    document.querySelectorAll('textarea[id$="-practice-code"]').forEach(function(textarea) {
+        var id = textarea.id;
+        if (_cmInstances[id]) return; // 已初始化
+        var wrapper = textarea.parentElement;
+        if (!wrapper) return;
+
+        // 移除 textarea 的 style 属性，由 CodeMirror 接管
+        var cm = CodeMirror.fromTextArea(textarea, {
+            mode: 'python',
+            theme: 'monokai',
+            lineNumbers: true,
+            indentUnit: 4,
+            tabSize: 4,
+            autoCloseBrackets: true,
+            lineWrapping: true,
+            viewportMargin: Infinity
+        });
+        cm.setSize('100%', 'auto');
+        cm.refresh();
+        _cmInstances[id] = cm;
+
+        // 适配暗色主题
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (!isDark) {
+            wrapper.style.background = '#fafafa';
+            cm.setOption('theme', 'default');
+        }
+    });
+}
+
+// 暗色主题切换时刷新 CodeMirror
+var _origToggleTheme = toggleTheme;
+toggleTheme = function() {
+    _origToggleTheme();
+    setTimeout(function() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        Object.keys(_cmInstances).forEach(function(id) {
+            var cm = _cmInstances[id];
+            if (cm) {
+                cm.setOption('theme', isDark ? 'monokai' : 'default');
+                var wrapper = cm.getWrapperElement();
+                if (wrapper && wrapper.parentElement) {
+                    wrapper.parentElement.style.background = isDark ? '' : '#fafafa';
+                }
+            }
+        });
+    }, 100);
+};
 
 // 开始章节学习(从第一个子模块开始)
 function startChapterLearning(chapterId) {

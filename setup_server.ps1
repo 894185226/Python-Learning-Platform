@@ -1,4 +1,4 @@
-# Python Variable Adventure - One-Click Setup
+﻿# Python Variable Adventure - One-Click Setup
 # This script installs and configures all required software.
 # Run via: setup_server.bat (double-click)
 
@@ -258,6 +258,18 @@ Write-Host ""
 # ============================================================
 # Phase 4: Configure MySQL
 # ============================================================
+
+# 读取已有 .env 中的密码（如果存在），在 Phase 4 和 Phase 5 中复用
+$existingPwd = $null
+if (Test-Path ".env") {
+    $envLines = Get-Content ".env" -Encoding UTF8
+    foreach ($line in $envLines) {
+        if ($line -match '^DB_ROOT_PASSWORD=(.+)') {
+            $existingPwd = $matches[1]
+        }
+    }
+}
+
 if ($mysqlOk) {
     Write-Host "[Phase 4/6] Configuring MySQL..." -ForegroundColor Cyan
     
@@ -388,11 +400,21 @@ if ($mysqlOk) {
                 Write-Host "[INFO] Waiting for MySQL to accept connections..." -ForegroundColor Yellow
                 for ($i = 0; $i -lt 15; $i++) {
                     Start-Sleep -Seconds 2
+                    # 先尝试无密码连接
                     $null = & mysql -u root -e "SELECT 1" 2>&1
                     if ($LASTEXITCODE -eq 0) {
                         $connected = $true
-                        Write-Host "[OK] MySQL started directly" -ForegroundColor Green
+                        Write-Host "[OK] MySQL started directly (no password)" -ForegroundColor Green
                         break
+                    }
+                    # 如果无密码失败，尝试用 .env 中的密码
+                    if ($existingPwd) {
+                        $null = & mysql -u root -p"$existingPwd" -e "SELECT 1" 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                            $connected = $true
+                            Write-Host "[OK] MySQL connected with existing password" -ForegroundColor Green
+                            break
+                        }
                     }
                 }
             } catch {
@@ -452,26 +474,115 @@ if ($mysqlOk) {
 Write-Host ""
 
 # ============================================================
-# Phase 5: Initialize database
+# Phase 5: Initialize database and secure credentials
 # ============================================================
-Write-Host "[Phase 5/6] Initializing database..." -ForegroundColor Cyan
+Write-Host "[Phase 5/6] Initializing database and securing credentials..." -ForegroundColor Cyan
+
+# 生成随机密码
+function New-RandomPassword {
+    $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%"
+    $pw = ""
+    for ($i = 0; $i -lt 16; $i++) {
+        $pw += $chars[(Get-Random -Maximum $chars.Length)]
+    }
+    return $pw
+}
+
+$rootPassword = New-RandomPassword
+$appPassword = New-RandomPassword
+
+# 如果 .env 中已有 app_user 密码，保留使用（避免重复运行导致密码不一致）
+if (Test-Path ".env") {
+    $envLines = Get-Content ".env" -Encoding UTF8
+    foreach ($line in $envLines) {
+        if ($line -match '^DB_APP_PASSWORD=(.+)') {
+            $existingAppPwd = $matches[1]
+            if ($existingAppPwd) {
+                $appPassword = $existingAppPwd
+                Write-Host "[INFO] 保留现有 app_user 密码" -ForegroundColor Gray
+            }
+        }
+    }
+}
+
+# 是否已有可用的 MySQL 连接密码（空密码或已有密码）
+$mysqlPassword = $null
+$mysqlConnected = $false
 
 try {
+    # 先尝试无密码连接
     $null = & mysql -u root -e "SELECT 1" 2>&1
     if ($LASTEXITCODE -eq 0) {
-        & mysql -u root -e "CREATE DATABASE IF NOT EXISTS python_var_lesson CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>&1 | Out-Null
-        if (Test-Path "database.sql") {
-            Get-Content "database.sql" | & mysql -u root python_var_lesson 2>&1 | Out-Null
-            Write-Host "[OK] Database schema imported" -ForegroundColor Green
-        }
-        Write-Host "[OK] Database ready" -ForegroundColor Green
-    } else {
-        Write-Host "[WARN] MySQL not accessible" -ForegroundColor Yellow
-        Write-Host "[INFO] server.js will create database on startup if MySQL is running" -ForegroundColor Yellow
+        $mysqlConnected = $true
+        $mysqlPassword = $null  # 无密码
+        Write-Host "[INFO] MySQL 无密码连接成功" -ForegroundColor Gray
     }
-} catch {
-    Write-Host "[WARN] Database initialization skipped" -ForegroundColor Yellow
-    Write-Host "[INFO] server.js will create database on startup" -ForegroundColor Yellow
+} catch { }
+
+# 如果无密码失败，尝试用 .env 中的密码
+if (-not $mysqlConnected -and $existingPwd) {
+    try {
+        $null = & mysql -u root -p"$existingPwd" -e "SELECT 1" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $mysqlConnected = $true
+            $mysqlPassword = $existingPwd
+            Write-Host "[INFO] MySQL 使用已有密码连接成功" -ForegroundColor Gray
+        }
+    } catch { }
+}
+
+if ($mysqlConnected) {
+    $needNewPassword = ($null -eq $mysqlPassword)
+    
+    if ($needNewPassword) {
+        # MySQL 无密码 → 设置新密码
+        Write-Host "[INFO] 检测到 MySQL 无密码，正在设置安全密码..." -ForegroundColor Yellow
+        & mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$rootPassword'; FLUSH PRIVILEGES;" 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "[OK] MySQL root 密码已设置" -ForegroundColor Green
+            $mysqlPassword = $rootPassword
+        } else {
+            Write-Host "[WARN] root 密码设置失败，尝试备用方式..." -ForegroundColor Yellow
+            & mysql -u root -e "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('$rootPassword'); FLUSH PRIVILEGES;" 2>&1 | Out-Null
+            $mysqlPassword = $rootPassword
+        }
+    } else {
+        # MySQL 已有密码 → 保留原密码
+        Write-Host "[OK] MySQL 已有密码，保留现有配置" -ForegroundColor Green
+        $rootPassword = $existingPwd
+    }
+
+    # 创建数据库
+    & mysql -u root -p"$mysqlPassword" -e "CREATE DATABASE IF NOT EXISTS python_var_lesson CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>&1 | Out-Null
+    Write-Host "[OK] 数据库 python_var_lesson 就绪" -ForegroundColor Green
+
+    # 创建专用低权限用户
+    & mysql -u root -p"$mysqlPassword" -e "CREATE USER IF NOT EXISTS 'app_user'@'localhost' IDENTIFIED BY '$appPassword';" 2>&1 | Out-Null
+    & mysql -u root -p"$mysqlPassword" -e "GRANT SELECT, INSERT, UPDATE, DELETE ON python_var_lesson.* TO 'app_user'@'localhost'; FLUSH PRIVILEGES;" 2>&1 | Out-Null
+    Write-Host "[OK] 专用数据库用户 app_user 已创建" -ForegroundColor Green
+
+    # 写入 .env 文件
+    $envContent = @"
+# Python 基础学习平台 - 环境变量配置
+# 自动生成于 $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+
+PORT=3000
+DB_HOST=localhost
+DB_ROOT_USER=root
+DB_ROOT_PASSWORD=$rootPassword
+DB_APP_USER=app_user
+DB_APP_PASSWORD=$appPassword
+DB_NAME=python_var_lesson
+SESSION_SECRET=$appPassword
+"@
+    $envContent | Out-File -FilePath ".env" -Encoding UTF8
+    Write-Host "[OK] .env 配置文件已生成" -ForegroundColor Green
+    Write-Host "[INFO] root 密码: $rootPassword" -ForegroundColor Yellow
+    Write-Host "[INFO] app_user 密码: $appPassword" -ForegroundColor Yellow
+    Write-Host "[INFO] 请妥善保管以上密码！" -ForegroundColor Yellow
+} else {
+    Write-Host "[WARN] MySQL 不可访问，跳过密码设置" -ForegroundColor Yellow
+    Write-Host "[INFO] server.js 将使用空密码连接数据库" -ForegroundColor Yellow
 }
 Write-Host ""
 
@@ -559,3 +670,5 @@ Write-Host "[Server stopped] Exit code: $LASTEXITCODE" -ForegroundColor Yellow
 Write-Host "==============================================" -ForegroundColor Yellow
 Write-Host ""
 Read-Host "Press Enter to exit"
+
+

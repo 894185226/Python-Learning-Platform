@@ -1,114 +1,55 @@
 /* ===================================================
    管理后台 JS - 完整版
+   
+   注意：由于 admin.html 使用大量 onclick 内联事件处理器，
+   所有函数必须在全局作用域中声明。后续重构时建议：
+   1. 将 onclick 改为 addEventListener 事件委托
+   2. 使用 AdminApp 命名空间封装所有函数
+   3. 拆分为多个模块文件（dashboard.js, students.js 等）
    =================================================== */
 
+// ===== 全局配置 =====
 const API_BASE = '/api/admin';
 
-// ===== 模块/成就名称映射 =====
-// 全部模块总数：10(变量模块) + 19(章节完成) + 142(各章子模块) = 171
-const TOTAL_MODULES = 171;
-const MODULE_NAMES = {
-    // 变量模块（第2章）子模块
-    'intro': '情境导入', 'lab': '类比实验室', 'lesson': '知识讲解',
-    'judge': '命名小法官', 'practice': '实践操作', 'trace': '值追踪',
-    'debug': '错误调试', 'extend': '拓展延伸', 'project': '创意项目', 'test': '综合测试',
-    // 章节完成标记
-    'chapter_ch1': '第1章完成', 'chapter_ch2': '第2章完成', 'chapter_ch3': '第3章完成',
-    'chapter_ch4': '第4章完成', 'chapter_ch5': '第5章完成', 'chapter_ch6': '第6章完成',
-    'chapter_ch7': '第7章完成', 'chapter_ch8': '第8章完成', 'chapter_ch9': '第9章完成',
-    'chapter_ch10': '第10章完成', 'chapter_ch11': '第11章完成', 'chapter_ch12': '第12章完成',
-    'chapter_ch13': '第13章完成', 'chapter_ch14': '第14章完成', 'chapter_ch15': '第15章完成',
-    'chapter_ch16': '第16章完成', 'chapter_ch17': '第17章完成', 'chapter_ch18': '第18章完成',
-    'chapter_ch19': '第19章完成',
-    // 第1章 认识Python
-    'ch1_intro': 'Ch1-情境导入', 'ch1_knowledge': 'Ch1-知识讲解', 'ch1_lab': 'Ch1-类比实验室',
-    'ch1_practice': 'Ch1-实践操作', 'ch1_debug': 'Ch1-错误调试', 'ch1_quiz': 'Ch1-综合测试',
-    // 第3章 变量类型
-    'ch3_intro': 'Ch3-情境导入', 'ch3_knowledge': 'Ch3-知识讲解', 'ch3_lab': 'Ch3-类比实验室',
-    'ch3_practice': 'Ch3-实践操作', 'ch3_debug': 'Ch3-错误调试', 'ch3_extend': 'Ch3-拓展延伸',
-    'ch3_project': 'Ch3-创意项目', 'ch3_quiz': 'Ch3-综合测试',
-    // 第4章 条件判断
-    'ch4_intro': 'Ch4-情境导入', 'ch4_knowledge': 'Ch4-知识讲解', 'ch4_lab': 'Ch4-类比实验室',
-    'ch4_practice': 'Ch4-实践操作', 'ch4_debug': 'Ch4-错误调试', 'ch4_extend': 'Ch4-拓展延伸',
-    'ch4_project': 'Ch4-创意项目', 'ch4_quiz': 'Ch4-综合测试',
-    // 第5章 if进阶
-    'ch5_intro': 'Ch5-情境导入', 'ch5_knowledge': 'Ch5-知识讲解', 'ch5_lab': 'Ch5-类比实验室',
-    'ch5_practice': 'Ch5-实践操作', 'ch5_debug': 'Ch5-错误调试', 'ch5_extend': 'Ch5-拓展延伸',
-    'ch5_project': 'Ch5-创意项目', 'ch5_quiz': 'Ch5-综合测试',
-    // 第6章 while循环
-    'ch6_intro': 'Ch6-情境导入', 'ch6_knowledge': 'Ch6-知识讲解', 'ch6_lab': 'Ch6-类比实验室',
-    'ch6_practice': 'Ch6-实践操作', 'ch6_debug': 'Ch6-错误调试', 'ch6_extend': 'Ch6-拓展延伸',
-    'ch6_project': 'Ch6-创意项目', 'ch6_quiz': 'Ch6-综合测试',
-    // 第7章 while拓展
-    'ch7_intro': 'Ch7-情境导入', 'ch7_knowledge': 'Ch7-知识讲解', 'ch7_lab': 'Ch7-类比实验室',
-    'ch7_practice': 'Ch7-实践操作', 'ch7_debug': 'Ch7-错误调试', 'ch7_extend': 'Ch7-拓展延伸',
-    'ch7_project': 'Ch7-创意项目', 'ch7_quiz': 'Ch7-综合测试',
-    // 第8章 循环嵌套
-    'ch8_intro': 'Ch8-情境导入', 'ch8_knowledge': 'Ch8-知识讲解', 'ch8_lab': 'Ch8-类比实验室',
-    'ch8_practice': 'Ch8-实践操作', 'ch8_debug': 'Ch8-错误调试', 'ch8_extend': 'Ch8-拓展延伸',
-    'ch8_project': 'Ch8-创意项目', 'ch8_quiz': 'Ch8-综合测试',
-    // 第9章 综合应用一
-    'ch9_intro': 'Ch9-情境导入', 'ch9_knowledge': 'Ch9-知识讲解', 'ch9_lab': 'Ch9-类比实验室',
-    'ch9_practice': 'Ch9-实践操作', 'ch9_debug': 'Ch9-错误调试', 'ch9_extend': 'Ch9-拓展延伸',
-    'ch9_project': 'Ch9-创意项目', 'ch9_quiz': 'Ch9-综合测试',
-    // 第10章 排列小星星
-    'ch10_intro': 'Ch10-情境导入', 'ch10_knowledge': 'Ch10-知识讲解', 'ch10_lab': 'Ch10-类比实验室',
-    'ch10_practice': 'Ch10-实践操作', 'ch10_debug': 'Ch10-错误调试', 'ch10_extend': 'Ch10-拓展延伸',
-    'ch10_project': 'Ch10-创意项目', 'ch10_quiz': 'Ch10-综合测试',
-    // 第11章 初识列表
-    'ch11_intro': 'Ch11-情境导入', 'ch11_knowledge': 'Ch11-知识讲解', 'ch11_lab': 'Ch11-类比实验室',
-    'ch11_practice': 'Ch11-实践操作', 'ch11_debug': 'Ch11-错误调试', 'ch11_extend': 'Ch11-拓展延伸',
-    'ch11_project': 'Ch11-创意项目', 'ch11_quiz': 'Ch11-综合测试',
-    // 第12章 列表的使用
-    'ch12_intro': 'Ch12-情境导入', 'ch12_knowledge': 'Ch12-知识讲解', 'ch12_lab': 'Ch12-类比实验室',
-    'ch12_practice': 'Ch12-实践操作', 'ch12_debug': 'Ch12-错误调试', 'ch12_extend': 'Ch12-拓展延伸',
-    'ch12_project': 'Ch12-创意项目', 'ch12_quiz': 'Ch12-综合测试',
-    // 第13章 元组与集合
-    'ch13_intro': 'Ch13-情境导入', 'ch13_knowledge': 'Ch13-知识讲解', 'ch13_lab': 'Ch13-类比实验室',
-    'ch13_practice': 'Ch13-实践操作', 'ch13_debug': 'Ch13-错误调试', 'ch13_extend': 'Ch13-拓展延伸',
-    'ch13_project': 'Ch13-创意项目', 'ch13_quiz': 'Ch13-综合测试',
-    // 第14章 神奇的字典
-    'ch14_intro': 'Ch14-情境导入', 'ch14_knowledge': 'Ch14-知识讲解', 'ch14_lab': 'Ch14-类比实验室',
-    'ch14_practice': 'Ch14-实践操作', 'ch14_debug': 'Ch14-错误调试', 'ch14_extend': 'Ch14-拓展延伸',
-    'ch14_project': 'Ch14-创意项目', 'ch14_quiz': 'Ch14-综合测试',
-    // 第15章 再遇字符串
-    'ch15_intro': 'Ch15-情境导入', 'ch15_knowledge': 'Ch15-知识讲解', 'ch15_lab': 'Ch15-类比实验室',
-    'ch15_practice': 'Ch15-实践操作', 'ch15_debug': 'Ch15-错误调试', 'ch15_extend': 'Ch15-拓展延伸',
-    'ch15_project': 'Ch15-创意项目', 'ch15_quiz': 'Ch15-综合测试',
-    // 第16章 公共语法
-    'ch16_intro': 'Ch16-情境导入', 'ch16_knowledge': 'Ch16-知识讲解', 'ch16_lab': 'Ch16-类比实验室',
-    'ch16_practice': 'Ch16-实践操作', 'ch16_debug': 'Ch16-错误调试', 'ch16_extend': 'Ch16-拓展延伸',
-    'ch16_project': 'Ch16-创意项目', 'ch16_quiz': 'Ch16-综合测试',
-    // 第17章 轻松搞定二进制
-    'ch17_intro': 'Ch17-情境导入', 'ch17_knowledge': 'Ch17-知识讲解', 'ch17_lab': 'Ch17-类比实验室',
-    'ch17_practice': 'Ch17-实践操作', 'ch17_debug': 'Ch17-错误调试', 'ch17_extend': 'Ch17-拓展延伸',
-    'ch17_project': 'Ch17-创意项目', 'ch17_quiz': 'Ch17-综合测试',
-    // 第18章 编程思维实践
-    'ch18_intro': 'Ch18-情境导入', 'ch18_knowledge': 'Ch18-知识讲解', 'ch18_lab': 'Ch18-类比实验室',
-    'ch18_practice': 'Ch18-实践操作', 'ch18_debug': 'Ch18-错误调试', 'ch18_extend': 'Ch18-拓展延伸',
-    'ch18_project': 'Ch18-创意项目', 'ch18_quiz': 'Ch18-综合测试',
-    // 第19章 各种各样的数
-    'ch19_intro': 'Ch19-情境导入', 'ch19_knowledge': 'Ch19-知识讲解', 'ch19_lab': 'Ch19-类比实验室',
-    'ch19_practice': 'Ch19-实践操作', 'ch19_debug': 'Ch19-错误调试', 'ch19_extend': 'Ch19-拓展延伸',
-    'ch19_project': 'Ch19-创意项目', 'ch19_quiz': 'Ch19-综合测试'
-};
-const ACHIEVEMENT_NAMES = {
-    // 章节成就（与 script.js ACHIEVEMENTS 保持一致）
-    'ch1_done': 'Python初识', 'ch2_done': '变量大师', 'ch3_done': '类型专家',
-    'ch4_done': '判断达人', 'ch5_done': '逻辑高手', 'ch6_done': '循环入门',
-    'ch7_done': '控制大师', 'ch8_done': '嵌套高手', 'ch9_done': '综合应用',
-    'ch10_done': '星星画家', 'ch11_done': '列表新手', 'ch12_done': '列表达人',
-    'ch13_done': '集合探索者', 'ch14_done': '字典大师', 'ch15_done': '字符串达人',
-    'ch16_done': '语法通才', 'ch17_done': '二进制解码', 'ch18_done': '思维达人',
-    'ch19_done': '数字专家',
-    // 里程碑成就
-    'milestone_beginner': '入门先锋', 'milestone_flow': '控制流大师',
-    'milestone_data': '数据结构达人', 'milestone_advance': '拓展探索者',
-    'champion': '全能学霸',
-    // 兼容旧版成就ID
-    'beginner': '入门之星', 'judge': '公正小法官', 'debugger': '调试能手',
-    'creator': '创意达人', 'tracer': '追踪大师', 'explorer': '实验先锋', 'coder': '编程新星'
-};
+// ===== 通用确认弹窗（替代原生 confirm） =====
+let confirmCallback = null;
+
+function showConfirm(title, message, icon, btnText, callback) {
+    document.getElementById('confirmTitle').textContent = title || '确认操作';
+    document.getElementById('confirmMessage').textContent = message || '确定要执行此操作吗？';
+    document.getElementById('confirmIcon').textContent = icon || '⚠️';
+    const okBtn = document.getElementById('confirmOkBtn');
+    okBtn.textContent = btnText || '确定';
+    confirmCallback = callback;
+    document.getElementById('confirmModal').style.display = 'block';
+    setTimeout(() => okBtn.focus(), 100);
+}
+
+function closeConfirmModal() {
+    document.getElementById('confirmModal').style.display = 'none';
+    confirmCallback = null;
+}
+
+// 确定按钮点击事件
+document.addEventListener('DOMContentLoaded', () => {
+    const okBtn = document.getElementById('confirmOkBtn');
+    if (okBtn) {
+        okBtn.addEventListener('click', () => {
+            const cb = confirmCallback;
+            closeConfirmModal();
+            if (typeof cb === 'function') cb();
+        });
+    }
+});
+
+// ===== 模块/成就名称映射（从 constants.js 加载，统一维护） =====
+// 确保 constants.js 已加载（admin.html 在 admin.js 之前加载了 constants.js）
+if (typeof TOTAL_MODULES === 'undefined' || typeof MODULE_NAMES === 'undefined' || typeof CHAPTER_NAMES === 'undefined') {
+    console.error('[admin.js] 错误：constants.js 未正确加载，请检查页面。缺少:', 
+        typeof TOTAL_MODULES === 'undefined' ? 'TOTAL_MODULES' : '',
+        typeof MODULE_NAMES === 'undefined' ? 'MODULE_NAMES' : '',
+        typeof CHAPTER_NAMES === 'undefined' ? 'CHAPTER_NAMES' : '');
+}
 
 // ===== 会话管理 =====
 function getAdminUser() {
@@ -120,54 +61,150 @@ function getAdminToken() {
 }
 function checkAuth() {
     const admin = getAdminUser();
-    if (!admin) { window.location.href = 'index.html'; return null; }
+    if (!admin) {
+        // 显示登录表单，不跳转
+        document.getElementById('adminLoginOverlay').style.display = 'flex';
+        return null;
+    }
+    // 隐藏登录表单
+    document.getElementById('adminLoginOverlay').style.display = 'none';
     document.getElementById('adminInfo').querySelector('span').textContent = admin.displayName;
     return admin;
 }
 async function handleLogout() {
     try {
         await apiFetch(API_BASE + '/logout', { method: 'POST' });
-    } catch (e) { /* ignore */ }
+    } catch (e) { console.warn('[admin] 清除会话存储失败:', e.message); }
     sessionStorage.removeItem('pv_admin_user');
     sessionStorage.removeItem('pv_admin_token');
     window.location.href = 'index.html';
 }
+
+// ===== 管理员登录（从登录表单） =====
+async function handleAdminLogin() {
+    const username = document.getElementById('adminUsername').value.trim();
+    const password = document.getElementById('adminPassword').value;
+    const errorEl = document.getElementById('adminLoginError');
+    const btn = document.getElementById('adminLoginBtn');
+
+    if (!username || !password) {
+        errorEl.textContent = '请输入用户名和密码';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
+    errorEl.style.display = 'none';
+
+    try {
+        const data = await apiFetch(API_BASE + '/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        if (data.success) {
+            sessionStorage.setItem('pv_admin_user', JSON.stringify(data.user));
+            sessionStorage.setItem('pv_admin_token', data.token);
+            document.getElementById('adminLoginOverlay').style.display = 'none';
+            document.getElementById('adminInfo').querySelector('span').textContent = data.user.displayName;
+            switchPage('dashboard');
+        } else {
+            errorEl.textContent = data.error || '登录失败';
+            errorEl.style.display = 'block';
+        }
+    } catch (e) {
+        errorEl.textContent = '登录失败: ' + e.message;
+        errorEl.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 登录';
+    }
+}
+
+// 回车键登录
+document.addEventListener('DOMContentLoaded', () => {
+    const overlay = document.getElementById('adminLoginOverlay');
+    if (overlay) {
+        const pwdInput = document.getElementById('adminPassword');
+        if (pwdInput) {
+            pwdInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') handleAdminLogin();
+            });
+        }
+    }
+});
 
 // ===== API 封装 =====
 async function apiFetch(url, options = {}) {
     const token = getAdminToken();
     if (!options.headers) options.headers = {};
     options.headers['X-Admin-Token'] = token;
-    const res = await fetch(url, options);
-    if (res.status === 401) {
-        sessionStorage.removeItem('pv_admin_user');
-        sessionStorage.removeItem('pv_admin_token');
-        window.location.href = 'index.html';
-        throw new Error('登录已过期');
+    try {
+        const res = await fetch(url, options);
+        if (res.status === 401) {
+            sessionStorage.removeItem('pv_admin_user');
+            sessionStorage.removeItem('pv_admin_token');
+            window.location.href = 'index.html';
+            throw new Error('登录已过期');
+        }
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || `服务器错误 (${res.status})`);
+        }
+        return await res.json();
+    } catch (err) {
+        if (err.message === '登录已过期') throw err;
+        console.error(`[API] ${url} 请求失败:`, err.message);
+        throw err;
     }
-    if (!res.ok) throw new Error(`服务器错误 (${res.status})`);
-    return await res.json();
 }
 
 // ===== 章节名称映射 =====
-const CHAPTER_NAMES = {
-    'ch1': '第1章 认识Python', 'ch2': '第2章 变量', 'ch3': '第3章 变量类型',
-    'ch4': '第4章 条件判断', 'ch5': '第5章 if进阶', 'ch6': '第6章 while循环',
-    'ch7': '第7章 while拓展', 'ch8': '第8章 循环嵌套', 'ch9': '第9章 综合应用一',
-    'ch10': '第10章 排列小星星', 'ch11': '第11章 初识列表', 'ch12': '第12章 列表的使用',
-    'ch13': '第13章 元组与集合', 'ch14': '第14章 神奇的字典', 'ch15': '第15章 再遇字符串',
-    'ch16': '第16章 公共语法', 'ch17': '第17章 轻松搞定二进制', 'ch18': '第18章 编程思维实践',
-    'ch19': '第19章 各种各样的数'
+// 注：CHAPTER_NAMES 已从 constants.js 加载，此处不再重复声明
+// 如需修改章节名称，请更新 constants.js 中的 CHAPTER_NAMES
+
+// ===== 管理后台 Hash 路由映射 =====
+// URL-friendly 名称 → 内部页面 ID（与主站 SPECIAL_HASH_MAP 逻辑一致）
+const ADMIN_HASH_MAP = {
+    'data-overview': 'dashboard',
+    'student-management': 'students',
+    'batch-import': 'import',
+    'class-statistics': 'class-stats',
+    'announcements': 'notices',
+    'homework': 'assignments',
+    'screenshot-submissions': 'screenshots',
+    'activity-monitor': 'activity',
+    'daily-question': 'daily-questions',
+    'discussion-management': 'discussions',
+    'chapter-locks': 'chapter-locks',
+    'registration': 'registration',
+    'system-settings': 'settings'
 };
+
+// 当前页面追踪（防止重复导航）
+let currentAdminPage = 'dashboard';
+
+// 有效的管理后台页面列表
+const VALID_ADMIN_PAGES = ['dashboard', 'students', 'import', 'class-stats',
+    'notices', 'assignments', 'screenshots', 'activity', 'daily-questions',
+    'discussions', 'chapter-locks', 'registration', 'settings'];
 
 // ===== 页面导航 =====
 function switchPage(name) {
+    // 验证页面名称
+    if (!VALID_ADMIN_PAGES.includes(name)) return;
+    // 防止重复导航
+    if (name === currentAdminPage) return;
+    currentAdminPage = name;
+
     document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.page === name));
     document.querySelectorAll('.page-content').forEach(p => p.classList.toggle('active', p.id === 'page-' + name));
     const titles = {
         'dashboard': '数据概览', 'students': '学生管理', 'import': '批量导入',
         'class-stats': '班级统计', 'notices': '公告管理', 'assignments': '作业管理',
-        'activity': '活跃度监控', 'daily-questions': '每日一题', 'settings': '系统设置'
+        'screenshots': '作品截图', 'activity': '活跃度监控', 'daily-questions': '每日一题',
+        'discussions': '讨论区管理', 'chapter-locks': '章节锁定', 'registration': '注册管理', 'settings': '系统设置'
     };
     document.getElementById('pageTitle').textContent = titles[name] || name;
     if (name === 'dashboard') loadDashboard();
@@ -175,11 +212,23 @@ function switchPage(name) {
     if (name === 'class-stats') loadClassStats();
     if (name === 'notices') loadNotices();
     if (name === 'assignments') loadAssignments();
+    if (name === 'screenshots') loadScreenshots();
     if (name === 'activity') loadInactiveStudents();
     if (name === 'daily-questions') loadDailyQuestions();
+    if (name === 'discussions') loadDiscussions();
+    if (name === 'chapter-locks') loadChapterLocks();
+    if (name === 'registration') loadRegistrationSettings();
     if (name === 'settings') loadSettings();
     // 隐藏弹窗
     document.getElementById('transferModal').style.display = 'none';
+
+    // 同步更新 URL hash（与主站 switchModule 逻辑一致）
+    const targetHash = '#' + name;
+    if (window.location.hash === targetHash) {
+        history.replaceState(null, '', targetHash);
+    } else {
+        window.location.hash = targetHash;
+    }
 }
 document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => switchPage(item.dataset.page)));
 
@@ -188,6 +237,63 @@ function refreshCurrentPage() {
     if (!active) return;
     switchPage(active.id.replace('page-', ''));
 }
+
+// ===== Hash 路由处理（与主站 script.js 逻辑一致） =====
+// 浏览器前进/后退 + 直接 URL 访问支持
+function handleAdminHash() {
+    let hash = window.location.hash.replace('#', '');
+    if (!hash) hash = 'dashboard';
+    // 特殊映射（URL-friendly 名称 → 内部页面 ID）
+    hash = ADMIN_HASH_MAP[hash] || hash;
+    // 验证页面有效性（switchPage 内部会设置 currentAdminPage 并更新 hash）
+    if (VALID_ADMIN_PAGES.includes(hash) && hash !== currentAdminPage) {
+        switchPage(hash);
+    }
+}
+
+// hashchange 事件（用户手动修改 URL hash 或浏览器前进/后退）
+window.addEventListener('hashchange', () => {
+    // 未登录时不处理 hash 变化
+    if (!getAdminUser()) return;
+    let hash = window.location.hash.replace('#', '');
+    if (!hash) hash = 'dashboard';
+    hash = ADMIN_HASH_MAP[hash] || hash;
+    if (VALID_ADMIN_PAGES.includes(hash) && hash !== currentAdminPage) {
+        switchPage(hash);
+    }
+});
+
+// 初始加载：从 URL hash 恢复页面状态（支持书签 / 直接链接）
+(function initAdminHashRoute() {
+    // 先检查认证状态，未登录则显示登录表单，不触发任何 API 请求
+    const admin = getAdminUser();
+    if (!admin) {
+        // 未登录，等待 DOM 就绪后显示登录表单
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.getElementById('adminLoginOverlay').style.display = 'flex';
+            });
+        } else {
+            document.getElementById('adminLoginOverlay').style.display = 'flex';
+        }
+        return;
+    }
+    // 已登录，隐藏登录表单并加载页面
+    document.getElementById('adminLoginOverlay').style.display = 'none';
+    document.getElementById('adminInfo').querySelector('span').textContent = admin.displayName;
+
+    let initHash = window.location.hash.replace('#', '');
+    if (!initHash) initHash = 'dashboard';
+    initHash = ADMIN_HASH_MAP[initHash] || initHash;
+    if (VALID_ADMIN_PAGES.includes(initHash)) {
+        // 延迟执行，等待 DOM 就绪
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => switchPage(initHash));
+        } else {
+            switchPage(initHash);
+        }
+    }
+})();
 
 // ===== 数据概览 =====
 async function loadDashboard() {
@@ -341,12 +447,13 @@ function updateSelectedCount() {
 function getSelectedIds() { return Array.from(selectedIds); }
 
 async function deleteSingle(id, name) {
-    if (!confirm(`确定要删除学生「${name}」吗？`)) return;
-    try {
-        const data = await apiFetch(API_BASE + '/student/' + id, { method: 'DELETE' });
-        if (data.success) { loadStudents(); loadDashboard(); }
-        else alert('删除失败：' + data.error);
-    } catch (e) { alert('删除失败：' + e.message); }
+    showConfirm('删除学生', `确定要删除学生「${name}」吗？`, '🗑️', '删除', async function() {
+        try {
+            const data = await apiFetch(API_BASE + '/student/' + id, { method: 'DELETE' });
+            if (data.success) { loadStudents(); loadDashboard(); }
+            else alert('删除失败：' + data.error);
+        } catch (e) { alert('删除失败：' + e.message); }
+    });
 }
 
 async function resetSinglePassword(id, name) {
@@ -367,7 +474,7 @@ async function resetSinglePassword(id, name) {
 async function batchAction(action, value, confirmMsg) {
     const ids = getSelectedIds();
     if (ids.length === 0) { alert('请先选择学生'); return; }
-    if (!confirm(confirmMsg.replace('{n}', ids.length))) return;
+    showConfirm('批量操作', confirmMsg.replace('{n}', ids.length), '⚠️', '确定', async () => {
     try {
         const data = await apiFetch(API_BASE + '/students/batch', {
             method: 'PUT',
@@ -377,6 +484,7 @@ async function batchAction(action, value, confirmMsg) {
         if (data.success) { alert(`操作成功，已影响 ${data.affected} 名学生`); loadStudents(); loadDashboard(); }
         else alert('操作失败：' + data.error);
     } catch (e) { alert('操作失败：' + e.message); }
+    });
 }
 
 function batchGraduate() { batchAction('graduate', null, '确定将 {n} 名学生设为「已毕业」？\n\n毕业后将无法登录。'); }
@@ -547,7 +655,7 @@ function closeStudentDetail() { document.getElementById('studentDetailModal').st
 async function batchDelete() {
     const ids = getSelectedIds();
     if (ids.length === 0) { alert('请先选择学生'); return; }
-    if (!confirm(`确定删除 ${ids.length} 名学生吗？此操作不可恢复！`)) return;
+    showConfirm('批量删除', `确定删除 ${ids.length} 名学生吗？此操作不可恢复！`, '🗑️', '删除', async () => {
     try {
         const data = await apiFetch(API_BASE + '/students/batch', {
             method: 'PUT',
@@ -557,6 +665,7 @@ async function batchDelete() {
         if (data.success) { alert(`已删除 ${data.affected} 名学生`); loadStudents(); loadDashboard(); }
         else alert('删除失败: ' + data.error);
     } catch (e) { alert('删除失败: ' + e.message); }
+    });
 }
 
 // ===== 公告管理 =====
@@ -603,12 +712,13 @@ async function publishNotice() {
     } catch (e) { alert('发布失败: ' + e.message); }
 }
 async function deleteNotice(id) {
-    if (!confirm('确定删除此公告？')) return;
-    try {
-        const data = await apiFetch(API_BASE + '/notices/' + id, { method: 'DELETE' });
-        if (data.success) loadNotices();
-        else alert('删除失败: ' + data.error);
-    } catch (e) { alert('删除失败: ' + e.message); }
+    showConfirm('删除公告', '确定删除此公告？', '🗑️', '删除', async () => {
+        try {
+            const data = await apiFetch(API_BASE + '/notices/' + id, { method: 'DELETE' });
+            if (data.success) loadNotices();
+            else alert('删除失败: ' + data.error);
+        } catch (e) { alert('删除失败: ' + e.message); }
+    });
 }
 
 function openNoticeEdit(id, title, content) {
@@ -792,6 +902,43 @@ async function loadQuizScores() {
     } catch (e) { console.error('加载测验成绩失败:', e); }
 }
 
+// ===== 作品截图查看 =====
+async function loadScreenshots() {
+    const el = document.getElementById('screenshotList');
+    el.innerHTML = '<div class="empty-notices"><i class="fas fa-image"></i><p>加载中...</p></div>';
+    try {
+        const data = await apiFetch(API_BASE + '/screenshots');
+        if (!data.success || !data.screenshots || data.screenshots.length === 0) {
+            el.innerHTML = '<div class="empty-notices"><i class="fas fa-image"></i><p>暂无学生提交的截图</p></div>';
+            return;
+        }
+        const fmtTime = function(t) {
+            if (!t) return '';
+            const d = new Date(t);
+            if (isNaN(d.getTime())) return String(t);
+            const p = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+        };
+        el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">' +
+            data.screenshots.map(function(s) {
+                const imgUrl = '/uploads/' + encodeURIComponent(s.file_name);
+                const chapterLabel = (s.chapter_id || '').toUpperCase();
+                const stuName = s.display_name || s.username;
+                const cls = (s.grade || '') + (s.class_num ? ' ' + s.class_num + '班' : '');
+                return '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">' +
+                    '<a href="' + imgUrl + '" target="_blank"><img src="' + imgUrl + '" alt="截图" loading="lazy" style="width:100%;display:block;min-height:120px;background:#f5f5f5;"></a>' +
+                    '<div style="padding:10px 12px;">' +
+                    '<div style="font-weight:600;font-size:14px;">' + esc(stuName) + '</div>' +
+                    '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + esc(cls) + ' · ' + esc(chapterLabel) + '</div>' +
+                    '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + esc(fmtTime(s.created_at)) + '</div>' +
+                    '</div></div>';
+            }).join('') + '</div>';
+    } catch (e) {
+        console.error('加载截图失败:', e);
+        el.innerHTML = '<div class="empty-notices"><i class="fas fa-exclamation-circle"></i><p>加载截图失败</p></div>';
+    }
+}
+
 // ===== 作业管理 =====
 async function loadAssignments() {
     try {
@@ -890,12 +1037,13 @@ async function saveAssignmentEdit() {
 }
 
 async function deleteAssignment(id) {
-    if (!confirm('确定删除此作业？')) return;
-    try {
-        const data = await apiFetch(API_BASE + '/assignments/' + id, { method: 'DELETE' });
-        if (data.success) loadAssignments();
-        else alert('删除失败: ' + data.error);
-    } catch (e) { alert('删除失败: ' + e.message); }
+    showConfirm('删除作业', '确定删除此作业？', '🗑️', '删除', async () => {
+        try {
+            const data = await apiFetch(API_BASE + '/assignments/' + id, { method: 'DELETE' });
+            if (data.success) loadAssignments();
+            else alert('删除失败: ' + data.error);
+        } catch (e) { alert('删除失败: ' + e.message); }
+    });
 }
 
 async function viewSubmissions(id) {
@@ -907,11 +1055,12 @@ async function viewSubmissions(id) {
             body.innerHTML = '<div class="empty-state">暂无提交记录</div>';
         } else {
             body.innerHTML = `<table class="data-table" style="width:100%;">
-                <thead><tr><th>学生</th><th>提交状态</th><th>内容</th><th>提交时间</th></tr></thead>
+                <thead><tr><th>学生</th><th>提交状态</th><th>内容</th><th>评分</th><th>提交时间</th></tr></thead>
                 <tbody>${data.submissions.map(s => `<tr>
                     <td>${esc(s.display_name || s.student_name || '')}</td>
                     <td><span class="status-tag ${s.status === 'submitted' ? 'active' : 'graduated'}">${s.status === 'submitted' ? '已提交' : '未提交'}</span></td>
-                    <td style="max-width:250px;white-space:normal;">${esc(s.content || '-')}</td>
+                    <td style="max-width:200px;white-space:normal;">${esc(s.content || '-')}</td>
+                    <td>${s.status === 'submitted' ? `<input type="number" id="score_${s.id}" value="${s.score !== null && s.score !== undefined ? s.score : ''}" min="0" max="100" step="0.5" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;" placeholder="0-100"><button onclick="saveScore(${id},${s.id})" style="margin-left:4px;background:#04AA6D;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;">保存</button>` : '-'}</td>
                     <td>${fmt(s.submitted_at)}</td>
                 </tr>`).join('')}</tbody>
             </table>`;
@@ -921,6 +1070,28 @@ async function viewSubmissions(id) {
 }
 
 function closeSubmissions() { document.getElementById('submissionsModal').style.display = 'none'; }
+
+async function saveScore(assignmentId, submissionId) {
+    const input = document.getElementById('score_' + submissionId);
+    const score = parseFloat(input.value);
+    if (isNaN(score) || score < 0 || score > 100) {
+        alert('请输入0-100之间的分数');
+        return;
+    }
+    try {
+        const resp = await apiFetch(API_BASE + '/assignments/' + assignmentId + '/submissions/' + submissionId + '/score', {
+            method: 'PUT',
+            body: JSON.stringify({ score: Math.round(score * 10) / 10 })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            input.style.borderColor = '#04AA6D';
+            setTimeout(() => { input.style.borderColor = '#ddd'; }, 2000);
+        } else {
+            alert('评分失败: ' + (data.error || '未知错误'));
+        }
+    } catch (e) { alert('评分失败: ' + e.message); }
+}
 
 // ===== 活跃度监控 =====
 async function loadInactiveStudents(days) {
@@ -1012,12 +1183,13 @@ async function addDailyQuestion() {
 }
 
 async function deleteDailyQuestion(id) {
-    if (!confirm('确定删除此题目？')) return;
-    try {
-        const data = await apiFetch(API_BASE + '/daily-questions/' + id, { method: 'DELETE' });
-        if (data.success) loadDailyQuestions();
-        else alert('删除失败: ' + data.error);
-    } catch (e) { alert('删除失败: ' + e.message); }
+    showConfirm('删除题目', '确定删除此题目？', '🗑️', '删除', async () => {
+        try {
+            const data = await apiFetch(API_BASE + '/daily-questions/' + id, { method: 'DELETE' });
+            if (data.success) loadDailyQuestions();
+            else alert('删除失败: ' + data.error);
+        } catch (e) { alert('删除失败: ' + e.message); }
+    });
 }
 
 // 覆盖 loadNotices 以兼容覆盖版
@@ -1125,7 +1297,7 @@ function fmt(d) {
 function esc(s) {
     const div = document.createElement('div');
     div.textContent = s;
-    return div.innerHTML;
+    return div.innerHTML.replace(/'/g, '&#39;');
 }
 
 // ===== 文件导入 =====
@@ -1150,6 +1322,7 @@ function handleFileImport() {
 // ===== 系统设置 =====
 function loadSettings() {
     loadOperationLogs();
+    loadBackupList();
 }
 
 async function changePassword() {
@@ -1175,27 +1348,95 @@ async function changePassword() {
     } catch (e) { alert('修改失败: ' + e.message); }
 }
 
+async function triggerBackup() {
+    const btn = document.getElementById('btnTriggerBackup');
+    const statusEl = document.getElementById('backupStatus');
+    
+    // 显示进行中状态
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在备份...';
+    statusEl.style.display = 'block';
+    statusEl.className = 'backup-status backup-progress';
+    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在备份数据库，请稍候...';
+    
+    try {
+        const data = await apiFetch(API_BASE + '/backup/trigger', { method: 'POST' });
+        if (data.success) {
+            // 成功
+            statusEl.className = 'backup-status backup-success';
+            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> 备份成功！文件：' + esc(data.backup.filename) + '（' + esc(data.backup.size) + '）';
+            btn.innerHTML = '<i class="fas fa-check"></i> 备份完成';
+            // 刷新备份列表
+            loadBackupList();
+            // 3秒后恢复按钮状态
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> 一键备份数据';
+                statusEl.style.display = 'none';
+            }, 5000);
+        } else {
+            throw new Error(data.error || '未知错误');
+        }
+    } catch (e) {
+        // 失败
+        statusEl.className = 'backup-status backup-error';
+        statusEl.innerHTML = '<i class="fas fa-times-circle"></i> 备份失败：' + esc(e.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> 一键备份数据';
+        setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
+    }
+}
+
+async function loadBackupList() {
+    const tbody = document.getElementById('backupListBody');
+    try {
+        const data = await apiFetch(API_BASE + '/backup/list');
+        if (!data.success || !data.backups || data.backups.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">暂无备份记录</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.backups.map(b => {
+            const date = new Date(b.createdAt);
+            const dateStr = date.getFullYear() + '-' +
+                String(date.getMonth() + 1).padStart(2, '0') + '-' +
+                String(date.getDate()).padStart(2, '0') + ' ' +
+                String(date.getHours()).padStart(2, '0') + ':' +
+                String(date.getMinutes()).padStart(2, '0');
+            return `<tr>
+                <td><code style="font-size:12px;">${esc(b.filename)}</code></td>
+                <td>${esc(b.size)}</td>
+                <td>${dateStr}</td>
+                <td>
+                    <a href="${API_BASE}/backup/download/${encodeURIComponent(b.filename)}" class="btn btn-sm btn-outline" download>
+                        <i class="fas fa-download"></i> 下载
+                    </a>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">加载失败：' + esc(e.message) + '</td></tr>';
+    }
+}
+
 function backupDatabase() {
-    window.open(API_BASE + '/backup', '_blank');
+    // 保留旧函数兼容性，改为触发服务器端备份
+    triggerBackup();
 }
 
 async function restoreDatabase() {
     const file = document.getElementById('restoreFile').files[0];
     if (!file) return;
-    if (!confirm('恢复数据将覆盖所有现有数据，确定继续？')) {
-        document.getElementById('restoreFile').value = '';
-        return;
-    }
-    const el = document.getElementById('restoreResult');
-    el.classList.remove('success', 'error');
-    el.style.display = 'block';
-    el.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在恢复...';
-    try {
-        const text = await file.text();
-        const backupData = JSON.parse(text);
-        const data = await apiFetch(API_BASE + '/restore', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+    showConfirm('恢复数据', '恢复数据将覆盖所有现有数据，确定继续？', '⚠️', '恢复', async () => {
+        const el = document.getElementById('restoreResult');
+        el.classList.remove('success', 'error');
+        el.style.display = 'block';
+        el.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在恢复...';
+        try {
+            const text = await file.text();
+            const backupData = JSON.parse(text);
+            const data = await apiFetch(API_BASE + '/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(backupData)
         });
         if (data.success) {
@@ -1217,6 +1458,7 @@ async function restoreDatabase() {
         document.getElementById('restoreFile').value = '';
         el.style.display = 'none';
     }, 3000);
+    });
 }
 
 async function loadOperationLogs() {
@@ -1248,7 +1490,525 @@ async function loadOperationLogs() {
         }
     }
     fillSelect(document.getElementById('filterClass'));
+    fillSelect(document.getElementById('lockFilterClass'));
 })();
+
+// ===== 讨论区管理 =====
+let discPage = 1, discTotal = 0;
+async function loadDiscussions(page = 1) {
+    discPage = page;
+    try {
+        const data = await apiFetch(API_BASE + '/discussions?page=' + page + '&pageSize=20');
+        if (!data.success) return;
+        discTotal = data.total;
+        const tbody = document.getElementById('discussionsBody');
+        if (data.discussions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无讨论帖</td></tr>';
+        } else {
+            tbody.innerHTML = data.discussions.map(d => `
+                <tr>
+                    <td>${d.id}</td>
+                    <td><strong>${esc(d.title)}</strong></td>
+                    <td>${esc(d.display_name)} (${esc(d.username)})</td>
+                    <td>${esc(d.grade || '')} ${d.class_num ? d.class_num + '班' : ''}</td>
+                    <td>${d.reply_count}</td>
+                    <td>${fmt(d.created_at)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="viewReplies(${d.id})">查看回复</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteDiscussion(${d.id})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        // 分页
+        const totalPages = Math.ceil(discTotal / 20);
+        let html = `<span style="color:#666;font-size:13px;">共 ${discTotal} 条</span>`;
+        html += `<button class="btn-sm btn-outline" onclick="loadDiscussions(${discPage-1})" ${discPage<=1?'disabled':''}>上一页</button>`;
+        html += `<span style="font-size:13px;">${discPage}/${totalPages}</span>`;
+        html += `<button class="btn-sm btn-outline" onclick="loadDiscussions(${discPage+1})" ${discPage>=totalPages?'disabled':''}>下一页</button>`;
+        document.getElementById('discPaginationBar').innerHTML = html;
+    } catch (e) {
+        document.getElementById('discussionsBody').innerHTML = `<tr><td colspan="7" class="empty-state">加载失败：${e.message}</td></tr>`;
+    }
+}
+
+async function viewReplies(postId) {
+    try {
+        const data = await apiFetch(API_BASE + '/discussions/' + postId + '/replies');
+        if (!data.success) return;
+        const body = document.getElementById('repliesModalBody');
+        if (data.replies.length === 0) {
+            body.innerHTML = '<div class="empty-state">暂无回复</div>';
+        } else {
+            body.innerHTML = data.replies.map(r => `
+                <div style="padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <strong>${esc(r.display_name)}</strong>
+                        <span style="color:#888;font-size:12px;">${fmt(r.created_at)}</span>
+                        <p style="margin:4px 0 0;">${esc(r.content)}</p>
+                    </div>
+                    <button class="btn btn-sm btn-danger" onclick="deleteReply(${r.id}, ${postId})">删除</button>
+                </div>
+            `).join('');
+        }
+        document.getElementById('repliesModal').style.display = 'flex';
+    } catch (e) { alert('获取回复失败: ' + e.message); }
+}
+
+function closeRepliesModal() { document.getElementById('repliesModal').style.display = 'none'; }
+
+async function deleteDiscussion(id) {
+    showConfirm('删除讨论', '确定删除此讨论帖及其所有回复？此操作不可恢复！', '🗑️', '删除', async () => {
+        try {
+            const data = await apiFetch(API_BASE + '/discussions/' + id, { method: 'DELETE' });
+            if (data.success) loadDiscussions(discPage);
+        } catch (e) { alert('删除失败: ' + e.message); }
+    });
+}
+
+async function deleteReply(id, postId) {
+    showConfirm('删除回复', '确定删除此回复？', '🗑️', '删除', async () => {
+        try {
+            const data = await apiFetch(API_BASE + '/discussions/replies/' + id, { method: 'DELETE' });
+            if (data.success) viewReplies(postId);
+        } catch (e) { alert('删除失败: ' + e.message); }
+    });
+}
+
+// ===== 章节锁定管理 =====
+let chapterLockStates = {};
+async function loadChapterLocks() {
+    try {
+        const data = await apiFetch(API_BASE + '/chapter-locks');
+        if (!data.success) return;
+        // 初始化所有章节为解锁
+        for (const ch in CHAPTER_NAMES) {
+            chapterLockStates[ch] = false;
+        }
+        // 应用已保存的锁定
+        const grade = document.getElementById('lockFilterGrade').value;
+        const cls = parseInt(document.getElementById('lockFilterClass').value) || 0;
+        data.locks.forEach(l => {
+            if ((!grade || l.grade === grade) && (!cls || l.class_num === cls)) {
+                chapterLockStates[l.chapter_id] = !!l.locked;
+            }
+        });
+        renderChapterLocks();
+    } catch (e) { console.error(e); }
+}
+
+function renderChapterLocks() {
+    const grid = document.getElementById('chapterLocksGrid');
+    grid.innerHTML = Object.entries(CHAPTER_NAMES).map(([id, name]) => `
+        <div style="padding:10px;border:1px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;${chapterLockStates[id]?'background:#fff3f3;border-color:#ff4444;':''}"
+             onclick="chapterLockStates['${id}'] = !chapterLockStates['${id}']; renderChapterLocks();">
+            <span style="font-size:13px;">${name}</span>
+            <i class="fas ${chapterLockStates[id] ? 'fa-lock' : 'fa-unlock'}" 
+               style="color:${chapterLockStates[id] ? '#ff4444' : '#04AA6D'};"></i>
+        </div>
+    `).join('');
+}
+
+function toggleAllChapters(lock = false) {
+    for (const ch in chapterLockStates) {
+        chapterLockStates[ch] = lock;
+    }
+    renderChapterLocks();
+}
+
+async function saveChapterLocks() {
+    const grade = document.getElementById('lockFilterGrade').value;
+    const cls = parseInt(document.getElementById('lockFilterClass').value) || 0;
+    const locks = Object.entries(chapterLockStates).map(([chapter_id, locked]) => ({
+        chapter_id, locked, grade, class_num: cls
+    }));
+    try {
+        const data = await apiFetch(API_BASE + '/chapter-locks', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ locks })
+        });
+        if (data.success) {
+            alert('章节锁定设置已保存！');
+        } else {
+            alert('保存失败: ' + data.error);
+        }
+    } catch (e) { alert('保存失败: ' + e.message); }
+}
+
+// ===== 注册管理 =====
+let regSettings = {};
+let regSettingsChanged = false;
+
+async function loadRegistrationSettings() {
+    try {
+        const data = await apiFetch(API_BASE + '/registration-settings');
+        if (!data.success) return;
+        regSettings = data.settings;
+
+        // 注册开关
+        const toggle = document.getElementById('regEnabledToggle');
+        toggle.checked = regSettings.registration_enabled !== 'false';
+        updateRegStatusBadge();
+
+        // 配置项
+        document.getElementById('requireStudentId').checked = regSettings.require_student_id === 'true';
+        document.getElementById('maxAccountsPerIp').value = regSettings.max_accounts_per_ip || '3';
+        document.getElementById('regCooldownMinutes').value = regSettings.registration_cooldown_minutes || '5';
+        document.getElementById('maxAccountsPerStudentId').value = regSettings.max_accounts_per_student_id || '1';
+        document.getElementById('profileEditToggle').checked = regSettings.profile_edit_enabled !== 'false';
+        updateProfileEditStatusBadge();
+
+        regSettingsChanged = false;
+        updateSaveButton();
+        loadRegistrationLogs(1);
+    } catch (e) {
+        console.error('加载注册配置失败:', e);
+    }
+}
+
+function updateRegStatusBadge() {
+    const badge = document.getElementById('regStatusBadge');
+    const enabled = document.getElementById('regEnabledToggle').checked;
+    badge.innerHTML = enabled
+        ? '<span style="background:#d4edda;color:#155724;padding:4px 12px;border-radius:12px;font-size:13px;">' +
+          '<i class="fas fa-check-circle"></i> 注册功能已开启 — 学生可以正常注册</span>'
+        : '<span style="background:#f8d7da;color:#721c24;padding:4px 12px;border-radius:12px;font-size:13px;">' +
+          '<i class="fas fa-ban"></i> 注册功能已关闭 — 学生无法注册新账号</span>';
+}
+
+function markSettingsChanged() {
+    regSettingsChanged = true;
+    updateSaveButton();
+}
+
+function updateSaveButton() {
+    const btn = document.getElementById('saveRegSettingsBtn');
+    btn.disabled = !regSettingsChanged;
+    if (regSettingsChanged) {
+        document.getElementById('settingsSavedHint').style.display = 'none';
+    }
+}
+
+async function toggleRegistration() {
+    const enabled = document.getElementById('regEnabledToggle').checked;
+    updateRegStatusBadge();
+
+    try {
+        const data = await apiFetch(API_BASE + '/registration-settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settings: { registration_enabled: enabled ? 'true' : 'false' } })
+        });
+        if (data.success) {
+            regSettings.registration_enabled = enabled ? 'true' : 'false';
+        }
+    } catch (e) {
+        console.error('切换注册状态失败:', e);
+        // 恢复原状态
+        document.getElementById('regEnabledToggle').checked = !enabled;
+        updateRegStatusBadge();
+    }
+}
+
+function updateProfileEditStatusBadge() {
+    const badge = document.getElementById('profileEditStatusBadge');
+    const enabled = document.getElementById('profileEditToggle').checked;
+    badge.innerHTML = enabled
+        ? '<span style="background:#d4edda;color:#155724;padding:4px 12px;border-radius:12px;font-size:13px;">' +
+          '<i class="fas fa-check-circle"></i> 学生可以自行修改资料</span>'
+        : '<span style="background:#f8d7da;color:#721c24;padding:4px 12px;border-radius:12px;font-size:13px;">' +
+          '<i class="fas fa-ban"></i> 已禁止学生自行修改资料</span>';
+}
+
+async function toggleProfileEdit() {
+    const enabled = document.getElementById('profileEditToggle').checked;
+    updateProfileEditStatusBadge();
+
+    try {
+        const data = await apiFetch(API_BASE + '/registration-settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settings: { profile_edit_enabled: enabled ? 'true' : 'false' } })
+        });
+        if (data.success) {
+            regSettings.profile_edit_enabled = enabled ? 'true' : 'false';
+        }
+    } catch (e) {
+        console.error('切换资料编辑开关失败:', e);
+        document.getElementById('profileEditToggle').checked = !enabled;
+        updateProfileEditStatusBadge();
+    }
+}
+
+async function saveRegistrationSettings() {
+    const settings = {
+        require_student_id: document.getElementById('requireStudentId').checked ? 'true' : 'false',
+        max_accounts_per_ip: document.getElementById('maxAccountsPerIp').value,
+        registration_cooldown_minutes: document.getElementById('regCooldownMinutes').value,
+        max_accounts_per_student_id: document.getElementById('maxAccountsPerStudentId').value
+    };
+
+    try {
+        const data = await apiFetch(API_BASE + '/registration-settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settings })
+        });
+        if (data.success) {
+            regSettings = { ...regSettings, ...settings };
+            regSettingsChanged = false;
+            updateSaveButton();
+            document.getElementById('settingsSavedHint').style.display = 'inline';
+            setTimeout(() => {
+                document.getElementById('settingsSavedHint').style.display = 'none';
+            }, 3000);
+        } else {
+            alert('保存失败: ' + data.error);
+        }
+    } catch (e) {
+        alert('保存失败: ' + e.message);
+    }
+}
+
+let regLogPage = 1, regLogTotal = 0;
+async function loadRegistrationLogs(page = 1) {
+    regLogPage = page;
+    try {
+        const filter = document.getElementById('regLogFilter').value;
+        const data = await apiFetch(API_BASE + '/registration-logs?page=' + page + '&pageSize=50&result=' + filter);
+        if (!data.success) return;
+        regLogTotal = data.total;
+
+        const tbody = document.getElementById('regLogsBody');
+        if (data.logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">暂无注册记录</td></tr>';
+        } else {
+            tbody.innerHTML = data.logs.map(l => {
+                let resultBadge = '';
+                if (l.result === 'success') resultBadge = '<span style="color:#10b981;font-weight:600;">成功</span>';
+                else if (l.result === 'blocked') resultBadge = '<span style="color:#f59e0b;font-weight:600;">被阻止</span>';
+                else resultBadge = '<span style="color:#ef4444;font-weight:600;">失败</span>';
+                return `<tr>
+                    <td>${fmt(l.created_at)}</td>
+                    <td>${esc(l.username)}</td>
+                    <td>${esc(l.display_name)}</td>
+                    <td>${esc(l.grade || '')} ${l.class_num ? l.class_num + '班' : ''}</td>
+                    <td>${esc(l.student_id || '-')}</td>
+                    <td style="font-size:12px;color:var(--text-secondary);">${esc(l.ip_address || '-')}</td>
+                    <td>${resultBadge}</td>
+                    <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                        title="${esc(l.reason || '')}">${esc(l.reason || '-')}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // 分页
+        const totalPages = Math.ceil(regLogTotal / 50) || 1;
+        let html = `<span style="color:#666;font-size:13px;">共 ${regLogTotal} 条</span>`;
+        html += `<button class="btn-sm btn-outline" onclick="loadRegistrationLogs(${page-1})" ${page<=1?'disabled':''}>上一页</button>`;
+        html += `<span style="font-size:13px;">第 ${page}/${totalPages} 页</span>`;
+        html += `<button class="btn-sm btn-outline" onclick="loadRegistrationLogs(${page+1})" ${page>=totalPages?'disabled':''}>下一页</button>`;
+        document.getElementById('regLogPagination').innerHTML = html;
+    } catch (e) {
+        document.getElementById('regLogsBody').innerHTML = `<tr><td colspan="8" class="empty-state">加载失败：${e.message}</td></tr>`;
+    }
+}
+
+async function loadDuplicateStudents() {
+    const el = document.getElementById('duplicateResults');
+    el.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i> 检测中...</div>';
+    try {
+        const data = await apiFetch(API_BASE + '/duplicate-students');
+        if (!data.success) {
+            el.innerHTML = '<div class="empty-state">检测失败</div>';
+            return;
+        }
+
+        let html = '';
+
+        // 同名账号
+        if (data.sameNameDuplicates && data.sameNameDuplicates.length > 0) {
+            html += '<h4 style="margin-bottom:8px;color:var(--warning);">' +
+                '<i class="fas fa-exclamation-triangle"></i> 同名账号（' + data.sameNameDuplicates.length + ' 组）</h4>';
+            html += '<div style="max-height:300px;overflow-y:auto;margin-bottom:16px;">';
+            data.sameNameDuplicates.forEach(d => {
+                html += `<div style="padding:8px;border:1px solid #eee;border-radius:6px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                        <span style="font-weight:600;">${esc(d.display_name1)}</span>
+                        <span style="color:var(--text-secondary);font-size:12px;">
+                            账号1: ${esc(d.username1)} (${esc(d.grade1)} ${d.class1}班) |
+                            账号2: ${esc(d.username2)} (${esc(d.grade2)} ${d.class2}班)
+                        </span>
+                    </div>
+                    <button class="btn btn-sm btn-warning" onclick="quickMergeSetup(${d.id1},${d.id2},'${esc(d.username1)}','${esc(d.username2)}','${esc(d.display_name1)}')">
+                        合并
+                    </button>
+                </div>`;
+            });
+            html += '</div>';
+        } else {
+            html += '<p style="color:var(--text-secondary);font-size:13px;">未发现同名账号</p>';
+        }
+
+        // 同IP多账号
+        if (data.sameIpGroups && data.sameIpGroups.length > 0) {
+            html += '<h4 style="margin-bottom:8px;color:var(--warning);">' +
+                '<i class="fas fa-network-wired"></i> 同IP多账号（' + data.sameIpGroups.length + ' 组）</h4>';
+            html += '<div style="max-height:300px;overflow-y:auto;">';
+            data.sameIpGroups.forEach(g => {
+                html += `<div style="padding:8px;border:1px solid #eee;border-radius:6px;margin-bottom:6px;">
+                    <span style="font-size:12px;color:var(--text-secondary);">IP: ${esc(g.ip_address)} | ${g.account_count}个账号</span>
+                    <div style="font-size:12px;color:var(--text);margin-top:2px;">${esc(g.usernames)}</div>
+                    <div style="font-size:11px;color:var(--text-muted);">首次: ${fmt(g.first_reg)} | 最近: ${fmt(g.last_reg)}</div>
+                </div>`;
+            });
+            html += '</div>';
+        } else if (!data.sameNameDuplicates || data.sameNameDuplicates.length === 0) {
+            html += '<p style="color:var(--text-secondary);font-size:13px;">未发现同IP多账号</p>';
+        }
+
+        if ((!data.sameNameDuplicates || data.sameNameDuplicates.length === 0) &&
+            (!data.sameIpGroups || data.sameIpGroups.length === 0)) {
+            html = '<div class="empty-state" style="color:var(--success);">' +
+                '<i class="fas fa-check-circle"></i> 未发现疑似重复账号</div>';
+        }
+
+        el.innerHTML = html;
+    } catch (e) {
+        el.innerHTML = '<div class="empty-state">检测失败: ' + e.message + '</div>';
+    }
+}
+
+// 快速填充合并表单
+function quickMergeSetup(id1, id2, username1, username2, displayName) {
+    // 滚动到合并区域
+    document.querySelector('#page-registration .card:nth-child(4)').scrollIntoView({ behavior: 'smooth' });
+
+    // 选择较早注册的作为目标账号，较晚的作为源账号
+    document.getElementById('mergeSourceId').value = id2;
+    document.getElementById('mergeSourceSelected').textContent = '已选择: ' + displayName + ' (' + username2 + ')';
+    document.getElementById('mergeSourceSearch').value = '';
+    document.getElementById('mergeSourceResults').innerHTML = '';
+
+    document.getElementById('mergeTargetId').value = id1;
+    document.getElementById('mergeTargetSelected').textContent = '已选择: ' + displayName + ' (' + username1 + ')';
+    document.getElementById('mergeTargetSearch').value = '';
+    document.getElementById('mergeTargetResults').innerHTML = '';
+
+    updateMergeButton();
+}
+
+let mergeSearchTimer = null;
+async function searchMergeStudent(type) {
+    clearTimeout(mergeSearchTimer);
+    const searchInput = document.getElementById('merge' + (type === 'source' ? 'Source' : 'Target') + 'Search');
+    const resultsDiv = document.getElementById('merge' + (type === 'source' ? 'Source' : 'Target') + 'Results');
+    const keyword = searchInput.value.trim();
+
+    if (keyword.length < 2) {
+        resultsDiv.innerHTML = '';
+        return;
+    }
+
+    mergeSearchTimer = setTimeout(async () => {
+        try {
+            const data = await apiFetch(API_BASE + '/students?page=1&pageSize=10');
+            if (!data.success) return;
+
+            const filtered = data.students.filter(s =>
+                s.display_name.toLowerCase().includes(keyword.toLowerCase()) ||
+                s.username.toLowerCase().includes(keyword.toLowerCase())
+            );
+
+            if (filtered.length === 0) {
+                resultsDiv.innerHTML = '<div style="padding:8px;color:var(--text-secondary);">未找到匹配的学生</div>';
+            } else {
+                resultsDiv.innerHTML = filtered.map(s => `
+                    <div style="padding:8px;border-bottom:1px solid #eee;cursor:pointer;hover:bg:#f0f0f0;"
+                         onclick="selectMergeStudent('${type}', ${s.id}, '${esc(s.display_name)}', '${esc(s.username)}')">
+                        <strong>${esc(s.display_name)}</strong>
+                        <span style="color:var(--text-secondary);font-size:12px;">${esc(s.username)} | ${esc(s.grade)} ${s.class_num}班</span>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {
+            resultsDiv.innerHTML = '<div style="padding:8px;color:var(--danger);">搜索失败</div>';
+        }
+    }, 300);
+}
+
+function selectMergeStudent(type, id, displayName, username) {
+    document.getElementById('merge' + (type === 'source' ? 'Source' : 'Target') + 'Id').value = id;
+    document.getElementById('merge' + (type === 'source' ? 'Source' : 'Target') + 'Selected').textContent =
+        '已选择: ' + displayName + ' (' + username + ')';
+    document.getElementById('merge' + (type === 'source' ? 'Source' : 'Target') + 'Search').value = '';
+    document.getElementById('merge' + (type === 'source' ? 'Source' : 'Target') + 'Results').innerHTML = '';
+    updateMergeButton();
+}
+
+function updateMergeButton() {
+    const srcId = document.getElementById('mergeSourceId').value;
+    const tgtId = document.getElementById('mergeTargetId').value;
+    document.getElementById('mergeBtn').disabled = !srcId || !tgtId || srcId === tgtId;
+}
+
+async function mergeAccounts() {
+    const sourceId = parseInt(document.getElementById('mergeSourceId').value);
+    const targetId = parseInt(document.getElementById('mergeTargetId').value);
+
+    if (!sourceId || !targetId) {
+        alert('请先选择源账号和目标账号');
+        return;
+    }
+    if (sourceId === targetId) {
+        alert('源账号和目标账号不能相同');
+        return;
+    }
+
+    const srcName = document.getElementById('mergeSourceSelected').textContent;
+    const tgtName = document.getElementById('mergeTargetSelected').textContent;
+
+    showConfirm('合并账号',
+        `确定要将 ${srcName} 的所有数据合并到 ${tgtName} 吗？\n\n合并后源账号将被删除，此操作不可恢复！`,
+        '⚠️', '确认合并', async () => {
+            try {
+                const data = await apiFetch(API_BASE + '/students/merge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sourceId, targetId })
+                });
+                const el = document.getElementById('mergeResult');
+                if (data.success) {
+                    el.innerHTML = '<div style="color:var(--success);padding:8px;background:#d4edda;border-radius:6px;">' +
+                        '<i class="fas fa-check-circle"></i> ' + data.message +
+                        ' (合并了 ' + data.mergedProgress + ' 条学习进度、' + data.mergedAchievements + ' 个成就)</div>';
+                    // 清空表单
+                    document.getElementById('mergeSourceId').value = '';
+                    document.getElementById('mergeSourceSelected').textContent = '';
+                    document.getElementById('mergeTargetId').value = '';
+                    document.getElementById('mergeTargetSelected').textContent = '';
+                    updateMergeButton();
+                } else {
+                    el.innerHTML = '<div style="color:var(--danger);padding:8px;background:#f8d7da;border-radius:6px;">' +
+                        '<i class="fas fa-times-circle"></i> ' + data.error + '</div>';
+                }
+            } catch (e) {
+                document.getElementById('mergeResult').innerHTML =
+                    '<div style="color:var(--danger);">合并失败: ' + e.message + '</div>';
+            }
+        });
+}
+
+// 点击空白处关闭搜索结果
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#mergeSourceSearch')) {
+        document.getElementById('mergeSourceResults').innerHTML = '';
+    }
+    if (!e.target.closest('#mergeTargetSearch')) {
+        document.getElementById('mergeTargetResults').innerHTML = '';
+    }
+});
 
 // ===== 启动 =====
 (function init() {

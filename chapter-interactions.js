@@ -157,7 +157,7 @@ function runPractice(chapterNum, validator) {
     const outputEl = document.getElementById('ch' + chapterNum + '-practice-output');
     if (!codeEl || !outputEl) return;
 
-    const code = codeEl.value;
+    const code = getPracticeCode(codeEl);
     if (typeof validator === 'function') {
         const result = validator(code);
         outputEl.innerHTML = result.html || result;
@@ -170,9 +170,49 @@ function runPractice(chapterNum, validator) {
 }
 
 function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+	    const div = document.createElement('div');
+	    div.textContent = str;
+	    return div.innerHTML;
+	}
+
+	// 获取实践代码（优先从 CodeMirror 读取，否则从 textarea 读取）
+	function getPracticeCode(codeEl) {
+	    var cm = window._cmInstances && window._cmInstances[codeEl.id];
+	    // 验证 CodeMirror 实例是否仍在 DOM 中
+	    if (cm && cm.getWrapperElement && cm.getWrapperElement().parentNode) {
+	        var val = cm.getValue();
+	        console.log('[getPracticeCode] ' + codeEl.id + ' -> CodeMirror: ' + val.substring(0, 60));
+	        return val;
+	    }
+	    console.log('[getPracticeCode] ' + codeEl.id + ' -> textarea.value: ' + codeEl.value.substring(0, 60));
+	    return codeEl.value;
+	}
+
+	// 设置实践代码（优先更新 CodeMirror，否则更新 textarea）
+	function setPracticeCode(codeEl, value) {
+	    var cm = window._cmInstances && window._cmInstances[codeEl.id];
+	    if (cm && cm.getWrapperElement && cm.getWrapperElement().parentNode) {
+	        cm.setValue(value);
+	        cm.refresh();
+	        console.log('[setPracticeCode] ' + codeEl.id + ' -> CodeMirror.setValue: ' + value.substring(0, 60));
+	    } else {
+	        codeEl.value = value;
+	        console.log('[setPracticeCode] ' + codeEl.id + ' -> textarea.value: ' + value.substring(0, 60));
+	    }
+	}
+
+// 预处理代码：去除注释和字符串字面量，避免关键词误匹配
+function preprocessCode(code) {
+    // 1. 去除以 # 开头的注释行（包括行尾注释）
+    var cleaned = code.replace(/#.*$/gm, '');
+    // 2. 去除三引号字符串
+    cleaned = cleaned.replace(/'''[\s\S]*?'''/g, '');
+    cleaned = cleaned.replace(/"""[\s\S]*?"""/g, '');
+    // 3. 去除单引号字符串内容
+    cleaned = cleaned.replace(/'[^']*'/g, "''");
+    // 4. 去除双引号字符串内容
+    cleaned = cleaned.replace(/"[^"]*"/g, '""');
+    return cleaned;
 }
 
 // ============================================================
@@ -188,56 +228,131 @@ var ch1PracticeData = {
 };
 
 function switchPracticeLevel(level) {
-    ch1PracticeLevel = level;
-    var data = ch1PracticeData[level];
-    var titleEl = document.getElementById('ch1-practice-title');
-    var descEl = document.getElementById('ch1-practice-desc');
-    var codeEl = document.getElementById('ch1-practice-code');
-    if (titleEl) titleEl.textContent = data.title;
-    if (descEl) descEl.textContent = data.desc;
-    if (codeEl) codeEl.value = data.code;
+	    // 限制范围：防止上一题/下一题越界
+	    if (level < 1) level = 1;
+	    if (level > 3) level = 3;
+	    ch1PracticeLevel = level;
+	    var data = ch1PracticeData[level];
+	    var titleEl = document.getElementById('ch1-practice-title');
+	    var descEl = document.getElementById('ch1-practice-desc');
+	    var codeEl = document.getElementById('ch1-practice-code');
+	    var outputEl = document.getElementById('ch1-practice-output');
+	    if (titleEl) titleEl.textContent = data.title;
+	    if (descEl) descEl.textContent = data.desc;
+	    if (codeEl) {
+	        setPracticeCode(codeEl, data.code);
+	    }
+	    // 切换级别时清空输出结果
+	    if (outputEl) {
+	        outputEl.innerHTML = '▶ 点击运行按钮查看结果';
+	        outputEl.style.color = '#888';
+	    }
 
-    // 更新按钮样式
+	    // 更新按钮样式：切换 .active 类（与第2章 .level-btn 一致）
     for (var i = 1; i <= 3; i++) {
         var btn = document.getElementById('ch1-lv' + i + '-btn');
         if (btn) {
-            btn.style.background = (i === level) ? '#04AA6D' : '#e0e0e0';
-            btn.style.color = (i === level) ? '#fff' : '#333';
+            btn.classList.toggle('active', i === level);
         }
     }
+
+    // 更新前后导航按钮：Lv1只显示下一题，Lv2双向，Lv3只显示上一题
+    var prevBtn = document.getElementById('ch1-practice-prev');
+    var nextBtn = document.getElementById('ch1-practice-next');
+    if (prevBtn) prevBtn.style.display = (level > 1) ? '' : 'none';
+    if (nextBtn) nextBtn.style.display = (level < 3) ? '' : 'none';
 }
 
 function runCh1Practice() {
-    var code = document.getElementById('ch1-practice-code').value;
-    var output = document.getElementById('ch1-practice-output');
-    if (!output) return;
-    if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
-        return;
-    }
+	    var codeEl = document.getElementById('ch1-practice-code');
+	    var output = document.getElementById('ch1-practice-output');
+	    if (!codeEl || !output) return;
+	    var code = getPracticeCode(codeEl);
 
+	    var clean = preprocessCode(code);
+		    // 检测中文输入法引号（"" ''）
+		    var hasChineseQuote = /[\u201C\u201D\u2018\u2019]/.test(code);
 
-    if (ch1PracticeLevel === 1) {
-        if (code.indexOf('"Hello') >= 0 || code.indexOf("'Hello") >= 0 || code.indexOf('"你好') >= 0) {
-            output.innerHTML = '✅ 正确！print("Hello Python") 会输出：<br><span style="color:#a6e22e;">Hello Python</span>';
-            output.style.color = '#04AA6D';
-        } else {
-            output.innerHTML = '💡 提示：在括号里用引号括住"Hello Python"试试看！';
-            output.style.color = '#ff9800';
-        }
-    } else if (ch1PracticeLevel === 2) {
-        if (code.indexOf('print(') >= 0 && (code.indexOf('"') >= 0 || code.indexOf("'") >= 0)) {
-            output.innerHTML = '✅ 很好！你写了一句打招呼的话！<br>' + escapeHtml(code);
-            output.style.color = '#04AA6D';
-        } else {
-            output.innerHTML = '💡 提示：用 print("你的话") 的格式来写';
-            output.style.color = '#ff9800';
-        }
-    } else {
-        output.innerHTML = '✅ 你修改了代码！<br>原句：print("我是一个Python学习者")<br>新代码：<br>' + escapeHtml(code);
-        output.style.color = '#04AA6D';
-    }
+	    if (ch1PracticeLevel === 1) {
+	        // Lv1：补全 print() 语句，输出 "Hello Python"
+		        var hasPrint = /\bprint\s*\(/.test(clean);
+		        var quoteMatch = code.match(/print\s*\([^"'\n]*["']([^"']*)["']/);
+		        // 去除残留下划线（学生可能在 ___ 前后输入内容）
+		        var content = quoteMatch ? quoteMatch[1].replace(/_/g, '') : '';
+		        // Lv1占位符检测：去除引号内容后检查是否还有连续下划线
+		        var hasPlaceholder = /_{3,}/.test(code.replace(/"[^"]*"/g, '').replace(/'[^']*'/g, ''));
+	        if (hasChineseQuote) {
+	            output.innerHTML = '💡 检测到中文输入法引号！请切换到英文输入法，使用英文双引号 "<br>如 print("Hello Python")';
+	            output.style.color = '#ff9800';
+	        } else if (hasPrint && quoteMatch && content === 'Hello Python') {
+	            output.innerHTML = '✅ 正确！代码运行结果：<br><span style="color:#a6e22e;">Hello Python</span>';
+	            output.style.color = '#04AA6D';
+		        } else if (hasPrint && quoteMatch && content && content !== 'Hello Python') {
+		            output.innerHTML = '💡 格式正确！但内容不对哦，题目要求输出 "Hello Python"，你输入的是 "' + escapeHtml(content) + '"';
+		            output.style.color = '#ff9800';
+		        } else if (hasPlaceholder) {
+		            output.innerHTML = '💡 请先补全代码中的空白（______）部分，把 ______ 替换成 "Hello Python"！';
+		            output.style.color = '#ff9800';
+		        } else if (!quoteMatch && hasPrint) {
+		            output.innerHTML = '💡 提示：字符串需要用英文引号括起来，如 print("Hello Python")';
+		            output.style.color = '#ff9800';
+		        } else {
+		            output.innerHTML = '💡 提示：在括号里用引号括住"Hello Python"试试看！';
+		            output.style.color = '#ff9800';
+		        }
+	    } else if (ch1PracticeLevel === 2) {
+	        // Lv2：写一句打招呼的话
+		        var hasPrint2 = /\bprint\s*\(/.test(clean);
+		        var quoteMatch2 = code.match(/print\s*\([^"'\n]*["']([^"']*)["']/);
+		        // 去除残留下划线（学生可能在 ___ 前后输入内容）
+		        var content2 = quoteMatch2 ? quoteMatch2[1].replace(/_/g, '') : '';
+		        // Lv2占位符检测：引号内内容全部是下划线才视为占位符
+		        var hasPlaceholder = !content2 || /^_+$/.test(content2);
+		        if (hasChineseQuote) {
+		            output.innerHTML = '💡 检测到中文输入法引号！请切换到英文输入法，使用英文双引号 "<br>如 print("你好")';
+		            output.style.color = '#ff9800';
+		        } else if (hasPrint2 && quoteMatch2 && content2 && !hasPlaceholder) {
+	            output.innerHTML = '✅ 正确！代码运行结果：<br><span style="color:#a6e22e;">' + escapeHtml(content2) + '</span>';
+	            output.style.color = '#04AA6D';
+		        } else if (hasPrint2 && quoteMatch2 && !content2) {
+		            output.innerHTML = '💡 格式正确！但引号里不能为空哦，请写一句打招呼的话';
+		            output.style.color = '#ff9800';
+		        } else if (hasPlaceholder) {
+		            output.innerHTML = '💡 请先补全代码中的空白（______）部分！';
+		            output.style.color = '#ff9800';
+		        } else if (!quoteMatch2 && hasPrint2) {
+		            output.innerHTML = '💡 提示：字符串需要用英文引号括起来，如 print("你的话")';
+		            output.style.color = '#ff9800';
+		        } else {
+		            output.innerHTML = '💡 提示：用 print("你的话") 的格式来写';
+		            output.style.color = '#ff9800';
+		        }
+	    } else {
+	        // Lv3：必须修改了原句（不能和原句一模一样），且语法正确
+	        var original = 'print("我是一个Python学习者")';
+	        // 去除注释后再比较，避免 # 修改上面的句子 造成误判
+	        var codeNoComment = code.replace(/#.*$/gm, '').replace(/\s+/g, ' ').trim();
+	        var origTrimmed = original.replace(/\s+/g, ' ').trim();
+	        // 检查 print() 中引号是否正确闭合
+	        var quoteMatch3 = code.match(/print\s*\([^"'\n]*["']([^"']*)["']/);
+	        if (hasChineseQuote) {
+	            output.innerHTML = '💡 检测到中文输入法引号！请切换到英文输入法，使用英文双引号 "<br>如 print("你好")';
+	            output.style.color = '#ff9800';
+	        } else if (codeNoComment !== origTrimmed && /\bprint\s*\(/.test(clean) && quoteMatch3) {
+	            var content3 = quoteMatch3 ? quoteMatch3[1] : '';
+	            output.innerHTML = '✅ 你修改了代码！运行结果：<br><span style="color:#a6e22e;">' + escapeHtml(content3) + '</span>';
+	            output.style.color = '#04AA6D';
+	        } else if (codeNoComment === origTrimmed) {
+	            output.innerHTML = '💡 提示：你还没修改代码哦！试着改一下print()里面的句子吧！';
+	            output.style.color = '#ff9800';
+	        } else if (!quoteMatch3) {
+	            output.innerHTML = '💡 提示：请检查引号是否正确闭合，格式应为 print("你的句子")';
+	            output.style.color = '#ff9800';
+	        } else {
+	            output.innerHTML = '💡 提示：请使用print()函数输出你的句子';
+	            output.style.color = '#ff9800';
+	        }
+	    }
 }
 
 // ============================================================
@@ -246,20 +361,26 @@ function runCh1Practice() {
 function checkCh3Quiz() { checkQuiz(3); }
 
 function runCh3Practice() {
-    var code = document.getElementById('ch3-practice-code').value;
+    var codeEl = document.getElementById('ch3-practice-code');
     var output = document.getElementById('ch3-practice-output');
-    if (!output) return;
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
     if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
-        return;
+        // 去除____后检查是否还有其他有意义的内容（学生可能在____前后输入了内容）
+        var codeWithoutPH = code.replace(/_+/g, '').replace(/#.*$/gm, '').replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
+        if (!/\w/.test(codeWithoutPH)) {
+            output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
+            output.style.color = "#ff9800";
+            return;
+        }
     }
 
 
-    var hasInt = /\d+/.test(code) && code.indexOf('age') >= 0;
-    var hasFloat = /\d+\.\d+/.test(code) && code.indexOf('score') >= 0;
-    var hasStr = /["'].*["']/.test(code) && code.indexOf('name') >= 0;
-    var hasBool = /True|False/.test(code) && code.indexOf('is_student') >= 0;
+    var clean = preprocessCode(code);
+    var hasInt = /\b\d+\b/.test(clean) && /\bage\b/.test(clean);
+    var hasFloat = /\d+\.\d+/.test(clean) && /\bscore\b/.test(clean);
+    var hasStr = /["'].*["']/.test(code) && /\bname\b/.test(clean);
+    var hasBool = /\bTrue\b|\bFalse\b/.test(clean) && /\bis_student\b/.test(clean);
 
     var count = [hasInt, hasFloat, hasStr, hasBool].filter(Boolean).length;
     output.innerHTML = '创建了 ' + count + '/4 种类型的变量<br>' +
@@ -314,27 +435,69 @@ function generateCh3Card() {
 function checkCh4Quiz() { checkQuiz(4); }
 
 function runCh4Practice() {
-    var code = document.getElementById('ch4-practice-code').value;
+    var codeEl = document.getElementById('ch4-practice-code');
     var output = document.getElementById('ch4-practice-output');
-    if (!output) return;
-    if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
+
+    // 未填空提示
+    if (code.indexOf('____') >= 0) {
+        output.innerHTML = '💡 请先补全 print 中的空白（____）内容！';
+        output.style.color = '#ff9800';
         return;
     }
 
+    // 提取 score 的值
+    var scoreMatch = code.match(/\bscore\s*=\s*(-?\d+(?:\.\d+)?)/);
+    if (!scoreMatch) {
+        output.innerHTML = '⚠️ 未找到 "score = ..." 赋值语句，请保持题目结构';
+        output.style.color = '#ff9800';
+        return;
+    }
+    var score = parseFloat(scoreMatch[1]);
 
-    var hasIf = code.indexOf('if') >= 0;
-    var hasElse = code.indexOf('else') >= 0;
-    var hasColon = code.indexOf(':') >= 0;
-    var hasCompare = />=|<=|==|!=|>|</.test(code);
+    // 提取 if 条件中的比较（如 score >= 60）
+    var condMatch = code.match(/\bif\s+(.+?)\s*:/);
+    var cmp = condMatch ? condMatch[1].match(/(>=|<=|==|!=|>|<)\s*(-?\d+(?:\.\d+)?)/) : null;
+    if (!cmp) {
+        output.innerHTML = '⚠️ 无法解析 if 条件，请使用 "if score >= 60:" 这类写法';
+        output.style.color = '#ff9800';
+        return;
+    }
+    var op = cmp[1];
+    var rhs = parseFloat(cmp[2]);
+    var isTrue;
+    if (op === '>=') isTrue = score >= rhs;
+    else if (op === '<=') isTrue = score <= rhs;
+    else if (op === '>') isTrue = score > rhs;
+    else if (op === '<') isTrue = score < rhs;
+    else if (op === '==') isTrue = score === rhs;
+    else isTrue = score !== rhs;
 
-    output.innerHTML = '代码分析：<br>' +
-        (hasIf ? '✅ 包含if ✓<br>' : '❌ 缺少if<br>') +
-        (hasElse ? '✅ 包含else ✓<br>' : '❌ 缺少else<br>') +
-        (hasColon ? '✅ 包含冒号 ✓<br>' : '❌ 缺少冒号<br>') +
-        (hasCompare ? '✅ 包含比较运算符 ✓<br>' : '❌ 缺少比较运算符<br>');
-    output.style.color = (hasIf && hasElse && hasColon) ? '#04AA6D' : '#ff9800';
+    // 提取所有 print("...") 中的字符串（第一个属 if 分支，第二个属 else 分支）
+    var prints = [];
+    var printRe = /print\s*\(\s*["'](.*?)["']\s*\)/g;
+    var pm;
+    while ((pm = printRe.exec(code)) !== null) {
+        prints.push(pm[1]);
+    }
+    if (prints.length < 2) {
+        output.innerHTML = '⚠️ 请保持 if 和 else 各有一个 print 语句';
+        output.style.color = '#ff9800';
+        return;
+    }
+
+    var result = isTrue ? prints[0] : prints[1];
+
+    output.innerHTML = '▶ 运行结果：';
+    output.style.color = '#a6e22e';
+    var resultLine = document.createElement('div');
+    resultLine.textContent = result;
+    resultLine.style.fontSize = '18px';
+    resultLine.style.fontWeight = '600';
+    resultLine.style.color = '#ffffff';
+    resultLine.style.marginTop = '6px';
+    output.appendChild(resultLine);
 }
 
 function runCh4Mood() {
@@ -372,28 +535,95 @@ function runCh4Mood() {
     observer.observe(document.body, { childList: true, subtree: true });
 })();
 
+// 第4章积木组装检查：校验组装区积木块顺序是否正确
+function checkCh4Assembly() {
+    var assembly = document.getElementById('ch4-assembly');
+    var result = document.getElementById('ch4-lab-result');
+    if (!assembly || !result) return;
+
+    var correct = ['if', 'print1', 'else', 'print2'];
+    var blocks = assembly.querySelectorAll('.ch4-block');
+    var order = [];
+    for (var i = 0; i < blocks.length; i++) {
+        order.push(blocks[i].getAttribute('data-block'));
+    }
+
+    var isCorrect = order.length === correct.length;
+    if (isCorrect) {
+        for (var k = 0; k < correct.length; k++) {
+            if (order[k] !== correct[k]) {
+                isCorrect = false;
+                break;
+            }
+        }
+    }
+
+    if (isCorrect) {
+        result.innerHTML = '✅ 组装正确！if score >= 60 判断成绩是否及格。';
+        result.style.color = '#04AA6D';
+    } else if (blocks.length === 0) {
+        result.innerHTML = '💡 请先把积木块拖到组装区再检查。';
+        result.style.color = '#ff9800';
+    } else {
+        result.innerHTML = '❌ 组装不正确，请再想想：先判断条件（if），再写满足条件的输出，然后是 else 分支。';
+        result.style.color = '#ff4d4f';
+    }
+}
+
 // ============================================================
 // 第5章：if进阶
 // ============================================================
 function checkCh5Quiz() { checkQuiz(5); }
 
 function runCh5Practice() {
-    var code = document.getElementById('ch5-practice-code').value;
+    var codeEl = document.getElementById('ch5-practice-code');
     var output = document.getElementById('ch5-practice-output');
-    if (!output) return;
-    if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
+
+    // 提取 age / height 值
+    var age = 14, height = 150;
+    var ageM = code.match(/\bage\s*=\s*(-?\d+(?:\.\d+)?)/);
+    var hiM = code.match(/\bheight\s*=\s*(-?\d+(?:\.\d+)?)/);
+    if (ageM) age = parseFloat(ageM[1]);
+    if (hiM) height = parseFloat(hiM[1]);
+
+    // 提取逻辑运算符（age >= 12 ____ height >= 140 中的 ____）
+    var op = '';
+    var opM = code.match(/\bif\s+age\s*>=\s*\d+(?:\.\d+)?\s+(\S+)\s+height\b/);
+    if (opM) op = opM[1];
+
+    // 提取两个 print 内容（if 分支 + else 分支）
+    var prints = [];
+    var re = /print\s*\(\s*["'](.*?)["']\s*\)/g;
+    var m;
+    while ((m = re.exec(code)) !== null) prints.push(m[1]);
+
+    if (op === '' || op.indexOf('_') >= 0 || prints.length < 2 || prints[0].indexOf('_') >= 0 || prints[1].indexOf('_') >= 0) {
+        output.innerHTML = '💡 请先补全空白：逻辑运算符（and/or）和两个 print 内容！';
+        output.style.color = '#ff9800';
         return;
     }
 
+    var leftOk = age >= 12;
+    var rightOk = height >= 140;
+    var cond;
+    if (op === 'and') cond = leftOk && rightOk;
+    else if (op === 'or') cond = leftOk || rightOk;
+    else {
+        output.innerHTML = '⚠️ 逻辑运算符请使用 and 或 or';
+        output.style.color = '#ff9800';
+        return;
+    }
 
-    var hasAnd = code.indexOf('and') >= 0;
-    var hasIf = code.indexOf('if') >= 0;
-    output.innerHTML = '代码分析：<br>' +
-        (hasAnd ? '✅ 使用了and ✓<br>' : '💡 提示：两个条件之间需要用 and 连接<br>') +
-        (hasIf ? '✅ 使用了if ✓<br>' : '❌ 缺少if<br>');
-    output.style.color = (hasAnd && hasIf) ? '#04AA6D' : '#ff9800';
+    var result = cond ? prints[0] : prints[1];
+
+    output.innerHTML = '▶ 运行结果：';
+    output.style.color = '#a6e22e';
+    var r = document.createElement('div');
+    r.textContent = result;
+    r.style.cssText = 'font-size:18px;font-weight:600;color:#fff;margin-top:6px;';
+    output.appendChild(r);
 }
 
 function updateCh5Bulb() {
@@ -452,25 +682,71 @@ function runCh5Equip() {
 function checkCh6Quiz() { checkQuiz(6); }
 
 function runCh6Practice() {
-    var code = document.getElementById('ch6-practice-code').value;
+    var codeEl = document.getElementById('ch6-practice-code');
     var output = document.getElementById('ch6-practice-output');
-    if (!output) return;
-    if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
+
+    // 提取 count 初始值
+    var count = 5;
+    var cm = code.match(/\bcount\s*=\s*(-?\d+(?:\.\d+)?)/);
+    if (cm) count = parseFloat(cm[1]);
+
+    // 提取循环关键字（____ count > 0: 中的 ____）
+    var kw = '';
+    var kwM = code.match(/^\s*(\w+)\s+count\s*>/m);
+    if (kwM) kw = kwM[1];
+
+    // 提取递减表达式（count = ____）
+    var dec = '';
+    var decM = code.match(/count\s*=\s*(.+)/);
+    if (decM) dec = decM[1].replace(/#.*$/, '').trim();
+
+    if (kw === '' || kw.indexOf('_') >= 0 || dec === '' || dec.indexOf('_') >= 0) {
+        output.innerHTML = '💡 请先补全空白：循环关键字（while）和递减表达式（count - 1）';
+        output.style.color = '#ff9800';
         return;
     }
 
+    if (kw !== 'while') {
+        output.innerHTML = '⚠️ 循环关键字应使用 while';
+        output.style.color = '#ff9800';
+        return;
+    }
 
-    var hasWhile = code.indexOf('while') >= 0;
-    var hasColon = code.indexOf(':') >= 0;
-    var hasIncrement = /[+\-]=/.test(code) || /count\s*=\s*count\s*[+\-]/.test(code);
+    // 解析递减步长：支持 count = count - 1 或 count -= 1
+    var step = 0;
+    if (/count\s*-\s*\d+/.test(dec)) {
+        var n = dec.match(/count\s*-\s*(\d+)/);
+        step = -(n ? parseFloat(n[1]) : 1);
+    } else if (/-\s*=\s*\d+/.test(dec)) {
+        var n2 = dec.match(/-\s*=\s*(\d+)/);
+        step = -(n2 ? parseFloat(n2[1]) : 1);
+    }
 
-    output.innerHTML = '代码分析：<br>' +
-        (hasWhile ? '✅ 包含while ✓<br>' : '❌ 缺少while<br>') +
-        (hasColon ? '✅ 包含冒号 ✓<br>' : '❌ 缺少冒号<br>') +
-        (hasIncrement ? '✅ 包含计数变化 ✓<br>' : '💡 提示：需要改变循环变量（如count += 1）<br>');
-    output.style.color = (hasWhile && hasColon && hasIncrement) ? '#04AA6D' : '#ff9800';
+    if (step === 0) {
+        output.innerHTML = '⚠️ 请使用 count = count - 1 或 count -= 1 让倒计时递减';
+        output.style.color = '#ff9800';
+        return;
+    }
+
+    // 模拟倒计时
+    var lines = [];
+    var cur = count;
+    var guard = 0;
+    while (cur > 0 && guard < 100) {
+        lines.push(String(cur));
+        cur += step;
+        guard++;
+    }
+    lines.push('发射！');
+
+    output.innerHTML = '▶ 运行结果：';
+    output.style.color = '#a6e22e';
+    var r = document.createElement('div');
+    r.textContent = lines.join('\n');
+    r.style.cssText = 'font-size:16px;color:#fff;margin-top:6px;white-space:pre;';
+    output.appendChild(r);
 }
 
 var ch6SecretNumber = 0;
@@ -521,25 +797,37 @@ function guessCh6Number() {
 function checkCh7Quiz() { checkQuiz(7); }
 
 function runCh7Practice() {
-    var code = document.getElementById('ch7-practice-code').value;
+    var codeEl = document.getElementById('ch7-practice-code');
     var output = document.getElementById('ch7-practice-output');
-    if (!output) return;
-    if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
+
+    // 填空应为 continue
+    if (code.indexOf('____') >= 0) {
+        output.innerHTML = '💡 请先补全空白（continue）';
+        output.style.color = '#ff9800';
         return;
     }
 
+    if (!/\bcontinue\b/.test(code)) {
+        output.innerHTML = '⚠️ 请使用 continue 跳过奇数';
+        output.style.color = '#ff9800';
+        return;
+    }
 
-    var hasBreak = code.indexOf('break') >= 0;
-    var hasContinue = code.indexOf('continue') >= 0;
-    var hasLoop = code.indexOf('for') >= 0 || code.indexOf('while') >= 0;
+    // 模拟：1~10 中奇数 continue，只打印偶数
+    var evens = [];
+    for (var i = 1; i <= 10; i++) {
+        if (i % 2 !== 0) continue;
+        evens.push(i);
+    }
 
-    output.innerHTML = '代码分析：<br>' +
-        (hasLoop ? '✅ 包含循环 ✓<br>' : '❌ 缺少循环<br>') +
-        (hasBreak ? '✅ 包含break ✓<br>' : '💡 提示：需要break来跳出循环<br>') +
-        (hasContinue ? '✅ 包含continue ✓<br>' : '');
-    output.style.color = (hasLoop && (hasBreak || hasContinue)) ? '#04AA6D' : '#ff9800';
+    output.innerHTML = '▶ 运行结果：';
+    output.style.color = '#a6e22e';
+    var r = document.createElement('div');
+    r.textContent = evens.join(' ');
+    r.style.cssText = 'font-size:18px;font-weight:600;color:#fff;margin-top:6px;';
+    output.appendChild(r);
 }
 
 function startCh7Line() {
@@ -627,23 +915,40 @@ function startCh7Lottery() {
 function checkCh8Quiz() { checkQuiz(8); }
 
 function runCh8Practice() {
-    var code = document.getElementById('ch8-practice-code').value;
+    var codeEl = document.getElementById('ch8-practice-code');
     var output = document.getElementById('ch8-practice-output');
-    if (!output) return;
-    if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
+
+    // 提取两个 range 参数（外层=行数，内层=列数）
+    var ranges = [];
+    var re = /range\s*\(\s*(\d+)\s*\)/g;
+    var m;
+    while ((m = re.exec(code)) !== null) ranges.push(parseInt(m[1], 10));
+
+    if (ranges.length < 2) {
+        output.innerHTML = '💡 请先补全两个 range() 中的数字（外层控制行数、内层控制列数）';
+        output.style.color = '#ff9800';
         return;
     }
 
+    var rows = ranges[0];
+    var cols = ranges[1];
 
-    var hasNested = (code.match(/for/g) || []).length >= 2;
-    var hasRange = code.indexOf('range') >= 0;
+    // 模拟嵌套循环输出星号矩阵
+    var lines = [];
+    for (var i = 0; i < rows; i++) {
+        var rowArr = [];
+        for (var j = 0; j < cols; j++) rowArr.push('*');
+        lines.push(rowArr.join(' '));
+    }
 
-    output.innerHTML = '代码分析：<br>' +
-        (hasNested ? '✅ 包含嵌套循环 ✓<br>' : '💡 提示：需要两个for循环嵌套<br>') +
-        (hasRange ? '✅ 使用了range() ✓<br>' : '💡 提示：用range()控制循环次数<br>');
-    output.style.color = (hasNested && hasRange) ? '#04AA6D' : '#ff9800';
+    output.innerHTML = '▶ 运行结果：';
+    output.style.color = '#a6e22e';
+    var r = document.createElement('div');
+    r.textContent = lines.join('\n');
+    r.style.cssText = 'font-size:16px;color:#fff;margin-top:6px;white-space:pre;line-height:1.4;';
+    output.appendChild(r);
 }
 
 function updateCh8Table() {
@@ -670,7 +975,7 @@ function generateCh8Pattern() {
 
     var html = '';
     for (var i = 1; i <= rows; i++) {
-        html += char.repeat(i) + '<br>';
+        html += escapeHtml(char).repeat(i) + '<br>';
     }
     pattern.innerHTML = html;
 }
@@ -681,25 +986,57 @@ function generateCh8Pattern() {
 function checkCh9Quiz() { checkQuiz(9); }
 
 function runCh9Practice() {
-    var code = document.getElementById('ch9-practice-code').value;
+    var codeEl = document.getElementById('ch9-practice-code');
     var output = document.getElementById('ch9-practice-output');
-    if (!output) return;
-    if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
+
+    if (code.indexOf('____') >= 0) {
+        output.innerHTML = '💡 请先补全四个 print 中的表达式（a+b、a-b、a*b、a/b）';
+        output.style.color = '#ff9800';
         return;
     }
 
+    // 提取四个 print 里的表达式
+    var exprs = [];
+    var re = /print\s*\(\s*([^)\n]+?)\s*\)/g;
+    var m;
+    while ((m = re.exec(code)) !== null) exprs.push(m[1].trim());
 
-    var hasInput = code.indexOf('input') >= 0;
-    var hasPrint = code.indexOf('print') >= 0;
-    var hasIf = code.indexOf('if') >= 0;
+    if (exprs.length < 4) {
+        output.innerHTML = '⚠️ 请保持四个 print 语句完整';
+        output.style.color = '#ff9800';
+        return;
+    }
 
-    output.innerHTML = '代码分析：<br>' +
-        (hasInput ? '✅ 包含input() ✓<br>' : '💡 提示：用input()获取用户输入<br>') +
-        (hasPrint ? '✅ 包含print() ✓<br>' : '💡 提示：用print()输出结果<br>') +
-        (hasIf ? '✅ 包含条件判断 ✓<br>' : '');
-    output.style.color = (hasInput && hasPrint) ? '#04AA6D' : '#ff9800';
+    // 用示例输入 a=10、b=5 分别求值
+    var a = 10, b = 5;
+    var opSymbols = ['+', '-', '*', '/'];
+    var lines = [];
+    for (var i = 0; i < 4; i++) {
+        var val = calcCh9Expr(exprs[i], a, b);
+        lines.push('op = "' + opSymbols[i] + '" → ' + val);
+    }
+
+    output.innerHTML = '▶ 运行结果（示例：a=10, b=5）：';
+    output.style.color = '#a6e22e';
+    var r = document.createElement('div');
+    r.textContent = lines.join('\n');
+    r.style.cssText = 'font-size:15px;color:#fff;margin-top:6px;white-space:pre;line-height:1.6;';
+    output.appendChild(r);
+}
+
+function calcCh9Expr(expr, a, b) {
+    var cleaned = expr.replace(/\s+/g, '');
+    // 白名单：只允许 a/b、数字、四则运算和括号
+    if (!/^[abAB0-9+\-*/().]+$/.test(cleaned)) return '表达式有误';
+    var js = cleaned.replace(/\ba\b/g, String(a)).replace(/\bb\b/g, String(b));
+    try {
+        var v = (new Function('return (' + js + ');'))();
+        return (typeof v === 'number' && isFinite(v)) ? String(v) : '表达式有误';
+    } catch (e) {
+        return '表达式有误';
+    }
 }
 
 function calcCh9(op) {
@@ -738,23 +1075,43 @@ function calcCh9(op) {
 function checkCh10Quiz() { checkQuiz(10); }
 
 function runCh10Practice() {
-    var code = document.getElementById('ch10-practice-code').value;
+    var codeEl = document.getElementById('ch10-practice-code');
     var output = document.getElementById('ch10-practice-output');
-    if (!output) return;
-    if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
+
+    // 提取 range 上界（for i in range(1, N)）
+    var rangeM = code.match(/range\s*\(\s*1\s*,\s*(\d+)\s*\)/);
+    // 提取重复字符（print("X" * i)）
+    var charM = code.match(/print\s*\(\s*["'](.*?)["']\s*\*\s*i\s*\)/);
+
+    if (!rangeM || !charM) {
+        output.innerHTML = '💡 请先补全空白：range 上界（6）和重复字符（"*"）';
+        output.style.color = '#ff9800';
         return;
     }
 
+    var n = parseInt(rangeM[1], 10);
+    var ch = charM[1];
 
-    var hasFor = code.indexOf('for') >= 0;
-    var hasMultiply = code.indexOf('*') >= 0;
+    if (ch.length === 0) {
+        output.innerHTML = '⚠️ 请填一个要重复打印的字符，如 "*"';
+        output.style.color = '#ff9800';
+        return;
+    }
 
-    output.innerHTML = '代码分析：<br>' +
-        (hasFor ? '✅ 包含for循环 ✓<br>' : '💡 提示：用for循环控制行数<br>') +
-        (hasMultiply ? '✅ 包含字符串乘法 ✓<br>' : '💡 提示：用"*"*i 来重复字符<br>');
-    output.style.color = (hasFor && hasMultiply) ? '#04AA6D' : '#ff9800';
+    // 模拟直角三角形输出
+    var lines = [];
+    for (var i = 1; i < n; i++) {
+        lines.push(ch.repeat(i));
+    }
+
+    output.innerHTML = '▶ 运行结果：';
+    output.style.color = '#a6e22e';
+    var r = document.createElement('div');
+    r.textContent = lines.join('\n');
+    r.style.cssText = 'font-size:16px;color:#fff;margin-top:6px;white-space:pre;line-height:1.3;';
+    output.appendChild(r);
 }
 
 function drawCh10Stars() {
@@ -778,10 +1135,10 @@ function generateCh10Logo() {
     // 生成菱形图案
     var html = '';
     for (var i = 1; i <= size; i++) {
-        html += '&nbsp;'.repeat(size - i) + char.repeat(2 * i - 1) + '<br>';
+        html += '&nbsp;'.repeat(size - i) + escapeHtml(char).repeat(2 * i - 1) + '<br>';
     }
     for (var i = size - 1; i >= 1; i--) {
-        html += '&nbsp;'.repeat(size - i) + char.repeat(2 * i - 1) + '<br>';
+        html += '&nbsp;'.repeat(size - i) + escapeHtml(char).repeat(2 * i - 1) + '<br>';
     }
     logo.innerHTML = html;
 }
@@ -792,19 +1149,24 @@ function generateCh10Logo() {
 function checkCh11Quiz() { checkQuiz(11); }
 
 function runCh11Practice() {
-    var code = document.getElementById('ch11-practice-code').value;
+    var codeEl = document.getElementById('ch11-practice-code');
     var output = document.getElementById('ch11-practice-output');
-    if (!output) return;
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
     if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
-        return;
+        // 去除____后检查是否还有其他有意义的内容（学生可能在____前后输入了内容）
+        var codeWithoutPH = code.replace(/_+/g, '').replace(/#.*$/gm, '').replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
+        if (!/\w/.test(codeWithoutPH)) {
+            output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
+            output.style.color = "#ff9800";
+            return;
+        }
     }
 
-
-    var hasList = code.indexOf('[') >= 0 && code.indexOf(']') >= 0;
-    var hasAppend = code.indexOf('append') >= 0;
-    var hasFor = code.indexOf('for') >= 0;
+    var clean = preprocessCode(code);
+    var hasList = clean.indexOf('[') >= 0 && clean.indexOf(']') >= 0;
+    var hasAppend = /\bappend\b/.test(clean);
+    var hasFor = /\bfor\b/.test(clean);
 
     output.innerHTML = '代码分析：<br>' +
         (hasList ? '✅ 包含列表 ✓<br>' : '💡 提示：用[]创建列表<br>') +
@@ -852,21 +1214,26 @@ function addCh11Friend() {
 function checkCh12Quiz() { checkQuiz(12); }
 
 function runCh12Practice() {
-    var code = document.getElementById('ch12-practice-code').value;
+    var codeEl = document.getElementById('ch12-practice-code');
     var output = document.getElementById('ch12-practice-output');
-    if (!output) return;
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
     if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
-        return;
+        // 去除____后检查是否还有其他有意义的内容（学生可能在____前后输入了内容）
+        var codeWithoutPH = code.replace(/_+/g, '').replace(/#.*$/gm, '').replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
+        if (!/\w/.test(codeWithoutPH)) {
+            output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
+            output.style.color = "#ff9800";
+            return;
+        }
     }
 
-
+    var clean = preprocessCode(code);
     var ops = [];
-    if (code.indexOf('append') >= 0) ops.push('append()');
-    if (code.indexOf('pop') >= 0) ops.push('pop()');
-    if (code.indexOf('sort') >= 0) ops.push('sort()');
-    if (code.indexOf('remove') >= 0) ops.push('remove()');
+    if (/\bappend\b/.test(clean)) ops.push('append()');
+    if (/\bpop\b/.test(clean)) ops.push('pop()');
+    if (/\bsort\b/.test(clean)) ops.push('sort()');
+    if (/\bremove\b/.test(clean)) ops.push('remove()');
 
     output.innerHTML = '使用的方法：' + (ops.length > 0 ? ops.join(', ') : '无') + '<br>';
     output.style.color = ops.length > 0 ? '#04AA6D' : '#ff9800';
@@ -921,18 +1288,24 @@ function addCh12Score() {
 function checkCh13Quiz() { checkQuiz(13); }
 
 function runCh13Practice() {
-    var code = document.getElementById('ch13-practice-code').value;
+    var codeEl = document.getElementById('ch13-practice-code');
     var output = document.getElementById('ch13-practice-output');
-    if (!output) return;
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
     if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
-        return;
+        // 去除____后检查是否还有其他有意义的内容（学生可能在____前后输入了内容）
+        var codeWithoutPH = code.replace(/_+/g, '').replace(/#.*$/gm, '').replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
+        if (!/\w/.test(codeWithoutPH)) {
+            output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
+            output.style.color = "#ff9800";
+            return;
+        }
     }
 
 
-    var hasTuple = code.indexOf('(') >= 0;
-    var hasSet = code.indexOf('{') >= 0;
+    var clean = preprocessCode(code);
+    var hasTuple = clean.indexOf('(') >= 0;
+    var hasSet = clean.indexOf('{') >= 0;
 
     output.innerHTML = '代码分析：<br>' +
         (hasTuple ? '✅ 包含元组/集合 ✓<br>' : '💡 提示：用()创建元组，用{}创建集合<br>');
@@ -979,25 +1352,47 @@ function lotteryNoRepeat() {
 function checkCh14Quiz() { checkQuiz(14); }
 
 function runCh14Practice() {
-    var code = document.getElementById('ch14-practice-code').value;
+    var codeEl = document.getElementById('ch14-practice-code');
     var output = document.getElementById('ch14-practice-output');
-    if (!output) return;
-    if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
+
+    // 提取英语分数、访问的键、.items() 对象
+    var engM = code.match(/scores\["英语"\]\s*=\s*(\d+(?:\.\d+)?)/);
+    var keyM = code.match(/print\s*\(\s*scores\["([^"]*)"\]/);
+    var itemsM = code.match(/(\w+)\s*\.items\s*\(/);
+
+    if (!engM || !keyM || !itemsM) {
+        output.innerHTML = '💡 请先补全空白：英语分数、访问的键、.items() 的对象';
+        output.style.color = '#ff9800';
         return;
     }
 
+    var eng = parseFloat(engM[1]);
+    var key = keyM[1];
+    var obj = itemsM[1];
 
-    var hasDict = code.indexOf('{') >= 0 && code.indexOf(':') >= 0;
-    var hasGet = code.indexOf('get') >= 0;
-    var hasItems = code.indexOf('items') >= 0;
+    var scores = { '语文': 85, '数学': 92, '英语': eng };
 
-    output.innerHTML = '代码分析：<br>' +
-        (hasDict ? '✅ 包含字典 ✓<br>' : '💡 提示：用{"key": value}创建字典<br>') +
-        (hasGet ? '✅ 使用了get() ✓<br>' : '') +
-        (hasItems ? '✅ 使用了items() ✓<br>' : '');
-    output.style.color = hasDict ? '#04AA6D' : '#ff9800';
+    var lines = [];
+    var access = scores[key];
+    if (access !== undefined) {
+        lines.push('print 访问 "' + key + '" → ' + access);
+    } else {
+        lines.push('⚠️ 字典里没有键 "' + key + '"');
+    }
+    if (obj === 'scores') {
+        for (var k in scores) lines.push(k + ' ' + scores[k]);
+    } else {
+        lines.push('⚠️ items() 应调用在 scores 上');
+    }
+
+    output.innerHTML = '▶ 运行结果：';
+    output.style.color = '#a6e22e';
+    var r = document.createElement('div');
+    r.textContent = lines.join('\n');
+    r.style.cssText = 'font-size:15px;color:#fff;margin-top:6px;white-space:pre;line-height:1.6;';
+    output.appendChild(r);
 }
 
 function queryCh14Dict() {
@@ -1012,10 +1407,10 @@ function queryCh14Dict() {
         result.innerHTML = '💡 请输入姓名查询，如：<b>小明</b>、<b>小红</b>、<b>小刚</b>';
         result.style.color = '#ff9800';
     } else if (phoneBook[key]) {
-        result.innerHTML = '<b>' + key + '</b> 的电话：' + phoneBook[key] + '<br><span style="font-size:12px;color:#888;">可查询：小明、小红、小刚</span>';
+        result.innerHTML = '<b>' + escapeHtml(key) + '</b> 的电话：' + escapeHtml(phoneBook[key]) + '<br><span style="font-size:12px;color:#888;">可查询：小明、小红、小刚</span>';
         result.style.color = '#04AA6D';
     } else {
-        result.innerHTML = '❌ 未找到 "<b>' + key + '</b>"<br><span style="font-size:12px;color:#888;">可查询：小明、小红、小刚</span>';
+        result.innerHTML = '❌ 未找到 "<b>' + escapeHtml(key) + '</b>"<br><span style="font-size:12px;color:#888;">可查询：小明、小红、小刚</span>';
         result.style.color = '#ff4d4f';
     }
 }
@@ -1051,25 +1446,42 @@ function queryCh14Book() {
 function checkCh15Quiz() { checkQuiz(15); }
 
 function runCh15Practice() {
-    var code = document.getElementById('ch15-practice-code').value;
+    var codeEl = document.getElementById('ch15-practice-code');
     var output = document.getElementById('ch15-practice-output');
-    if (!output) return;
-    if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
+
+    if (code.indexOf('____') >= 0) {
+        output.innerHTML = '💡 请先补全空白：去空格方法、转大写方法、切片索引';
+        output.style.color = '#ff9800';
         return;
     }
 
+    var stripM = code.match(/text\s*=\s*text\s*\.\s*([a-zA-Z_]+)\s*\(/);
+    var upperM = code.match(/print\s*\(\s*text\s*\.\s*([a-zA-Z_]+)\s*\(/);
+    var sliceM = code.match(/text\s*\[\s*(-?\d+)\s*:\s*(-?\d+)\s*\]/);
 
-    var hasSlice = code.indexOf('[') >= 0 && code.indexOf(':') >= 0;
-    var hasUpper = code.indexOf('upper') >= 0;
-    var hasSplit = code.indexOf('split') >= 0;
+    var stripMethod = stripM ? stripM[1] : 'strip';
+    var upperMethod = upperM ? upperM[1] : 'upper';
+    var a = sliceM ? parseInt(sliceM[1], 10) : 6;
+    var b = sliceM ? parseInt(sliceM[2], 10) : 12;
 
-    output.innerHTML = '代码分析：<br>' +
-        (hasSlice ? '✅ 包含切片 ✓<br>' : '') +
-        (hasUpper ? '✅ 使用了upper()/lower() ✓<br>' : '') +
-        (hasSplit ? '✅ 使用了split() ✓<br>' : '');
-    output.style.color = (hasSlice || hasUpper || hasSplit) ? '#04AA6D' : '#ff9800';
+    // 去空格后的结果
+    var base = 'Hello Python World';
+
+    var upperText;
+    if (upperMethod === 'upper') upperText = base.toUpperCase();
+    else if (upperMethod === 'lower') upperText = base.toLowerCase();
+    else upperText = base.toUpperCase(); // 其他方法也按大写展示（简化）
+
+    var sliceText = base.slice(a, b);
+
+    output.innerHTML = '▶ 运行结果：';
+    output.style.color = '#a6e22e';
+    var r = document.createElement('div');
+    r.style.cssText = 'font-size:15px;color:#fff;margin-top:6px;white-space:pre;line-height:1.6;';
+    r.textContent = stripMethod + '(): "' + base + '"\n' + upperMethod + '(): ' + upperText + '\n切片[' + a + ':' + b + ']: ' + sliceText;
+    output.appendChild(r);
 }
 
 function sliceCh15Str() {
@@ -1105,19 +1517,24 @@ function encryptCh15() {
 function checkCh16Quiz() { checkQuiz(16); }
 
 function runCh16Practice() {
-    var code = document.getElementById('ch16-practice-code').value;
+    var codeEl = document.getElementById('ch16-practice-code');
     var output = document.getElementById('ch16-practice-output');
-    if (!output) return;
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
     if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
-        return;
+        // 去除____后检查是否还有其他有意义的内容（学生可能在____前后输入了内容）
+        var codeWithoutPH = code.replace(/_+/g, '').replace(/#.*$/gm, '').replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
+        if (!/\w/.test(codeWithoutPH)) {
+            output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
+            output.style.color = "#ff9800";
+            return;
+        }
     }
 
-
-    var hasDef = code.indexOf('def') >= 0;
-    var hasReturn = code.indexOf('return') >= 0;
-    var hasCall = (code.match(/[a-zA-Z_]+\s*\(/g) || []).length >= 2;
+    var clean = preprocessCode(code);
+    var hasDef = /\bdef\b/.test(clean);
+    var hasReturn = /\breturn\b/.test(clean);
+    var hasCall = (clean.match(/[a-zA-Z_]+\s*\(/g) || []).length >= 2;
 
     output.innerHTML = '代码分析：<br>' +
         (hasDef ? '✅ 定义了函数 ✓<br>' : '💡 提示：用def定义函数<br>') +
@@ -1170,18 +1587,23 @@ function testCh16Func() {
 function checkCh17Quiz() { checkQuiz(17); }
 
 function runCh17Practice() {
-    var code = document.getElementById('ch17-practice-code').value;
+    var codeEl = document.getElementById('ch17-practice-code');
     var output = document.getElementById('ch17-practice-output');
-    if (!output) return;
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
     if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
-        return;
+        // 去除____后检查是否还有其他有意义的内容（学生可能在____前后输入了内容）
+        var codeWithoutPH = code.replace(/_+/g, '').replace(/#.*$/gm, '').replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
+        if (!/\w/.test(codeWithoutPH)) {
+            output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
+            output.style.color = "#ff9800";
+            return;
+        }
     }
 
-
-    var hasBin = code.indexOf('bin') >= 0;
-    var hasInt = code.indexOf('int') >= 0;
+    var clean = preprocessCode(code);
+    var hasBin = /\bbin\b/.test(clean);
+    var hasInt = /\bint\b/.test(clean);
 
     output.innerHTML = '代码分析：<br>' +
         (hasBin ? '✅ 使用了bin() ✓<br>' : '') +
@@ -1300,22 +1722,27 @@ function checkCh18Flowchart() {
 function checkCh19Quiz() { checkQuiz(19); }
 
 function runCh19Practice() {
-    var code = document.getElementById('ch19-practice-code').value;
+    var codeEl = document.getElementById('ch19-practice-code');
     var output = document.getElementById('ch19-practice-output');
-    if (!output) return;
+    if (!codeEl || !output) return;
+    var code = getPracticeCode(codeEl);
     if (code.indexOf("____") >= 0) {
-        output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
-        output.style.color = "#ff9800";
-        return;
+        // 去除____后检查是否还有其他有意义的内容（学生可能在____前后输入了内容）
+        var codeWithoutPH = code.replace(/_+/g, '').replace(/#.*$/gm, '').replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
+        if (!/\w/.test(codeWithoutPH)) {
+            output.innerHTML = "💡 请先补全代码中的空白（____）部分！";
+            output.style.color = "#ff9800";
+            return;
+        }
     }
 
-
+    var clean = preprocessCode(code);
     var features = [];
-    if (code.indexOf('print') >= 0) features.push('打印输出');
-    if (code.indexOf('if') >= 0) features.push('条件判断');
-    if (code.indexOf('for') >= 0 || code.indexOf('while') >= 0) features.push('循环');
-    if (code.indexOf('[') >= 0) features.push('列表');
-    if (code.indexOf('def') >= 0) features.push('函数');
+    if (/\bprint\b/.test(clean)) features.push('打印输出');
+    if (/\bif\b/.test(clean)) features.push('条件判断');
+    if (/\bfor\b/.test(clean) || /\bwhile\b/.test(clean)) features.push('循环');
+    if (clean.indexOf('[') >= 0) features.push('列表');
+    if (/\bdef\b/.test(clean)) features.push('函数');
 
     output.innerHTML = '代码包含以下知识点：<br>' +
         (features.length > 0 ? features.map(function(f) { return '✅ ' + f; }).join('<br>') : '💡 写一个综合性的Python程序吧！');
@@ -1388,6 +1815,21 @@ function initDragDrop(items, zones, scoreId) {
 // 通用积木组装功能
 // ============================================================
 function initBlockAssembly(blocks, assembly) {
+    // 打乱积木块初始顺序，避免学生直接按现有顺序组装
+    var arr = Array.prototype.slice.call(blocks);
+    if (arr.length > 1) {
+        var parent = arr[0].parentElement;
+        for (var i = arr.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+        }
+        if (parent) {
+            arr.forEach(function(el) { parent.appendChild(el); });
+        }
+    }
+
     blocks.forEach(function(block) {
         block.addEventListener('dragstart', function(e) {
             e.dataTransfer.setData('text/plain', block.getAttribute('data-block'));
@@ -1421,4 +1863,529 @@ function initBlockAssembly(blocks, assembly) {
             assembly.appendChild(clone);
         }
     });
+}
+
+// ============================================================
+// 步进式课堂小测引擎 - 统一所有章节的小测交互
+// ============================================================
+function renderStepByStepQuiz(chapterNum, rawHTML, accentColor) {
+    // 解析原始HTML，提取题目数据
+    var questions = [];
+    var tempDiv = document.createElement('div');
+    tempDiv.innerHTML = rawHTML;
+
+    // 提取标题
+    var titleEl = tempDiv.querySelector('h2');
+    var quizTitle = titleEl ? titleEl.textContent : '第' + chapterNum + '章 课堂小测';
+
+    // 查找所有题目卡片（w3-card-2）
+    var cards = tempDiv.querySelectorAll('.w3-card-2, .w3-card');
+    cards.forEach(function(card, idx) {
+        var h4 = card.querySelector('h4');
+        if (!h4) return;
+
+        var questionText = h4.textContent.replace(/^\d+\.\s*/, '').trim();
+        var options = [];
+        var correctIndex = -1;
+
+        var labels = card.querySelectorAll('label');
+        labels.forEach(function(label, optIdx) {
+            var radio = label.querySelector('input[type="radio"]');
+            var text = label.textContent.replace(/^\s*[A-D][.、]\s*/, '').trim();
+            options.push(text);
+            if (radio && radio.getAttribute('data-correct') === 'true') {
+                correctIndex = optIdx;
+            }
+        });
+
+        if (options.length > 0) {
+            questions.push({
+                question: questionText,
+                options: options,
+                correct: correctIndex,
+                userAnswer: -1
+            });
+        }
+    });
+
+    if (questions.length === 0) return rawHTML; // 无法解析则返回原始内容
+
+    var totalQuestions = questions.length;
+    var accentBg = hexToRgba(accentColor, 0.1);
+    var currentIdx = 0;
+    var submitted = false;
+    var score = 0;
+
+    // 生成HTML
+    var html = '<div class="ch-step-quiz" style="--ch-accent:' + accentColor + ';--ch-accent-bg:' + accentBg + ';" id="stepQuiz-' + chapterNum + '">';
+    html += '<div class="ch-step-quiz-header">';
+    html += '<h2 style="color:' + accentColor + ';">' + quizTitle + '</h2>';
+    html += '<p class="ch-step-quiz-subtitle">共 ' + totalQuestions + ' 题，点击选项作答，答完提交</p>';
+    html += '</div>';
+
+    // 进度条
+    html += '<div class="ch-step-quiz-progress-wrap">';
+    html += '<div class="ch-step-quiz-progress-bar"><div class="ch-step-quiz-progress-fill" id="sq-progress-' + chapterNum + '" style="width:0%"></div></div>';
+    html += '<span class="ch-step-quiz-progress-text" id="sq-progress-text-' + chapterNum + '">1/' + totalQuestions + '</span>';
+    html += '</div>';
+
+    // 题目卡片区
+    html += '<div id="sq-card-area-' + chapterNum + '"></div>';
+
+    // 导航按钮
+    html += '<div class="ch-step-quiz-nav" id="sq-nav-' + chapterNum + '">';
+    html += '<button class="ch-step-quiz-btn ch-step-quiz-btn-prev" id="sq-prev-' + chapterNum + '" disabled>⬅ 上一题</button>';
+    html += '<button class="ch-step-quiz-btn ch-step-quiz-btn-next" id="sq-next-' + chapterNum + '">下一题 ➡</button>';
+    html += '<button class="ch-step-quiz-btn ch-step-quiz-btn-submit" id="sq-submit-' + chapterNum + '" style="display:none;">📤 提交答案</button>';
+    html += '</div>';
+
+    // 结果面板
+    html += '<div class="ch-step-quiz-result" id="sq-result-' + chapterNum + '">';
+    html += '<div class="ch-step-quiz-score-circle" id="sq-circle-' + chapterNum + '">';
+    html += '<span class="ch-score-num" id="sq-score-num-' + chapterNum + '">0</span>';
+    html += '<span class="ch-score-label">/' + totalQuestions + '</span>';
+    html += '</div>';
+    html += '<div class="ch-step-quiz-grade" id="sq-grade-' + chapterNum + '"></div>';
+    html += '<div class="ch-step-quiz-detail">';
+    html += '<div class="ch-step-quiz-stat"><span class="ch-stat-val" id="sq-correct-' + chapterNum + '">0</span><span class="ch-stat-label">正确</span></div>';
+    html += '<div class="ch-step-quiz-stat"><span class="ch-stat-val" id="sq-wrong-' + chapterNum + '">0</span><span class="ch-stat-label">错误</span></div>';
+    html += '<div class="ch-step-quiz-stat"><span class="ch-stat-val" id="sq-rate-' + chapterNum + '">0%</span><span class="ch-stat-label">正确率</span></div>';
+    html += '</div>';
+    html += '<button class="ch-step-quiz-btn ch-step-quiz-btn-next" onclick="retryStepQuiz(' + chapterNum + ')" style="margin-top:12px;">🔄 重新作答</button>';
+    html += '</div>';
+
+    html += '</div>';
+
+    // 存储数据
+    window['_sqData' + chapterNum] = {
+        questions: questions,
+        total: totalQuestions,
+        current: currentIdx,
+        accent: accentColor,
+        accentBg: accentBg,
+        submitted: false,
+        score: 0
+    };
+
+    return html;
+}
+
+function hexToRgba(hex, alpha) {
+    hex = hex.replace('#', '');
+    var r = parseInt(hex.substring(0, 2), 16);
+    var g = parseInt(hex.substring(2, 4), 16);
+    var b = parseInt(hex.substring(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+}
+
+function initStepQuiz(chapterNum) {
+    var data = window['_sqData' + chapterNum];
+    if (!data) return;
+    renderStepQuizCard(chapterNum);
+}
+
+function renderStepQuizCard(chapterNum) {
+    var data = window['_sqData' + chapterNum];
+    if (!data) return;
+    var idx = data.current;
+    var q = data.questions[idx];
+    var accent = data.accent;
+    var letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+    var cardArea = document.getElementById('sq-card-area-' + chapterNum);
+    if (!cardArea) return;
+
+    var html = '<div class="ch-step-quiz-card">';
+    html += '<span class="ch-step-quiz-num">第 ' + (idx + 1) + ' 题 / 共 ' + data.total + ' 题</span>';
+    html += '<h3>' + q.question + '</h3>';
+    html += '<div class="ch-step-quiz-options">';
+
+    q.options.forEach(function(opt, optIdx) {
+        var cls = 'ch-step-quiz-option';
+        if (data.submitted) {
+            if (optIdx === q.correct) cls += ' correct';
+            else if (optIdx === q.userAnswer && optIdx !== q.correct) cls += ' wrong';
+            else if (q.userAnswer !== q.correct && optIdx === q.correct) cls += ' show-correct';
+        } else if (q.userAnswer === optIdx) {
+            cls += ' selected';
+        }
+
+        html += '<button class="' + cls + '" onclick="selectStepQuizOption(' + chapterNum + ',' + optIdx + ')"' + (data.submitted ? ' disabled' : '') + '>';
+        html += '<span class="ch-option-letter">' + letters[optIdx] + '</span>';
+        html += '<span class="ch-option-text">' + opt + '</span>';
+        html += '</button>';
+    });
+
+    html += '</div></div>';
+    cardArea.innerHTML = html;
+
+    // 更新进度条
+    var answered = data.questions.filter(function(q) { return q.userAnswer >= 0; }).length;
+    var progressPct = Math.round((answered / data.total) * 100);
+    var progressBar = document.getElementById('sq-progress-' + chapterNum);
+    var progressText = document.getElementById('sq-progress-text-' + chapterNum);
+    if (progressBar) progressBar.style.width = progressPct + '%';
+    if (progressText) progressText.textContent = (idx + 1) + '/' + data.total;
+
+    // 更新导航按钮
+    var prevBtn = document.getElementById('sq-prev-' + chapterNum);
+    var nextBtn = document.getElementById('sq-next-' + chapterNum);
+    var submitBtn = document.getElementById('sq-submit-' + chapterNum);
+    var navDiv = document.getElementById('sq-nav-' + chapterNum);
+
+    if (data.submitted) {
+        if (navDiv) navDiv.style.display = 'none';
+    } else {
+        if (navDiv) navDiv.style.display = 'flex';
+        if (prevBtn) prevBtn.disabled = (idx === 0);
+        if (nextBtn) {
+            if (idx >= data.total - 1) {
+                nextBtn.style.display = 'none';
+                if (submitBtn) submitBtn.style.display = 'inline-flex';
+            } else {
+                nextBtn.style.display = 'inline-flex';
+                if (submitBtn) submitBtn.style.display = 'none';
+            }
+        }
+    }
+
+    // 如果已提交，显示结果
+    if (data.submitted) {
+        showStepQuizResult(chapterNum);
+    }
+}
+
+function selectStepQuizOption(chapterNum, optIdx) {
+    var data = window['_sqData' + chapterNum];
+    if (!data || data.submitted) return;
+    data.questions[data.current].userAnswer = optIdx;
+    renderStepQuizCard(chapterNum);
+}
+
+function goStepQuizNext(chapterNum) {
+    var data = window['_sqData' + chapterNum];
+    if (!data || data.submitted) return;
+    if (data.current < data.total - 1) {
+        data.current++;
+        renderStepQuizCard(chapterNum);
+    }
+}
+
+function goStepQuizPrev(chapterNum) {
+    var data = window['_sqData' + chapterNum];
+    if (!data || data.submitted) return;
+    if (data.current > 0) {
+        data.current--;
+        renderStepQuizCard(chapterNum);
+    }
+}
+
+function submitStepQuiz(chapterNum) {
+    var data = window['_sqData' + chapterNum];
+    if (!data || data.submitted) return;
+
+    // 计算得分
+    var correct = 0;
+    data.questions.forEach(function(q) {
+        if (q.userAnswer === q.correct) correct++;
+    });
+    data.submitted = true;
+    data.score = correct;
+
+    // 跳转到第一题查看结果
+    data.current = 0;
+    renderStepQuizCard(chapterNum);
+
+    // 滚动到题目
+    setTimeout(function() {
+        var card = document.querySelector('#sq-card-area-' + chapterNum + ' .ch-step-quiz-card');
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+}
+
+function showStepQuizResult(chapterNum) {
+    var data = window['_sqData' + chapterNum];
+    if (!data) return;
+
+    var resultDiv = document.getElementById('sq-result-' + chapterNum);
+    var navDiv = document.getElementById('sq-nav-' + chapterNum);
+    if (resultDiv) resultDiv.classList.add('show');
+    if (navDiv) navDiv.style.display = 'none';
+
+    var pct = Math.round((data.score / data.total) * 100);
+    var wrong = data.total - data.score;
+
+    var circle = document.getElementById('sq-circle-' + chapterNum);
+    var scoreNum = document.getElementById('sq-score-num-' + chapterNum);
+    var gradeEl = document.getElementById('sq-grade-' + chapterNum);
+    var correctEl = document.getElementById('sq-correct-' + chapterNum);
+    var wrongEl = document.getElementById('sq-wrong-' + chapterNum);
+    var rateEl = document.getElementById('sq-rate-' + chapterNum);
+
+    if (scoreNum) scoreNum.textContent = data.score;
+    if (correctEl) correctEl.textContent = data.score;
+    if (wrongEl) wrongEl.textContent = wrong;
+    if (rateEl) rateEl.textContent = pct + '%';
+
+    // 评级
+    var grade, circleClass;
+    if (pct >= 90) { grade = '🏆 太棒了！优秀！'; circleClass = 'excellent'; }
+    else if (pct >= 70) { grade = '👍 做得不错，良好！'; circleClass = 'good'; }
+    else if (pct >= 50) { grade = '✅ 继续加油！'; circleClass = 'ok'; }
+    else { grade = '📚 需要多加练习哦！'; circleClass = 'retry'; }
+
+    if (gradeEl) gradeEl.textContent = grade;
+    if (circle) {
+        circle.className = 'ch-step-quiz-score-circle ' + circleClass;
+    }
+
+    // 如果全部答对，可以触发完成事件
+    if (data.score === data.total) {
+        setTimeout(function() {
+            var evt = new CustomEvent('quizPerfect', { detail: { chapter: chapterNum, score: data.score } });
+            document.dispatchEvent(evt);
+        }, 500);
+    }
+}
+
+function retryStepQuiz(chapterNum) {
+    var data = window['_sqData' + chapterNum];
+    if (!data) return;
+    data.submitted = false;
+    data.score = 0;
+    data.current = 0;
+    data.questions.forEach(function(q) { q.userAnswer = -1; });
+
+    var resultDiv = document.getElementById('sq-result-' + chapterNum);
+    if (resultDiv) resultDiv.classList.remove('show');
+
+    var navDiv = document.getElementById('sq-nav-' + chapterNum);
+    if (navDiv) navDiv.style.display = 'flex';
+
+    renderStepQuizCard(chapterNum);
+    window.scrollTo({ top: document.getElementById('sq-card-area-' + chapterNum).offsetTop - 100, behavior: 'smooth' });
+}
+
+// 通用初始化函数：将步进小测的导航事件绑定
+function bindStepQuizEvents(chapterNum) {
+    var prevBtn = document.getElementById('sq-prev-' + chapterNum);
+    var nextBtn = document.getElementById('sq-next-' + chapterNum);
+    var submitBtn = document.getElementById('sq-submit-' + chapterNum);
+
+    if (prevBtn) {
+        prevBtn.onclick = function() { goStepQuizPrev(chapterNum); };
+    }
+    if (nextBtn) {
+        nextBtn.onclick = function() { goStepQuizNext(chapterNum); };
+    }
+    if (submitBtn) {
+        submitBtn.onclick = function() { submitStepQuiz(chapterNum); };
+    }
+
+    // 初始化第一题
+    renderStepQuizCard(chapterNum);
+}
+
+// ============================================================
+// 截图上传功能
+// ============================================================
+function submitScreenshot() {
+    // 创建文件选择器
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    input.addEventListener('change', function() {
+        var file = input.files[0];
+        if (!file) {
+            document.body.removeChild(input);
+            return;
+        }
+
+        // 检查文件大小（限制10MB）
+        if (file.size > 10 * 1024 * 1024) {
+            showScreenshotMsg('❌ 文件过大，请使用截图工具截取较小区域（建议小于10MB）', '#ff4d4f');
+            document.body.removeChild(input);
+            return;
+        }
+
+        // 显示上传中提示
+        showScreenshotMsg('⏳ 正在上传截图...', '#ff9800');
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+            var username = currentUser ? currentUser.username : '';
+
+            if (!username) {
+                showScreenshotMsg('❌ 请先登录后再上传截图', '#ff4d4f');
+                document.body.removeChild(input);
+                return;
+            }
+
+            // 获取当前章节
+            var chapterId = '';
+            var hash = window.location.hash;
+            var match = hash.match(/#(ch\d+)/);
+            if (match) chapterId = match[1];
+
+            // 获取或刷新 CSRF token
+            async function ensureCsrfToken() {
+                if (window.API && window.API._csrfToken) return;
+                if (window.API && window.API._fetchCsrfToken) {
+                    await window.API._fetchCsrfToken();
+                }
+            }
+
+            ensureCsrfToken().then(function() {
+                return fetch('/api/screenshots/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': (window.API && window.API._csrfToken) || '',
+                        'X-Session-Token': (window.API && window.API._sessionToken) || ''
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        imageData: e.target.result,
+                        chapterId: chapterId,
+                        fileName: file.name || 'screenshot'
+                    })
+                });
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    showScreenshotMsg('✅ 截图上传成功！老师已收到你的作业截图。', '#04AA6D');
+                    loadMyScreenshots();
+                } else {
+                    showScreenshotMsg('❌ 上传失败：' + (data.error || '未知错误'), '#ff4d4f');
+                }
+            })
+            .catch(function() {
+                showScreenshotMsg('❌ 网络错误，请检查连接后重试', '#ff4d4f');
+            })
+            .finally(function() {
+                document.body.removeChild(input);
+            });
+        };
+        reader.onerror = function() {
+            showScreenshotMsg('❌ 读取文件失败，请重试', '#ff4d4f');
+            document.body.removeChild(input);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    input.click();
+}
+
+function showScreenshotMsg(msg, color) {
+    // 在项目模块中显示上传反馈
+    var feedbackEl = document.getElementById('screenshot-feedback');
+    if (!feedbackEl) {
+        // 如果不存在反馈元素，创建一个
+        var projectSection = document.querySelector('#chapterContent-ch1 .ch-module-wrap');
+        if (!projectSection) {
+            alert(msg);
+            return;
+        }
+        feedbackEl = document.createElement('div');
+        feedbackEl.id = 'screenshot-feedback';
+        feedbackEl.style.cssText = 'text-align:center;margin-top:16px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;';
+        // 插入到截图按钮下方
+        var btnArea = projectSection.querySelector('div[style*="text-align:center"][style*="background:#282A35"]');
+        if (btnArea) {
+            btnArea.appendChild(feedbackEl);
+        } else {
+            projectSection.appendChild(feedbackEl);
+        }
+    }
+    feedbackEl.textContent = msg;
+    feedbackEl.style.color = color;
+    feedbackEl.style.background = color === '#04AA6D' ? '#D9EEE1' : (color === '#ff4d4f' ? '#fff3f3' : '#FFF4A3');
+}
+
+// 加载并展示当前学生已提交的截图（第1章 创意项目）
+function loadMyScreenshots() {
+    var container = document.getElementById('ch1-project-screenshots');
+    if (!container) return;
+
+    var currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+    if (!currentUser || !currentUser.username) {
+        container.innerHTML = '<p style="color:#aaa;font-size:13px;margin:0;">登录后即可查看已提交的截图。</p>';
+        return;
+    }
+
+    container.innerHTML = '<p style="color:#aaa;font-size:13px;margin:0;">正在加载已提交的截图...</p>';
+    window.API._fetch(window.API_BASE + '/screenshots/' + encodeURIComponent(currentUser.username))
+        .then(function(data) {
+            if (!data || !data.success) {
+                container.innerHTML = '<p style="color:#aaa;font-size:13px;margin:0;">暂无已提交的截图。</p>';
+                return;
+            }
+            var list = data.screenshots || [];
+            if (list.length === 0) {
+                container.innerHTML = '<p style="color:#aaa;font-size:13px;margin:0;">暂无已提交的截图，快去上传吧！</p>';
+                return;
+            }
+            container.innerHTML = '<h4 style="color:#04AA6D;margin:0 0 12px;">📁 我的截图（' + list.length + '张）</h4>' +
+                '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">' +
+                list.map(function(s) {
+                    return '<div style="background:#fff;border-radius:8px;overflow:hidden;"><img src="/uploads/' + encodeURIComponent(s.file_name) + '" alt="我的截图" loading="lazy" style="width:100%;display:block;cursor:zoom-in;" onclick="window.open(this.src)"></div>';
+                }).join('') +
+                '</div>';
+        })
+        .catch(function() {
+            container.innerHTML = '<p style="color:#aaa;font-size:13px;margin:0;">加载截图失败，请刷新重试。</p>';
+        });
+}
+
+// ============================================================
+// 通用还原函数 — 将练习代码恢复为初始模板
+// ============================================================
+var chPracticeTemplates = {
+    1: null,  // Ch1 使用 ch1PracticeData 动态获取
+    3: '# 创建变量并打印类型\nage = \nscore = \nname = \nis_student = \nprint(type(age))\nprint(type(score))\nprint(type(name))\nprint(type(is_student))',
+    4: 'score = 75\nif score >= 60:\n    print("____")\nelse:\n    print("____")',
+    5: 'age = 14\nheight = 150\nif age >= 12 ____ height >= 140:\n    print("____")\nelse:\n    print("____")',
+    6: 'count = 5\n____ count > 0:\n    print(count)\n    count = ____\nprint("发射！")',
+    7: 'for i in range(1, 11):\n    if i % 2 != 0:\n        ____\n    print(i)',
+    8: 'for i in range(____):\n    for j in range(____):\n        print("*", end=" ")\n    print()',
+    9: 'a = float(input("输入第一个数: "))\nb = float(input("输入第二个数: "))\nop = input("运算符(+,-,*,/): ")\nif op == "+":\n    print(____)\nelif op == "-":\n    print(____)\nelif op == "*":\n    print(____)\nelif op == "/":\n    print(____)',
+    10: 'for i in range(1, ____):\n    print("____" * i)',
+    11: 'colors = ["红", "橙", "黄", "绿", "蓝"]\nprint(colors[____])  # 输出"红"\nprint(colors[____])  # 输出"黄"\nprint(colors[____])  # 输出"蓝"',
+    12: 'scores = [85, 92, 78]\nscores.____(95)  # 添加95\nscores.____(0)  # 删除第一个\nprint(scores)',
+    13: 'nums = [1, 2, 2, 3, 3, 3, 4]\nunique = ____(nums)\nprint(unique)',
+    14: 'scores = {"语文": 85, "数学": 92}\nscores["英语"] = ____  # 添加英语\nprint(scores["____"])  # 访问数学\nfor k, v in ____.items(): print(k, v)',
+    15: 'text = "  Hello Python World  "\ntext = text.____()  # 去空格\nprint(text.____())  # 转大写\nprint(text[____:____])  # 切片取"Python"',
+    16: 'scores = [85, 92, 78, 95, 88]\nprint("人数:", ____(scores))\nprint("最高:", ____(scores))\nprint("最低:", ____(scores))\nprint("平均:", ____(scores)/____(scores))',
+    17: '# 用Python转换进制\nn = 42\nprint(bin(____))  # 二进制\nprint(oct(____))  # 八进制\nprint(hex(____))  # 十六进制',
+    18: 'heights = []\nwhile True:\n    h = input("身高(输入q结束): ")\n    if h == "____":\n        break\n    heights.append(____(h))\nif heights:\n    avg = ____(heights) / ____(heights)\n    print(f"平均身高: {avg:.1f}cm")',
+    19: 'a = ____  # 二进制 1010\nb = ____  # 八进制 52\nc = ____  # 十六进制 2A\nprint(a, b, c)  # 应该都是 42\nd = 1.5e3\nprint(d)  # 科学计数法'
+};
+
+function resetPractice(chapterNum) {
+    var codeEl = document.getElementById('ch' + chapterNum + '-practice-code');
+    var outputEl = document.getElementById('ch' + chapterNum + '-practice-output');
+    if (!codeEl) return;
+
+    // Ch1 特殊处理：根据当前级别获取模板
+    var template;
+    if (chapterNum === 1) {
+        template = ch1PracticeData[ch1PracticeLevel].code;
+    } else {
+        template = chPracticeTemplates[chapterNum];
+    }
+
+    if (template) {
+        setPracticeCode(codeEl, template);
+    }
+
+    // 清空输出结果
+    if (outputEl) {
+        outputEl.innerHTML = '▶ 点击运行按钮查看结果';
+        outputEl.style.color = '#888';
+    }
 }

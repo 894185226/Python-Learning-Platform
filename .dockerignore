@@ -1,0 +1,49 @@
+# 依赖
+node_modules/
+
+# 数据库备份
+backups/
+*.sql.gz
+
+# 环境变量（生产环境另行配置）
+.env
+.env.local
+.env.*.local
+
+# 日志
+*.log
+npm-debug.log*
+
+# 版本控制
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+temp/
+tmp/
+
+# 文档（可选：如需打包文档请删除此行）
+*.md
+!README.md
+
+# Docker 自身
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# CI/CD
+.github/

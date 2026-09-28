@@ -141,7 +141,8 @@ CREATE TABLE IF NOT EXISTS code_snippets (
     code TEXT NOT NULL,
     chapter_id VARCHAR(10) DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    INDEX idx_student_id (student_id)
 ) ENGINE=InnoDB COMMENT='代码收藏';
 
 -- ===================================================
@@ -228,11 +229,78 @@ CREATE TABLE IF NOT EXISTS discussion_posts (
     chapter_id VARCHAR(10) DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-    INDEX idx_chapter (chapter_id)
+    INDEX idx_chapter (chapter_id),
+    INDEX idx_student_id (student_id)
 ) ENGINE=InnoDB COMMENT='讨论帖';
 
 -- ===================================================
--- 18. 讨论回复
+-- 18. 注册管理配置表
+-- ===================================================
+CREATE TABLE IF NOT EXISTS registration_settings (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(50)  NOT NULL UNIQUE COMMENT '配置键',
+    setting_value TEXT       COMMENT '配置值',
+    updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) ENGINE=InnoDB COMMENT='注册管理配置表';
+
+-- 默认配置数据
+INSERT IGNORE INTO registration_settings (setting_key, setting_value) VALUES
+    ('registration_enabled', 'true'),
+    ('require_student_id', 'false'),
+    ('max_accounts_per_ip', '3'),
+    ('registration_cooldown_minutes', '5'),
+    ('max_accounts_per_student_id', '1'),
+    ('profile_edit_enabled', 'true');
+
+-- ===================================================
+-- 19. 注册审计日志表
+-- ===================================================
+CREATE TABLE IF NOT EXISTS registration_logs (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    username        VARCHAR(50)  NOT NULL COMMENT '尝试注册的用户名',
+    display_name    VARCHAR(50)  DEFAULT '' COMMENT '显示名称',
+    grade           VARCHAR(20)  DEFAULT '' COMMENT '年级',
+    class_num       INT          DEFAULT 0 COMMENT '班级',
+    student_id      VARCHAR(30)  DEFAULT '' COMMENT '学号',
+    ip_address      VARCHAR(45)  DEFAULT '' COMMENT 'IP地址',
+    user_agent      VARCHAR(500) DEFAULT '' COMMENT '浏览器UA',
+    result          VARCHAR(20)  NOT NULL COMMENT '结果: success/failed/blocked',
+    reason          VARCHAR(200) DEFAULT '' COMMENT '失败/阻止原因',
+    created_at      DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
+    INDEX idx_username (username),
+    INDEX idx_ip (ip_address),
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB COMMENT='注册审计日志表';
+
+-- ===================================================
+-- 20. 学生唯一标识表
+-- ===================================================
+CREATE TABLE IF NOT EXISTS student_identifiers (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    student_id      INT          NOT NULL COMMENT '学生编号（外键）',
+    identifier_type VARCHAR(20)  NOT NULL COMMENT '标识类型: student_id/email/phone',
+    identifier_value VARCHAR(100) NOT NULL COMMENT '标识值',
+    created_at      DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_identifier (identifier_type, identifier_value),
+    INDEX idx_student_type (student_id, identifier_type)
+) ENGINE=InnoDB COMMENT='学生唯一标识表';
+
+-- ===================================================
+-- 21. 账号合并记录表
+-- ===================================================
+CREATE TABLE IF NOT EXISTS merge_records (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    source_student_id INT        NOT NULL COMMENT '被合并的源账号ID',
+    target_student_id INT        NOT NULL COMMENT '合并到的目标账号ID',
+    admin_name      VARCHAR(50)  NOT NULL COMMENT '操作管理员',
+    merged_at       DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '合并时间',
+    INDEX idx_source (source_student_id),
+    INDEX idx_target (target_student_id)
+) ENGINE=InnoDB COMMENT='账号合并记录表';
+
+-- ===================================================
+-- 22. 讨论回复
 -- ===================================================
 CREATE TABLE IF NOT EXISTS discussion_replies (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -241,5 +309,6 @@ CREATE TABLE IF NOT EXISTS discussion_replies (
     content TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (post_id) REFERENCES discussion_posts(id) ON DELETE CASCADE,
-    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    INDEX idx_post_id (post_id)
 ) ENGINE=InnoDB COMMENT='讨论回复';

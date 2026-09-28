@@ -17,7 +17,6 @@ Thumbs.db
 
 # Node.js
 node_modules/
-package-lock.json
 
 # Python
 __pycache__/
@@ -28,6 +27,9 @@ __pycache__/
 # 备份文件
 *.bak
 *.backup
+.sessions.json
+.admin-sessions.json
+backups/
 
 # 参考文件（W3Schools制作参考，无需上传）
 W3Schools Online Web Tutorials.html
@@ -37,6 +39,9 @@ W3Schools Online Web Tutorials_files/
 *令牌*
 *令牌*.txt
 *Token*
+.env
+.env.*
+.sessions.json
 
 # Trae IDE 配置
 .trae/
@@ -45,3 +50,9 @@ W3Schools Online Web Tutorials_files/
 query
 push_output*.txt
 remote_hash.txt
+
+# 学生上传的截图（运行时数据，不入库）
+uploads/
+
+# 临时垃圾文件
+start

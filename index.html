@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,8 +14,23 @@
     <meta property="og:locale" content="zh_CN">
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐍</text></svg>">
-    <!-- CDN 预连接，加快资源加载 -->
-    <link rel="stylesheet" href="style.css">
+    <!-- 性能优化：预连接外部 CDN，加速资源加载 -->
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <!-- 关键 CSS 优先加载 -->
+    <link rel="stylesheet" href="style.css?v=20260928-1" fetchpriority="high">
+    <link rel="stylesheet" href="style-chapters.css?v=20260928-1">
+    <!--
+      CSS 拆分方案（可选）：
+      如需使用拆分后的 CSS 文件，请取消下方注释，
+      并注释上方 style.css 和 style-chapters.css。
+      或在 style.css 中取消 @import 语句的注释。
+    -->
+    <!-- <link rel="stylesheet" href="css/theme.css"> -->
+    <!-- <link rel="stylesheet" href="css/layout.css"> -->
+    <!-- <link rel="stylesheet" href="css/components.css"> -->
+    <!-- <link rel="stylesheet" href="css/animations.css"> -->
+    <!-- <link rel="stylesheet" href="css/responsive.css"> -->
     <link rel="stylesheet" href="lib/all.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css'">
     <link rel="stylesheet" href="lib/codemirror.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css'">
     <link rel="stylesheet" href="lib/monokai.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/monokai.min.css'">
@@ -49,7 +64,7 @@
                     进阶拓展
                     <i class="fas fa-caret-down"></i>
                 </a>
-                <a onclick="closeAllDropdowns(); switchModule('achievement')" class="w3-bar-item w3-button w3-hover-green" href="javascript:void(0)" style="color:#FFD700;">
+                <a onclick="closeAllDropdowns(); switchModule('achievement')" class="w3-bar-item w3-button w3-hover-green text-gold" href="javascript:void(0)">
                     🏆 成就墙
                 </a>
                 <a onclick="closeAllDropdowns(); switchModule('leaderboard')" class="w3-bar-item w3-button w3-hover-green" href="javascript:void(0)">
@@ -94,6 +109,9 @@
                 </div>
                 <a href="javascript:void(0)" class="w3-bar-item w3-button theme-toggle-btn" onclick="toggleTheme()" title="切换暗色/亮色主题">
                     <i class="far fa-moon" id="themeIcon"></i>
+                </a>
+                <a href="javascript:void(0)" class="w3-bar-item w3-button w3-hover-green" id="profileEditBtn" style="display:none" onclick="showProfileEditor()" title="编辑个人信息">
+                    <i class="fas fa-user-edit"></i> 编辑资料
                 </a>
                 <a href="javascript:void(0)" class="w3-bar-item w3-button w3-green w3-round-large signin-btn" onclick="openLoginModal()">
                     <span id="loginBtnText">登录</span>
@@ -162,7 +180,7 @@
             </div>
             <div class="w3-container mobile-menu-items">
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); hideSidebarToggle(); document.querySelectorAll('.chapter-section').forEach(c=>c.classList.remove('active')); document.querySelectorAll('.module').forEach(m=>m.classList.remove('active')); document.getElementById('welcome').classList.add('active'); window.scrollTo({top:0,behavior:'smooth'});">🏠 返回首页</a>
-                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchModule('achievement');" style="color:#FFD700;">🏆 成就墙</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link text-gold" onclick="closeMobileMenu(); switchModule('achievement');">🏆 成就墙</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchModule('leaderboard');">📊 排行榜</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchModule('mistakes');">📝 错题本</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchModule('discussion');">💬 讨论区</a>
@@ -171,8 +189,21 @@
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch2');">📦 第2章 变量</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch3');">📊 第3章 变量类型</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch4');">🔀 第4章 条件判断</a>
-                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch6');">🔄 第6章 循环</a>
-                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch11');">📋 第11章 列表</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch5');">🔗 第5章 if进阶</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch6');">🔄 第6章 while循环</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch7');">⏭️ 第7章 while拓展</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch8');">🔁 第8章 循环嵌套</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch9');">🧮 第9章 综合应用一</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch10');">⭐ 第10章 排列小星星</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch11');">📋 第11章 初识列表</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch12');">📝 第12章 列表的使用</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch13');">🔒 第13章 元组与集合</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch14');">📖 第14章 神奇的字典</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch15');">✂️ 第15章 再遇字符串</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch16');">🧰 第16章 公共语法</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch17');">💡 第17章 二进制</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch18');">🧠 第18章 编程思维</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch19');">🔢 第19章 各种各样的数</a>
             </div>
             <div class="mobile-menu-footer">
                 <a href="javascript:void(0)" class="w3-button theme-btn" onclick="toggleTheme()">
@@ -212,6 +243,9 @@
                     <p class="form-switch">
                         还没有账号？<a href="javascript:void(0)" onclick="closeLoginModal(); openRegisterModal();">立即注册</a>
                     </p>
+                    <p class="form-switch" style="margin-top:4px;">
+                        <a href="javascript:void(0)" onclick="closeLoginModal(); openResetPasswordModal();" style="font-size:13px;color:#999;">忘记密码？</a>
+                    </p>
                 </form>
             </div>
         </div>
@@ -238,7 +272,7 @@
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-lock"></i> 密码</label>
-                        <input type="password" id="regPassword" class="form-input" placeholder="请输入密码（至少4位）" required minlength="4">
+                        <input type="password" id="regPassword" class="form-input" placeholder="请输入密码（至少6位，包含字母和数字）" required minlength="6" pattern="^(?=.*[A-Za-z])(?=.*\d).+$">
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-graduation-cap"></i> 年级</label>
@@ -266,6 +300,64 @@
         </div>
     </div>
 
+    <!-- 密码重置弹窗 -->
+    <div class="w3-modal" id="resetPasswordModal" onclick="if(event.target===this)closeAllModals()">
+        <div class="w3-modal-content w3-animate-zoom w3-card-4 login-modal-content">
+            <div class="w3-bar" style="background:#ff9800;">
+                <span class="w3-bar-item w3-large">🔑 重置密码</span>
+                <button class="w3-bar-item w3-button w3-right w3-hover-red" onclick="closeAllModals()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="w3-container w3-padding-24">
+                <p style="color:#666;font-size:13px;margin-bottom:16px;">请输入你的用户名和真实姓名来验证身份，然后设置新密码。</p>
+                <form id="resetPasswordForm" onsubmit="handleResetPassword(event); return false;">
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> 用户名</label>
+                        <input type="text" id="resetUsername" class="form-input" placeholder="请输入用户名" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="far fa-id-card"></i> 真实姓名</label>
+                        <input type="text" id="resetDisplayName" class="form-input" placeholder="请输入注册时的真实姓名" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> 新密码</label>
+                        <input type="password" id="resetNewPassword" class="form-input" placeholder="请输入新密码（至少6位，包含字母和数字）" required minlength="6" pattern="^(?=.*[A-Za-z])(?=.*\d).+$">
+                    </div>
+                    <div id="resetPasswordError" class="form-error w3-hide"></div>
+                    <div id="resetPasswordSuccess" class="form-success w3-hide"></div>
+                    <button type="submit" class="form-submit-btn" style="background:#ff9800;">
+                        <i class="fas fa-key"></i> 重置密码
+                    </button>
+                    <p class="form-switch">
+                        <a href="javascript:void(0)" onclick="closeResetPasswordModal(); openLoginModal();">返回登录</a>
+                    </p>
+                    <p class="form-switch" style="margin-top:4px;font-size:12px;color:#999;">
+                        💡 如果无法验证，请联系老师帮你重置密码
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通用确认弹窗 -->
+    <div class="w3-modal" id="confirmModal" onclick="if(event.target===this)closeConfirmModal()" role="dialog" aria-modal="true" aria-label="确认操作">
+        <div class="w3-modal-content w3-animate-zoom w3-card-4 confirm-modal-content">
+            <div class="w3-container w3-padding-24">
+                <div class="confirm-icon" id="confirmIcon">⚠️</div>
+                <h3 class="confirm-title" id="confirmTitle">确认操作</h3>
+                <p class="confirm-message" id="confirmMessage">确定要执行此操作吗？</p>
+                <div class="confirm-actions">
+                    <button class="confirm-btn cancel" onclick="closeConfirmModal()">取消</button>
+                    <button class="confirm-btn danger" id="confirmOkBtn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知容器 -->
+    <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
     <!-- 章节侧边栏切换按钮 -->
     <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="章节导航">
         <i class="fas fa-chevron-right"></i>
@@ -289,19 +381,19 @@
         <!-- 0. 欢迎开始模块 -->
         <section id="welcome" class="module active">
             <!-- Hero区域 - 暗色科技风格 -->
-            <div class="ws-hero" style="background:#1a1a2e;padding:100px 16px 80px;text-align:center;position:relative;overflow:hidden;border-bottom:1px solid rgba(255,255,255,0.08);">
+            <div class="ws-hero-wrapper">
                 <!-- 背景装饰 -->
-                <div style="position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle at 30% 50%, rgba(4,170,109,0.06) 0%, transparent 50%), radial-gradient(circle at 70% 30%, rgba(4,170,109,0.04) 0%, transparent 50%);pointer-events:none;"></div>
-                <div class="w3-content" style="max-width:800px;margin:auto;padding:0 16px;position:relative;z-index:1;">
-                    <div style="display:inline-block;background:rgba(4,170,109,0.1);border:1px solid rgba(4,170,109,0.2);color:#04AA6D;font-size:13px;padding:6px 16px;border-radius:20px;margin-bottom:24px;font-weight:600;letter-spacing:0.5px;">PYTHON 基础入门 · 19章系统学习</div>
-                    <h1 style="font-size:64px;font-weight:700;margin:0 0 12px 0;color:#ffffff;letter-spacing:-1px;">Python 基础学习平台</h1>
-                    <p style="font-size:18px;color:#aaa;margin:0;line-height:1.6;">面向初中生的交互式编程学习平台 · 从入门到掌握，19章系统学习Python核心知识</p>
-                    <form class="hero-form" onsubmit="return search('hero-search-input')" style="position:relative;max-width:480px;margin:32px auto;display:flex;">
-                        <input type="text" id="hero-search-input" placeholder="搜索教程，例如：变量" aria-label="搜索教程" autocomplete="off" oninput="showSearchSuggestions('hero-search-input')" onfocus="showSearchSuggestions('hero-search-input')" style="padding:14px 20px;font-size:15px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#fff;border-radius:25px 0 0 25px;flex:1;outline:none;min-width:0;transition:border-color 0.2s;">
-                        <button type="submit" style="padding:14px 24px;background-color:#04AA6D;color:white;font-size:15px;border:none;cursor:pointer;border-radius:0 25px 25px 0;font-weight:600;transition:background-color 0.2s;"><i class="fas fa-search"></i></button>
+                <div class="ws-hero-bg"></div>
+                <div class="ws-hero-inner">
+                    <div class="ws-hero-badge">PYTHON 基础入门 · 19章系统学习</div>
+                    <h1 class="ws-hero-title">Python 基础学习平台</h1>
+                    <p class="ws-hero-desc">面向初中生的交互式编程学习平台 · 从入门到掌握，19章系统学习Python核心知识</p>
+                    <form class="hero-search-form" onsubmit="return search('hero-search-input')">
+                        <input type="text" id="hero-search-input" placeholder="搜索教程，例如：变量" aria-label="搜索教程" autocomplete="off" oninput="showSearchSuggestions('hero-search-input')" onfocus="showSearchSuggestions('hero-search-input')" class="hero-search-input">
+                        <button type="submit" class="hero-search-btn"><i class="fas fa-search"></i></button>
                         <div class="search-suggestions" id="hero-search-suggestions"></div>
                     </form>
-                    <div class="hero-cta-buttons" style="margin-top:8px;display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;">
+                    <div class="hero-cta-group">
                         <a href="javascript:void(0)" onclick="switchChapter('ch1')" class="hero-btn hero-btn-primary">开始学习</a>
                         <a href="javascript:void(0)" onclick="toggleSidebar()" class="hero-btn hero-btn-outline">浏览章节</a>
                         <a href="javascript:void(0)" onclick="switchModule('achievement')" class="hero-btn hero-btn-gold">🏆 成就墙</a>
@@ -310,8 +402,8 @@
             </div>
             
             <!-- 三列特色 -->
-            <div class="welcome-features-section" style="padding:0 16px 60px;border-bottom:1px solid rgba(255,255,255,0.04);">
-                <div style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:24px;">
+            <div class="welcome-features-wrapper">
+                <div class="welcome-features-inner">
                     <div class="welcome-feature-card">
                         <div class="welcome-feature-icon">📚</div>
                         <h3 class="welcome-feature-title">19章系统学习</h3>
@@ -333,26 +425,26 @@
             <!-- ===== 模块导航 - W3Schools 风格布局 ===== -->
 
             <!-- 标题区域 -->
-            <div style="background:#282A35;padding:64px 16px 32px;text-align:center;">
-                <span style="color:#04AA6D;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Learning Chapters</span>
-                <h2 style="color:#fff;font-size:36px;font-weight:700;margin:12px 0 0 0;">探索学习章节</h2>
+            <div class="chapters-header">
+                <span class="chapters-header-label">Learning Chapters</span>
+                <h2 class="chapters-header-title">探索学习章节</h2>
             </div>
 
             <!-- 📚 教程模块 — 浅绿背景（对应 W3Schools HTML 区域） -->
-            <div class="w3-row w3-padding-32" style="background-color:#D9EEE1;color:#000;">
-                <div class="w3-content" style="max-width:1200px;margin:0 auto;padding:0 16px;">
-                    <div class="w3-col l6 w3-center" style="padding:3%;">
-                        <h2 style="font-size:50px;font-weight:700;margin:0 0 8px 0;">🐍 认识 Python</h2>
-                        <p style="font-size:17px;color:#333;margin:0 0 20px 0;">了解Python语言，编写第一行代码，开启编程之旅</p>
-                        <a href="javascript:void(0)" onclick="switchChapter('ch1')" class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:17px;font-weight:600;padding:12px 36px;border-radius:25px;text-decoration:none;transition:background 0.2s;">开始学习</a>
+            <div class="w3-row w3-padding-32 chapter-card-row card-row-green">
+                <div class="chapter-card-content">
+                    <div class="w3-col l6 w3-center chapter-card-col">
+                        <h2 class="chapter-card-title">🐍 认识 Python</h2>
+                        <p class="chapter-card-desc chapter-card-desc-dark">了解Python语言，编写第一行代码，开启编程之旅</p>
+                        <a href="javascript:void(0)" onclick="switchChapter('ch1')" class="chapter-learn-btn">开始学习</a>
                     </div>
-                    <div class="w3-col l6 w3-hide-small" style="padding:3%;">
-                        <div class="w3-card-2 w3-round" style="background:#fff;padding:20px;color:#333;">
-                            <h3 style="margin:0 0 12px;font-size:18px;">Python 示例：</h3>
-                            <div style="background:#f5f5f5;border-left:4px solid #04AA6D;padding:16px;border-radius:4px;font-family:monospace;font-size:14px;line-height:1.8;">
-                                <span style="color:#005cc5;">name</span> = <span style="color:#0a0;">"小明"</span><br>
-                                <span style="color:#005cc5;">score</span> = <span style="color:#905;">95</span><br>
-                                <span style="color:#005cc5;">print</span>(<span style="color:#0a0;">"成绩："</span>, score)
+                    <div class="w3-col l6 w3-hide-small chapter-card-col">
+                        <div class="w3-card-2 w3-round code-example-card code-example-card-light">
+                            <h3 class="code-example-card-title">Python 示例：</h3>
+                            <div class="code-example-card-body code-bg-light">
+                                <span class="code-var">name</span> = <span class="code-val">"小明"</span><br>
+                                <span class="code-var">score</span> = <span class="code-val-num">95</span><br>
+                                <span class="code-var">print</span>(<span class="code-val">"成绩："</span>, score)
                             </div>
                         </div>
                     </div>
@@ -360,20 +452,20 @@
             </div>
 
             <!-- 📚 知识讲解 — 黄色背景（对应 W3Schools CSS 区域） -->
-            <div class="w3-row w3-padding-32" style="background-color:#FFF4A3;color:#000;">
-                <div class="w3-content" style="max-width:1200px;margin:0 auto;padding:0 16px;">
-                    <div class="w3-col l6 w3-center" style="padding:3%;">
-                        <h2 style="font-size:50px;font-weight:700;margin:0 0 8px 0;">📦 变量</h2>
-                        <p style="font-size:17px;color:#333;margin:0 0 20px 0;">系统学习变量定义、命名规则、赋值与值追踪</p>
-                        <a href="javascript:void(0)" onclick="switchChapter('ch2')" class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:17px;font-weight:600;padding:12px 36px;border-radius:25px;text-decoration:none;transition:background 0.2s;">开始学习</a>
+            <div class="w3-row w3-padding-32 chapter-card-row card-row-yellow">
+                <div class="chapter-card-content">
+                    <div class="w3-col l6 w3-center chapter-card-col">
+                        <h2 class="chapter-card-title">📦 变量</h2>
+                        <p class="chapter-card-desc chapter-card-desc-dark">系统学习变量定义、命名规则、赋值与值追踪</p>
+                        <a href="javascript:void(0)" onclick="switchChapter('ch2')" class="chapter-learn-btn">开始学习</a>
                     </div>
-                    <div class="w3-col l6 w3-hide-small" style="padding:3%;">
-                        <div class="w3-card-2 w3-round" style="background:#fff;padding:20px;color:#333;">
-                            <h3 style="margin:0 0 12px;font-size:18px;">命名规则：</h3>
-                            <div style="background:#f5f5f5;border-left:4px solid #04AA6D;padding:16px;border-radius:4px;font-family:monospace;font-size:14px;line-height:1.8;">
-                                ✅ <span style="color:#005cc5;">my_name</span> = <span style="color:#0a0;">"小明"</span><br>
-                                ✅ <span style="color:#005cc5;">age</span> = <span style="color:#905;">12</span><br>
-                                ❌ <span style="color:#d73a49;">2name</span> = <span style="color:#0a0;">"错误"</span> &nbsp;<span style="color:#999;"># 不能数字开头</span>
+                    <div class="w3-col l6 w3-hide-small chapter-card-col">
+                        <div class="w3-card-2 w3-round code-example-card code-example-card-light">
+                            <h3 class="code-example-card-title">命名规则：</h3>
+                            <div class="code-example-card-body code-bg-light">
+                                ✅ <span class="code-var">my_name</span> = <span class="code-val">"小明"</span><br>
+                                ✅ <span class="code-var">age</span> = <span class="code-val-num">12</span><br>
+                                ❌ <span class="code-err">2name</span> = <span class="code-val">"错误"</span> &nbsp;<span class="code-cmt"># 不能数字开头</span>
                             </div>
                         </div>
                     </div>
@@ -381,20 +473,20 @@
             </div>
 
             <!-- 🧪 类比实验室 — 深色背景（对应 W3Schools JavaScript 区域） -->
-            <div class="w3-row w3-padding-32" style="background-color:#282A35;color:#fff;">
-                <div class="w3-content" style="max-width:1200px;margin:0 auto;padding:0 16px;">
-                    <div class="w3-col l6 w3-center" style="padding:3%;">
-                        <h2 style="font-size:50px;font-weight:700;margin:0 0 8px 0;">🔀 条件判断</h2>
-                        <p style="font-size:17px;color:#ccc;margin:0 0 20px 0;">学习if/else，让程序根据不同条件做出智能决策</p>
-                        <a href="javascript:void(0)" onclick="switchChapter('ch4')" class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:17px;font-weight:600;padding:12px 36px;border-radius:25px;text-decoration:none;transition:background 0.2s;">开始学习</a>
+            <div class="w3-row w3-padding-32 chapter-card-row card-row-dark">
+                <div class="chapter-card-content">
+                    <div class="w3-col l6 w3-center chapter-card-col">
+                        <h2 class="chapter-card-title">🔀 条件判断</h2>
+                        <p class="chapter-card-desc chapter-card-desc-light">学习if/else，让程序根据不同条件做出智能决策</p>
+                        <a href="javascript:void(0)" onclick="switchChapter('ch4')" class="chapter-learn-btn">开始学习</a>
                     </div>
-                    <div class="w3-col l6 w3-hide-small" style="padding:3%;">
-                        <div class="w3-card-2 w3-round" style="background:#1a1a2e;padding:20px;color:#eee;">
-                            <h3 style="margin:0 0 12px;font-size:18px;color:#fff;">变量 = 贴了标签的盒子：</h3>
-                            <div style="background:#0d0d1a;border-left:4px solid #04AA6D;padding:16px;border-radius:4px;font-family:monospace;font-size:14px;line-height:1.8;">
-                                📦 <span style="color:#04AA6D;">score</span> → <span style="color:#ffd23f;">95</span><br>
-                                📦 <span style="color:#04AA6D;">name</span> → <span style="color:#ffd23f;">"小明"</span><br>
-                                <span style="color:#999;">拖拽标签和数据到盒子中</span>
+                    <div class="w3-col l6 w3-hide-small chapter-card-col">
+                        <div class="w3-card-2 w3-round code-example-card code-example-card-dark">
+                            <h3 class="code-example-card-title code-example-card-title-light">变量 = 贴了标签的盒子：</h3>
+                            <div class="code-example-card-body code-bg-dark">
+                                📦 <span class="code-accent">score</span> → <span class="code-output">95</span><br>
+                                📦 <span class="code-accent">name</span> → <span class="code-output">"小明"</span><br>
+                                <span class="code-cmt">拖拽标签和数据到盒子中</span>
                             </div>
                         </div>
                     </div>
@@ -402,21 +494,21 @@
             </div>
 
             <!-- 💻 实践操作 — 浅粉背景（对应 W3Schools Python 区域） -->
-            <div class="w3-row w3-padding-32" style="background-color:#FFC0C7;color:#000;">
-                <div class="w3-content" style="max-width:1200px;margin:0 auto;padding:0 16px;">
-                    <div class="w3-col l6 w3-center" style="padding:3%;">
-                        <h2 style="font-size:50px;font-weight:700;margin:0 0 8px 0;">🔄 循环</h2>
-                        <p style="font-size:17px;color:#333;margin:0 0 20px 0;">学习while循环，让程序自动重复执行任务</p>
-                        <a href="javascript:void(0)" onclick="switchChapter('ch6')" class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:17px;font-weight:600;padding:12px 36px;border-radius:25px;text-decoration:none;transition:background 0.2s;">开始学习</a>
+            <div class="w3-row w3-padding-32 chapter-card-row card-row-pink">
+                <div class="chapter-card-content">
+                    <div class="w3-col l6 w3-center chapter-card-col">
+                        <h2 class="chapter-card-title">🔄 循环</h2>
+                        <p class="chapter-card-desc chapter-card-desc-dark">学习while循环，让程序自动重复执行任务</p>
+                        <a href="javascript:void(0)" onclick="switchChapter('ch6')" class="chapter-learn-btn">开始学习</a>
                     </div>
-                    <div class="w3-col l6 w3-hide-small" style="padding:3%;">
-                        <div class="w3-card-2 w3-round" style="background:#fff;padding:20px;color:#333;">
-                            <h3 style="margin:0 0 12px;font-size:18px;">在线编辑器：</h3>
-                            <div style="background:#1e1e1e;border-left:4px solid #04AA6D;padding:16px;border-radius:4px;font-family:monospace;font-size:14px;line-height:1.8;color:#d4d4d4;">
-                                <span style="color:#569cd6;">x</span> = <span style="color:#b5cea8;">10</span><br>
-                                <span style="color:#569cd6;">y</span> = <span style="color:#b5cea8;">20</span><br>
-                                <span style="color:#569cd6;">result</span> = x + y<br>
-                                <span style="color:#c586c0;">print</span>(<span style="color:#ce9178;">"结果："</span>, result)
+                    <div class="w3-col l6 w3-hide-small chapter-card-col">
+                        <div class="w3-card-2 w3-round code-example-card code-example-card-light">
+                            <h3 class="code-example-card-title">在线编辑器：</h3>
+                            <div class="code-example-card-body code-bg-monokai">
+                                <span class="code-kw">x</span> = <span class="code-num">10</span><br>
+                                <span class="code-kw">y</span> = <span class="code-num">20</span><br>
+                                <span class="code-kw">result</span> = x + y<br>
+                                <span class="code-func">print</span>(<span class="code-str">"结果："</span>, result)
                             </div>
                         </div>
                     </div>
@@ -424,20 +516,20 @@
             </div>
 
             <!-- ⚖️ 命名小法官 — 青绿背景（对应 W3Schools SQL 区域） -->
-            <div class="w3-row w3-padding-32" style="background-color:#96D4D4;color:#000;">
-                <div class="w3-content" style="max-width:1200px;margin:0 auto;padding:0 16px;">
-                    <div class="w3-col l6 w3-center" style="padding:3%;">
-                        <h2 style="font-size:50px;font-weight:700;margin:0 0 8px 0;">📋 列表</h2>
-                        <p style="font-size:17px;color:#333;margin:0 0 20px 0;">学习列表数据结构，管理一组数据</p>
-                        <a href="javascript:void(0)" onclick="switchChapter('ch11')" class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:17px;font-weight:600;padding:12px 36px;border-radius:25px;text-decoration:none;transition:background 0.2s;">开始学习</a>
+            <div class="w3-row w3-padding-32 chapter-card-row card-row-teal">
+                <div class="chapter-card-content">
+                    <div class="w3-col l6 w3-center chapter-card-col">
+                        <h2 class="chapter-card-title">📋 列表</h2>
+                        <p class="chapter-card-desc chapter-card-desc-dark">学习列表数据结构，管理一组数据</p>
+                        <a href="javascript:void(0)" onclick="switchChapter('ch11')" class="chapter-learn-btn">开始学习</a>
                     </div>
-                    <div class="w3-col l6 w3-hide-small" style="padding:3%;">
-                        <div class="w3-card-2 w3-round" style="background:#fff;padding:20px;color:#333;">
-                            <h3 style="margin:0 0 12px;font-size:18px;">判断合法性：</h3>
-                            <div style="background:#f5f5f5;border-left:4px solid #04AA6D;padding:16px;border-radius:4px;font-family:monospace;font-size:14px;line-height:1.8;">
-                                ✅ <span style="color:#005cc5;">user_name</span> &nbsp;&nbsp;<span style="color:#999;"># 合法</span><br>
-                                ❌ <span style="color:#d73a49;">1st_place</span> &nbsp;&nbsp;<span style="color:#999;"># 数字开头</span><br>
-                                ❌ <span style="color:#d73a49;">class</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#999;"># Python 关键字</span>
+                    <div class="w3-col l6 w3-hide-small chapter-card-col">
+                        <div class="w3-card-2 w3-round code-example-card code-example-card-light">
+                            <h3 class="code-example-card-title">判断合法性：</h3>
+                            <div class="code-example-card-body code-bg-light">
+                                ✅ <span class="code-var">user_name</span> &nbsp;&nbsp;<span class="code-cmt"># 合法</span><br>
+                                ❌ <span class="code-err">1st_place</span> &nbsp;&nbsp;<span class="code-cmt"># 数字开头</span><br>
+                                ❌ <span class="code-err">class</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-cmt"># Python 关键字</span>
                             </div>
                         </div>
                     </div>
@@ -445,20 +537,20 @@
             </div>
 
             <!-- 🔍 值追踪挑战 — 深色背景 -->
-            <div class="w3-row w3-padding-32" style="background-color:#282A35;color:#fff;">
-                <div class="w3-content" style="max-width:1200px;margin:0 auto;padding:0 16px;">
-                    <div class="w3-col l6 w3-center" style="padding:3%;">
-                        <h2 style="font-size:50px;font-weight:700;margin:0 0 8px 0;">📊 数据类型</h2>
-                        <p style="font-size:17px;color:#ccc;margin:0 0 20px 0;">掌握int/float/str/bool四种基本数据类型</p>
-                        <a href="javascript:void(0)" onclick="switchChapter('ch3')" class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:17px;font-weight:600;padding:12px 36px;border-radius:25px;text-decoration:none;transition:background 0.2s;">开始学习</a>
+            <div class="w3-row w3-padding-32 chapter-card-row card-row-dark">
+                <div class="chapter-card-content">
+                    <div class="w3-col l6 w3-center chapter-card-col">
+                        <h2 class="chapter-card-title">📊 数据类型</h2>
+                        <p class="chapter-card-desc chapter-card-desc-light">掌握int/float/str/bool四种基本数据类型</p>
+                        <a href="javascript:void(0)" onclick="switchChapter('ch3')" class="chapter-learn-btn">开始学习</a>
                     </div>
-                    <div class="w3-col l6 w3-hide-small" style="padding:3%;">
-                        <div class="w3-card-2 w3-round" style="background:#1a1a2e;padding:20px;color:#eee;">
-                            <h3 style="margin:0 0 12px;font-size:18px;color:#fff;">变量值变化：</h3>
-                            <div style="background:#0d0d1a;border-left:4px solid #04AA6D;padding:16px;border-radius:4px;font-family:monospace;font-size:14px;line-height:1.8;">
-                                <span style="color:#569cd6;">x</span> = <span style="color:#b5cea8;">5</span> &nbsp;&nbsp;<span style="color:#999;"># x = 5</span><br>
-                                <span style="color:#569cd6;">x</span> = <span style="color:#b5cea8;">10</span> &nbsp;<span style="color:#999;"># x = 10</span><br>
-                                <span style="color:#569cd6;">x</span> = x + <span style="color:#b5cea8;">3</span> &nbsp;<span style="color:#999;"># x = 13</span>
+                    <div class="w3-col l6 w3-hide-small chapter-card-col">
+                        <div class="w3-card-2 w3-round code-example-card code-example-card-dark">
+                            <h3 class="code-example-card-title code-example-card-title-light">变量值变化：</h3>
+                            <div class="code-example-card-body code-bg-dark">
+                                <span class="code-kw">x</span> = <span class="code-num">5</span> &nbsp;&nbsp;<span class="code-cmt"># x = 5</span><br>
+                                <span class="code-kw">x</span> = <span class="code-num">10</span> &nbsp;<span class="code-cmt"># x = 10</span><br>
+                                <span class="code-kw">x</span> = x + <span class="code-num">3</span> &nbsp;<span class="code-cmt"># x = 13</span>
                             </div>
                         </div>
                     </div>
@@ -466,20 +558,20 @@
             </div>
 
             <!-- 🏥 错误调试诊所 — 浅粉背景 -->
-            <div class="w3-row w3-padding-32" style="background-color:#FFC0C7;color:#000;">
-                <div class="w3-content" style="max-width:1200px;margin:0 auto;padding:0 16px;">
-                    <div class="w3-col l6 w3-center" style="padding:3%;">
-                        <h2 style="font-size:50px;font-weight:700;margin:0 0 8px 0;">🏥 调试诊所</h2>
-                        <p style="font-size:17px;color:#333;margin:0 0 20px 0;">找出代码中的错误，培养调试能力</p>
-                        <a href="javascript:void(0)" onclick="switchChapter('ch2')" class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:17px;font-weight:600;padding:12px 36px;border-radius:25px;text-decoration:none;transition:background 0.2s;">开始调试</a>
+            <div class="w3-row w3-padding-32 chapter-card-row card-row-pink">
+                <div class="chapter-card-content">
+                    <div class="w3-col l6 w3-center chapter-card-col">
+                        <h2 class="chapter-card-title">🏥 调试诊所</h2>
+                        <p class="chapter-card-desc chapter-card-desc-dark">找出代码中的错误，培养调试能力</p>
+                        <a href="javascript:void(0)" onclick="switchChapter('ch2')" class="chapter-learn-btn">开始调试</a>
                     </div>
-                    <div class="w3-col l6 w3-hide-small" style="padding:3%;">
-                        <div class="w3-card-2 w3-round" style="background:#fff;padding:20px;color:#333;">
-                            <h3 style="margin:0 0 12px;font-size:18px;">找出错误：</h3>
-                            <div style="background:#f5f5f5;border-left:4px solid #d73a49;padding:16px;border-radius:4px;font-family:monospace;font-size:14px;line-height:1.8;">
-                                <span style="color:#569cd6;">age</span> = <span style="color:#b5cea8;">12</span><br>
-                                <span style="color:#569cd6;">print</span>(<span style="color:#ce9178;">"年龄："</span> + age) <span style="color:#d73a49;">← 错误！</span><br>
-                                <span style="color:#999;"># 应该用 str(age) 转换</span>
+                    <div class="w3-col l6 w3-hide-small chapter-card-col">
+                        <div class="w3-card-2 w3-round code-example-card code-example-card-light">
+                            <h3 class="code-example-card-title">找出错误：</h3>
+                            <div class="code-example-card-body code-bg-light code-example-card-body-error">
+                                <span class="code-kw">age</span> = <span class="code-num">12</span><br>
+                                <span class="code-kw">print</span>(<span class="code-str">"年龄："</span> + age) <span class="code-err">← 错误！</span><br>
+                                <span class="code-cmt"># 应该用 str(age) 转换</span>
                             </div>
                         </div>
                     </div>
@@ -487,20 +579,20 @@
             </div>
 
             <!-- 🚀 扩展思维 — 浅绿背景 -->
-            <div class="w3-row w3-padding-32" style="background-color:#D9EEE1;color:#000;">
-                <div class="w3-content" style="max-width:1200px;margin:0 auto;padding:0 16px;">
-                    <div class="w3-col l6 w3-center" style="padding:3%;">
-                        <h2 style="font-size:50px;font-weight:700;margin:0 0 8px 0;">🚀 综合应用</h2>
-                        <p style="font-size:17px;color:#333;margin:0 0 20px 0;">综合运用所学知识，完成小型编程项目</p>
-                        <a href="javascript:void(0)" onclick="switchChapter('ch9')" class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:17px;font-weight:600;padding:12px 36px;border-radius:25px;text-decoration:none;transition:background 0.2s;">开始探索</a>
+            <div class="w3-row w3-padding-32 chapter-card-row card-row-green">
+                <div class="chapter-card-content">
+                    <div class="w3-col l6 w3-center chapter-card-col">
+                        <h2 class="chapter-card-title">🚀 综合应用</h2>
+                        <p class="chapter-card-desc chapter-card-desc-dark">综合运用所学知识，完成小型编程项目</p>
+                        <a href="javascript:void(0)" onclick="switchChapter('ch9')" class="chapter-learn-btn">开始探索</a>
                     </div>
-                    <div class="w3-col l6 w3-hide-small" style="padding:3%;">
-                        <div class="w3-card-2 w3-round" style="background:#fff;padding:20px;color:#333;">
-                            <h3 style="margin:0 0 12px;font-size:18px;">高级概念：</h3>
-                            <div style="background:#f5f5f5;border-left:4px solid #04AA6D;padding:16px;border-radius:4px;font-family:monospace;font-size:14px;line-height:1.8;">
-                                <span style="color:#569cd6;">a</span>, <span style="color:#569cd6;">b</span> = <span style="color:#b5cea8;">1</span>, <span style="color:#b5cea8;">2</span> &nbsp;<span style="color:#999;"># 多重赋值</span><br>
-                                <span style="color:#569cd6;">a</span>, <span style="color:#569cd6;">b</span> = b, a &nbsp;<span style="color:#999;"># 交换值</span><br>
-                                <span style="color:#569cd6;">x</span> += <span style="color:#b5cea8;">1</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#999;"># 增强赋值</span>
+                    <div class="w3-col l6 w3-hide-small chapter-card-col">
+                        <div class="w3-card-2 w3-round code-example-card code-example-card-light">
+                            <h3 class="code-example-card-title">高级概念：</h3>
+                            <div class="code-example-card-body code-bg-light">
+                                <span class="code-kw">a</span>, <span class="code-kw">b</span> = <span class="code-num">1</span>, <span class="code-num">2</span> &nbsp;<span class="code-cmt"># 多重赋值</span><br>
+                                <span class="code-kw">a</span>, <span class="code-kw">b</span> = b, a &nbsp;<span class="code-cmt"># 交换值</span><br>
+                                <span class="code-kw">x</span> += <span class="code-num">1</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-cmt"># 增强赋值</span>
                             </div>
                         </div>
                     </div>
@@ -508,34 +600,34 @@
             </div>
 
             <!-- 📝 课堂小测 / 🎨 创意项目 / 🏆 成就墙 — 卡片网格（对应 W3Schools 底部卡片区域） -->
-            <div class="w3-row w3-padding-64" style="background-color:#282A35;">
-                <div style="max-width:1200px;margin:0 auto;padding:0 16px;">
-                    <div style="text-align:center;margin-bottom:32px;">
-                        <h2 style="color:#fff;font-size:28px;font-weight:700;margin:0;">更多模块</h2>
+            <div class="more-modules-section">
+                <div class="more-modules-inner">
+                    <div class="more-modules-heading">
+                        <h2 class="more-modules-heading-title">更多模块</h2>
                     </div>
                     <div class="w3-row">
-                        <div class="w3-col l4 m6 s12 w3-center" style="padding:2% 3%;">
-                            <div onclick="switchChapter('ch18')" class="w3-card-2 w3-round" style="background-color:#FFF4A3;color:#000;padding:36px 24px;cursor:pointer;transition:all 0.25s;">
-                                <div style="font-size:36px;margin-bottom:10px;">🧠</div>
-                                <h2 style="font-size:32px;font-weight:700;margin:0 0 8px 0;">编程思维</h2>
-                                <p style="font-size:14px;color:#555;margin:0 0 16px 0;">学习流程图和算法思维</p>
-                                <span class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:15px;font-weight:600;padding:10px 28px;border-radius:25px;">开始学习</span>
+                        <div class="w3-col l4 m6 s12 w3-center module-card-col">
+                            <div onclick="switchChapter('ch18')" class="w3-card-2 w3-round module-card module-card-yellow">
+                                <div class="module-card-icon">🧠</div>
+                                <h2 class="module-card-title">编程思维</h2>
+                                <p class="module-card-desc">学习流程图和算法思维</p>
+                                <span class="chapter-learn-btn-sm">开始学习</span>
                             </div>
                         </div>
-                        <div class="w3-col l4 m6 s12 w3-center" style="padding:2% 3%;">
-                            <div onclick="switchChapter('ch14')" class="w3-card-2 w3-round" style="background-color:#FFC0C7;color:#000;padding:36px 24px;cursor:pointer;transition:all 0.25s;">
-                                <div style="font-size:36px;margin-bottom:10px;">📖</div>
-                                <h2 style="font-size:32px;font-weight:700;margin:0 0 8px 0;">字典</h2>
-                                <p style="font-size:14px;color:#555;margin:0 0 16px 0;">学习键值对数据结构</p>
-                                <span class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:15px;font-weight:600;padding:10px 28px;border-radius:25px;">开始学习</span>
+                        <div class="w3-col l4 m6 s12 w3-center module-card-col">
+                            <div onclick="switchChapter('ch14')" class="w3-card-2 w3-round module-card module-card-pink">
+                                <div class="module-card-icon">📖</div>
+                                <h2 class="module-card-title">字典</h2>
+                                <p class="module-card-desc">学习键值对数据结构</p>
+                                <span class="chapter-learn-btn-sm">开始学习</span>
                             </div>
                         </div>
-                        <div class="w3-col l4 m6 s12 w3-center" style="padding:2% 3%;">
-                            <div onclick="switchChapter('ch17')" class="w3-card-2 w3-round" style="background-color:#96D4D4;color:#000;padding:36px 24px;cursor:pointer;transition:all 0.25s;">
-                                <div style="font-size:36px;margin-bottom:10px;">💡</div>
-                                <h2 style="font-size:32px;font-weight:700;margin:0 0 8px 0;">二进制</h2>
-                                <p style="font-size:14px;color:#555;margin:0 0 16px 0;">理解计算机的数字世界</p>
-                                <span class="ws-learn-btn" style="display:inline-block;background:#04AA6D;color:#fff;font-size:15px;font-weight:600;padding:10px 28px;border-radius:25px;">开始学习</span>
+                        <div class="w3-col l4 m6 s12 w3-center module-card-col">
+                            <div onclick="switchChapter('ch17')" class="w3-card-2 w3-round module-card module-card-teal">
+                                <div class="module-card-icon">💡</div>
+                                <h2 class="module-card-title">二进制</h2>
+                                <p class="module-card-desc">理解计算机的数字世界</p>
+                                <span class="chapter-learn-btn-sm">开始学习</span>
                             </div>
                         </div>
                     </div>
@@ -543,30 +635,30 @@
             </div>
             
             <!-- 代码编辑器展示 -->
-            <div style="background:#0f0f1a;padding:0 16px 70px;">
-                <div style="max-width:780px;margin:0 auto;">
-                    <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
-                        <div style="padding:12px 18px;background:#16162a;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:8px;">
-                            <span style="display:inline-block;width:11px;height:11px;background:#ED594A;border-radius:50%;"></span>
-                            <span style="display:inline-block;width:11px;height:11px;background:#FDD800;border-radius:50%;"></span>
-                            <span style="display:inline-block;width:11px;height:11px;background:#5AC05A;border-radius:50%;"></span>
-                            <span style="color:#666;font-size:13px;font-weight:500;margin-left:8px;">python_variable_demo.py</span>
+            <div class="code-showcase-wrapper">
+                <div class="code-showcase-inner">
+                    <div class="code-showcase-window">
+                        <div class="code-showcase-header">
+                            <span class="code-showcase-dot code-showcase-dot-red"></span>
+                            <span class="code-showcase-dot code-showcase-dot-yellow"></span>
+                            <span class="code-showcase-dot code-showcase-dot-green"></span>
+                            <span class="code-showcase-filename">python_variable_demo.py</span>
                         </div>
-                        <div style="background:#0d0d1a;padding:28px 32px;min-height:280px;">
+                        <div class="code-showcase-body">
                             <div class="typewriter-container">
                                 <span class="typewriter-output"></span><span class="typewriter-cursor"></span>
                             </div>
                         </div>
                     </div>
-                    <div style="text-align:center;margin-top:28px;">
-                        <a href="javascript:void(0)" onclick="switchChapter('ch1')" style="display:inline-block;background:#04AA6D;color:white;font-size:15px;padding:12px 32px;border-radius:25px;text-decoration:none;font-weight:600;transition:all 0.2s;">开始编程体验</a>
+                    <div class="code-showcase-cta">
+                        <a href="javascript:void(0)" onclick="switchChapter('ch1')" class="code-showcase-cta-btn">开始编程体验</a>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- 1. 情境导入模块 -->
-        <section id="intro" class="module">
+        <section id="ch2_intro" class="module">
             <div class="module-header">
                 <h2>🎬 情境导入 - 会变的小盒子</h2>
                 <p>通过动画了解为什么我们需要变量</p>
@@ -607,13 +699,13 @@
                         <div class="box-value">95</div>
                     </div>
                     <p>💡 变量就像一个可以装东西的盒子，我们可以给它贴标签，随时放入或取出数据！</p>
-                    <button class="intro-next-btn" onclick="markModuleCompleted('intro'); switchModule('lesson')">📚 进入知识讲解 →</button>
+                    <button class="intro-next-btn" onclick="markModuleCompleted('ch2_intro'); switchModule('ch2_lesson')">📚 进入知识讲解 →</button>
                 </div>
             </div>
         </section>
 
         <!-- 2. 生活类比实验室 -->
-        <section id="lab" class="module">
+        <section id="ch2_lab" class="module">
             <div class="module-header">
                 <h2>🧪 生活类比实验室</h2>
                 <p>拖拽标签和数据，体验变量的概念</p>
@@ -650,7 +742,7 @@
         </section>
 
         <!-- 3. 知识讲解模块 -->
-        <section id="lesson" class="module">
+        <section id="ch2_lesson" class="module">
             <div class="module-header">
                 <h2>📚 知识讲解</h2>
                 <p>学习变量的核心概念</p>
@@ -709,7 +801,7 @@ score = 95.5  # 浮点数类型</pre>
         </section>
 
         <!-- 4. 命名小法官 -->
-        <section id="judge" class="module">
+        <section id="ch2_judge" class="module">
             <div class="module-header">
                 <h2>⚖️ 命名小法官</h2>
                 <p>判断变量名是否合法，累计星星奖励！</p>
@@ -739,7 +831,7 @@ score = 95.5  # 浮点数类型</pre>
         </section>
 
         <!-- 5. 实践操作模块 -->
-        <section id="practice" class="module">
+        <section id="ch2_practice" class="module">
             <div class="module-header">
                 <h2>💻 实践操作</h2>
                 <p>分级别练习变量的使用</p>
@@ -771,7 +863,7 @@ score = 95.5  # 浮点数类型</pre>
         </section>
 
         <!-- 6. 值追踪挑战 -->
-        <section id="trace" class="module">
+        <section id="ch2_trace" class="module">
             <div class="module-header">
                 <h2>🔍 值追踪挑战</h2>
                 <p>追踪变量值的变化，测试你的理解！</p>
@@ -806,7 +898,7 @@ z = x + y</pre>
         </section>
 
         <!-- 7. 错误调试诊所 -->
-        <section id="debug" class="module">
+        <section id="ch2_debug" class="module">
             <div class="module-header">
                 <h2>🏥 错误调试诊所</h2>
                 <p>找出代码中的bug并修复它们！</p>
@@ -830,7 +922,7 @@ z = x + y</pre>
         </section>
 
         <!-- 8. 扩展思维模块 -->
-        <section id="extend" class="module">
+        <section id="ch2_extend" class="module">
             <div class="module-header">
                 <h2>🚀 扩展思维</h2>
                 <p>挑战更高难度的变量操作</p>
@@ -877,7 +969,7 @@ z = x + y</pre>
         </section>
 
         <!-- 9. 创意迷你项目 -->
-        <section id="project" class="module">
+        <section id="ch2_project" class="module">
             <div class="module-header">
                 <h2>🎨 创意迷你项目</h2>
                 <p>制作你的自我介绍名片！</p>
@@ -909,7 +1001,7 @@ z = x + y</pre>
         </section>
 
         <!-- 10. 课堂小测 -->
-        <section id="test" class="module">
+        <section id="ch2_test" class="module">
             <div class="module-header">
                 <h2>📝 课堂小测</h2>
                 <p>检验你的学习成果！</p>
@@ -979,6 +1071,17 @@ z = x + y</pre>
                     <div class="progress-bar-container">
                         <div class="progress-bar" id="progressBar" style="width:0%">0%</div>
                     </div>
+                    <!-- 学习进度环形图 -->
+                    <div class="progress-chart" id="progressChart">
+                        <svg viewBox="0 0 120 120" width="120" height="120">
+                            <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"/>
+                            <circle cx="60" cy="60" r="50" fill="none" stroke="#04AA6D" stroke-width="8"
+                                stroke-dasharray="0 314" stroke-linecap="round" transform="rotate(-90 60 60)"
+                                id="progressDonut"/>
+                            <text x="60" y="55" text-anchor="middle" fill="var(--text-color)" font-size="22" font-weight="bold" id="progressPercent">0%</text>
+                            <text x="60" y="75" text-anchor="middle" fill="var(--text-muted, #999)" font-size="11" id="progressFraction">0/19</text>
+                        </svg>
+                    </div>
                 </div>
                 <div class="achievements reveal">
                     <h3>🏅 获得成就</h3>
@@ -1022,7 +1125,7 @@ z = x + y</pre>
             <div class="leaderboard-content">
                 <div class="leaderboard-filters">
                     <label>筛选年级：</label>
-                    <select id="lbGradeFilter" class="form-input" onchange="renderLeaderboard()">
+                    <select id="lbGradeFilter" class="form-input" onchange="onLeaderboardGradeChange()">
                         <option value="">全部年级</option>
                         <option value="七年级">七年级</option>
                         <option value="八年级">八年级</option>
@@ -1196,7 +1299,7 @@ z = x + y</pre>
                     <select id="discussionChapterFilter" class="form-input" onchange="renderDiscussions(this.value)">
                         <option value="">全部章节</option>
                     </select>
-                    <button class="form-submit-btn" onclick="showDiscussionForm()" style="margin-left:auto;">📝 发帖</button>
+                    <button class="form-submit-btn ml-auto" onclick="showDiscussionForm()">📝 发帖</button>
                 </div>
                 <div class="discussion-form-wrap" id="discussionFormWrap" style="display:none">
                     <h3>📝 发布新帖</h3>
@@ -1285,12 +1388,27 @@ z = x + y</pre>
     </footer>
 
     <!-- CodeMirror JS (本地优先，CDN备用) -->
-    <script src="lib/codemirror.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js'"></script>
-    <script src="lib/python.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js'"></script>
-    <script src="lib/comment.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/comment/comment.min.js'"></script>
-    <script src="lib/closebrackets.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js'"></script>
-    <script src="chapters.js"></script>
-    <script src="chapter-interactions.js"></script>
-    <script src="script.js"></script>
+    <script src="lib/codemirror.min.js" defer onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js'"></script>
+    <script src="lib/python.min.js" defer onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js'"></script>
+    <script src="lib/comment.min.js" defer onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/comment/comment.min.js'"></script>
+    <script src="lib/closebrackets.min.js" defer onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js'"></script>
+    <script src="chapters.js" defer></script>
+    <script src="chapter-interactions.js?v=20260928-5" defer></script>
+    <script src="chapters-content.js?v=20260928-1" defer></script>
+    <!-- 模块化 script.js 拆分为 12 个独立模块 -->
+    <script src="js/utils.js" defer></script>
+    <script src="js/ui.js" defer></script>
+    <script src="js/api.js?v=20260929-3" defer></script>
+    <script src="js/auth.js?v=20260929-3" defer></script>
+    <script src="js/router.js?v=20260929-1" defer></script>
+    <script src="js/chapters.js?v=20260929-3" defer></script>
+    <script src="js/lab.js?v=20260929-1" defer></script>
+    <script src="js/quiz.js" defer></script>
+    <script src="js/achievements.js?v=20260929-2" defer></script>
+    <script src="js/discussions.js" defer></script>
+    <script src="js/search.js" defer></script>
+    <script src="script.js" defer></script>
+    <script src="script-ch2.js?v=20260929-3" defer></script>
+    <script src="script-extras.js?v=20260929-3" defer></script>
 </body>
 </html>

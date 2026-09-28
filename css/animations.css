@@ -1,0 +1,455 @@
+﻿/* ================================================================
+   animations.css - 动画相关（过渡、关键帧动画）
+   从 style.css 和 style-chapters.css 提取
+   ================================================================ */
+
+/* ===== 鐧诲綍鎴愬姛娆㈣繋鍔ㄧ敾 ===== */
+.login-welcome-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10001;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.6);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    animation: welcomeFadeIn 0.3s ease;
+}
+
+.login-welcome-card {
+    background: #1a1a2e;
+    border: 1px solid rgba(4, 170, 109, 0.3);
+    border-radius: 20px;
+    padding: 48px 56px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 80px rgba(4, 170, 109, 0.1);
+    animation: welcomeScaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 420px;
+    width: 90%;
+}
+
+.login-welcome-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+    animation: welcomeBounce 0.6s ease 0.2s both;
+}
+
+.login-welcome-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #04AA6D;
+    margin: 0 0 8px 0;
+}
+
+.login-welcome-name {
+    font-size: 20px;
+    font-weight: 600;
+    color: #e0e0e0;
+    margin: 0 0 16px 0;
+}
+
+.login-welcome-subtitle {
+    font-size: 14px;
+    color: #888;
+    margin: 0;
+}
+
+.login-welcome-overlay.removing {
+    animation: welcomeFadeOut 0.5s ease forwards;
+}
+
+.login-welcome-overlay.removing .login-welcome-card {
+    animation: welcomeScaleOut 0.4s ease forwards;
+}
+
+@keyframes welcomeFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes welcomeFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes welcomeScaleIn {
+    from {
+        transform: scale(0.7);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes welcomeScaleOut {
+    from {
+        transform: scale(1);
+        opacity: 1;
+    }
+    to {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+}
+
+@keyframes welcomeBounce {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+/* 浜壊涓婚閫傞厤 */
+[data-theme="light"] .login-welcome-overlay {
+    background: rgba(0, 0, 0, 0.3);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+
+[data-theme="light"] .login-welcome-card {
+    background: #fff;
+    border: 1px solid rgba(4, 170, 109, 0.2);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 80px rgba(4, 170, 109, 0.05);
+}
+
+[data-theme="light"] .login-welcome-title {
+    color: #04AA6D;
+}
+
+[data-theme="light"] .login-welcome-name {
+    color: #333;
+}
+
+[data-theme="light"] .login-welcome-subtitle {
+    color: #888;
+}
+
+/* 鎼滅储楂樹寒 */
+.search-highlight {
+    background-color: #ffecee;
+    color: #000;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+/* W3Schools 椋庢牸鎸夐挳 */
+.ws-btn-green:hover {
+    background-color: #059862 !important;
+    color: white !important;
+}
+
+.ws-btn-outline:hover {
+    background-color: #282A35 !important;
+    color: white !important;
+}
+
+.ws-btn-outline-dark:hover {
+    background-color: #282A35 !important;
+    color: white !important;
+}
+
+/* 棣栭〉鐗硅壊鍗＄墖 */
+.welcome-features-section {
+    background: #1a1a2e;
+}
+
+.welcome-feature-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 36px 28px;
+    transition: all 0.3s ease;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--w3-green);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.welcome-feature-card:hover::before {
+    opacity: 1;
+}
+
+.welcome-feature-icon {
+    width: 52px;
+    height: 52px;
+    background: rgba(4,170,109,0.12);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 22px;
+    transition: transform 0.3s ease, background 0.3s ease;
+}
+
+.welcome-feature-card:hover .welcome-feature-icon {
+    transform: scale(1.08);
+    background: rgba(4,170,109,0.18);
+}
+
+.welcome-feature-title {
+    color: #fff;
+    font-size: 19px;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+    letter-spacing: -0.2px;
+}
+
+.welcome-feature-desc {
+    color: #999;
+    font-size: 14px;
+    line-height: 1.7;
+    margin: 0;
+}
+
+.welcome-feature-card:hover {
+    background: rgba(255,255,255,0.05) !important;
+    border-color: rgba(4,170,109,0.25) !important;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+/* ===== W3Schools 椋庢牸棣栭〉妯″潡鍖哄煙 ===== */
+
+/* ===== 鍙嶉鍔ㄧ敾 ===== */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 50%, 90% { transform: translateX(-6px); }
+    30%, 70% { transform: translateX(6px); }
+}
+
+@keyframes bounceIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.08); }
+    70% { transform: scale(0.95); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(4, 170, 109, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(4, 170, 109, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(4, 170, 109, 0); }
+}
+
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+.bounce-in {
+    animation: bounceIn 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.pulse-highlight {
+    animation: pulse 0.6s ease-in-out;
+}
+
+/* 鍙嶉娑堟伅鍔ㄧ敾 */
+.feedback-correct {
+    color: var(--success) !important;
+    font-weight: bold;
+    animation: bounceIn 0.4s ease;
+}
+
+.feedback-wrong {
+    color: var(--danger) !important;
+    font-weight: bold;
+    animation: shake 0.4s ease;
+}
+
+/* 閫夐」鎸夐挳鍔ㄧ敾 */
+.debug-options button:active,
+.debug-options button.correct-pick {
+    animation: pulse 0.5s ease;
+    background: var(--success) !important;
+    color: white !important;
+    border-color: var(--success) !important;
+}
+
+/* 蹇嵎閿彁绀?*/
+.shortcuts-hint {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.kbd {
+    display: inline-block;
+    padding: 2px 8px;
+    font-family: 'Consolas', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    background: #f1f1f1;
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+/* 鎸夐挳鍔犺浇鍔ㄧ敾 */
+.btn-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: btn-spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+@keyframes btn-spin {
+    to { transform: rotate(360deg); }
+}
+
+
+/* ===== 婊氬姩鍏ュ満鍔ㄧ敾 ===== */
+.reveal {
+    opacity: 0;
+    transform: translateY(36px);
+    transition: opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.reveal-left {
+    opacity: 0;
+    transform: translateX(-50px);
+    transition: opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.reveal-left.revealed {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.reveal-right {
+    opacity: 0;
+    transform: translateX(50px);
+    transition: opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.reveal-right.revealed {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.reveal-scale {
+    opacity: 0;
+    transform: scale(0.88);
+    transition: opacity 0.6s cubic-bezier(0.22, 0.61, 0.36, 1),
+                transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.reveal-scale.revealed {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* 寤惰繜鍏ュ満 - 绾ц仈鍔ㄧ敾 */
+.reveal-delay-1 { transition-delay: 0.08s; }
+.reveal-delay-2 { transition-delay: 0.16s; }
+.reveal-delay-3 { transition-delay: 0.24s; }
+.reveal-delay-4 { transition-delay: 0.32s; }
+.reveal-delay-5 { transition-delay: 0.40s; }
+.reveal-delay-6 { transition-delay: 0.48s; }
+.reveal-delay-7 { transition-delay: 0.56s; }
+.reveal-delay-8 { transition-delay: 0.64s; }
+
+/* ===== 娴姩鍔ㄧ敾 ===== */
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+}
+
+
+/* ===== 鑴夊啿鍙戝厜 ===== */
+@keyframes glowPulse {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(4, 170, 109, 0.3),
+                    0 0 30px rgba(4, 170, 109, 0.1),
+                    0 0 50px rgba(4, 170, 109, 0.05);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(4, 170, 109, 0.5),
+                    0 0 50px rgba(4, 170, 109, 0.2),
+                    0 0 80px rgba(4, 170, 109, 0.1);
+    }
+}
+
+
+/* ===== 娓愬彉绉诲姩鑳屾櫙 ===== */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+
+/* ===== 鎵弿绾挎晥鏋?===== */
+@keyframes scanLine {
+    0% { top: -5%; }
+    100% { top: 105%; }
+}
+
+
+/* ===== 鍗＄墖鏍峰紡 ===== */
+
+/* ---- 娴佺▼鍥剧ず ---- */
+.ch-process-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 20px;
+    margin: 18px 0;
+    background: #fafafa;
+    border-radius: 12px;
+    border: 1px solid #e8e8e8;
+}
+
+.ch-process-flow .ch-process-node {
+    background: #fff;
+    border: 2px solid #04AA6D;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.ch-process-flow .ch-process-node:hover {
+    background: #04AA6D;
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.ch-process-flow .ch-process-arrow {
+    font-size: 18px;
+    color: #04AA6D;
+    font-weight: 700;
+}
+
+/* ---- 鍔ㄧ敾绫?---- */
+

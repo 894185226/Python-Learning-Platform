@@ -1,0 +1,430 @@
+# ===================================================
+# Python 基础学习平台 - CI/CD 流水线
+# 触发：push 到 main/master、PR、手动触发
+# 支持自动回滚和失败诊断
+# ===================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      skip_health_check:
+        description: '跳过健康检查'
+        type: boolean
+        default: false
+      rollback:
+        description: '回滚到上一个版本（慎用）'
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: "20"
+  DOCKER_IMAGE: python-var-lesson
+
+jobs:
+  # ---------- 1. 代码质量检查 ----------
+  lint:
+    name: 代码检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 检查 package.json 完整性
+        run: node -e "const pkg = require('./package.json'); console.log('OK:', pkg.name, pkg.version)"
+
+  # ---------- 2. 单元测试 ----------
+  test:
+    name: 单元测试
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 运行测试
+        run: npm test
+
+      - name: 上传测试报告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failure-report
+          path: |
+            test-results*.xml
+            *.log
+          retention-days: 7
+
+  # ---------- 3. 安全扫描 ----------
+  security:
+    name: 安全扫描
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: npm audit 检查
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  # ---------- 4. Docker 构建 + 版本管理 ----------
+  docker:
+    name: Docker 构建 & 版本备份
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker 元数据
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest
+            type=raw,value=current
+
+      - name: 构建 Docker 镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 版本备份
+        run: |
+          echo "=== 版本备份 ==="
+          # 如果存在 current 版本，将其标记为 previous
+          if docker image inspect ${{ env.DOCKER_IMAGE }}:current > /dev/null 2>&1; then
+            docker tag ${{ env.DOCKER_IMAGE }}:current ${{ env.DOCKER_IMAGE }}:previous
+            echo "已备份 current -> previous"
+          fi
+          # 创建时间戳备份
+          TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
+          docker tag ${{ env.DOCKER_IMAGE }}:latest ${{ env.DOCKER_IMAGE }}:backup-${TIMESTAMP}
+          echo "已创建时间戳备份: backup-${TIMESTAMP}"
+
+          # 清理旧备份（保留最近 3 个）
+          docker images --format "{{.Tag}}" ${{ env.DOCKER_IMAGE }} \
+            | grep "^backup-" \
+            | sort -r \
+            | tail -n +4 \
+            | while read tag; do
+              echo "清理旧备份: $tag"
+              docker rmi ${{ env.DOCKER_IMAGE }}:$tag || true
+            done
+          echo "=== 备份完成 ==="
+
+      - name: 验证镜像
+        run: |
+          echo "=== 镜像列表 ==="
+          docker images --filter "reference=${{ env.DOCKER_IMAGE }}" --format "table {{.Tag}}\t{{.CreatedAt}}\t{{.Size}}"
+
+      # ---- 构建失败诊断 ----
+      - name: 构建失败诊断
+        if: failure()
+        run: |
+          echo "============================================"
+          echo "  构建失败 - 诊断信息"
+          echo "============================================"
+          echo "Docker 磁盘使用:"
+          docker system df
+          echo ""
+          echo "Buildx 构建器:"
+          docker buildx ls
+          echo ""
+          echo "磁盘空间:"
+          df -h /
+
+  # ---------- 5. 部署 + 健康检查 + 自动回滚 ----------
+  deploy:
+    name: 部署 & 健康检查
+    runs-on: ubuntu-latest
+    needs: docker
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && !inputs.rollback
+    environment:
+      name: production
+      url: https://python-lesson.example.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 部署到服务器
+        id: deploy
+        run: |
+          echo "=== 开始部署 ==="
+          echo "时间: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "提交: ${{ github.sha }}"
+          echo ""
+
+          if [ -z "${SERVER_HOST}" ]; then
+            echo "[警告] 未配置 SERVER_HOST，跳过远程部署"
+            echo "请在 GitHub Secrets 中配置: SERVER_HOST / SERVER_USER / SSH_PRIVATE_KEY"
+            exit 0
+          fi
+
+          # 通过 SSH 在服务器上执行部署
+          echo "${SSH_PRIVATE_KEY}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i /tmp/deploy_key \
+            ${SERVER_USER}@${SERVER_HOST} << 'DEPLOY_EOF'
+            set -e
+            cd /app
+
+            echo "[1/4] 拉取最新代码..."
+            git pull origin main
+
+            echo "[2/4] 备份当前版本..."
+            if docker image inspect python-var-lesson:current > /dev/null 2>&1; then
+              docker tag python-var-lesson:current python-var-lesson:previous
+              echo "  已备份: current -> previous"
+            fi
+
+            echo "[3/4] 构建并启动..."
+            docker-compose down --remove-orphans 2>/dev/null || true
+            docker-compose up -d --build
+
+            echo "[4/4] 等待健康检查..."
+            for i in $(seq 1 30); do
+              STATUS=$(docker inspect pyvar_app --format='{{.State.Health.Status}}' 2>/dev/null || echo "starting")
+              if [ "$STATUS" = "healthy" ]; then
+                echo "  服务就绪 (${i}s)"
+                exit 0
+              fi
+              sleep 1
+            done
+            echo "  健康检查超时！"
+            exit 1
+DEPLOY_EOF
+
+          rm -f /tmp/deploy_key
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # ---- 部署失败：收集诊断日志 ----
+      - name: 部署失败诊断
+        if: failure() && steps.deploy.outcome == 'failure'
+        run: |
+          echo "============================================"
+          echo "  部署失败 - 远程诊断信息收集"
+          echo "============================================"
+          echo "时间: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo ""
+
+          if [ -z "${SERVER_HOST}" ]; then
+            echo "[跳过] 未配置远程服务器"
+            exit 0
+          fi
+
+          echo "${SSH_PRIVATE_KEY}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i /tmp/deploy_key \
+            ${SERVER_USER}@${SERVER_HOST} << 'DIAG_EOF'
+            echo "--- 容器状态（含已停止的）---"
+            docker ps -a --filter "name=pyvar_" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "  无容器"
+
+            echo ""
+            echo "--- App 容器日志（最后 50 行）---"
+            docker logs pyvar_app --tail=50 2>/dev/null || echo "  无日志"
+
+            echo ""
+            echo "--- MySQL 容器日志（最后 30 行）---"
+            docker logs pyvar_mysql --tail=30 2>/dev/null || echo "  无日志"
+
+            echo ""
+            echo "--- 镜像版本 ---"
+            docker images --filter "reference=python-var-lesson" --format "table {{.Tag}}\t{{.CreatedAt}}\t{{.Size}}" 2>/dev/null
+
+            echo ""
+            echo "--- Docker 磁盘使用 ---"
+            docker system df 2>/dev/null
+
+            echo ""
+            echo "--- 系统资源 ---"
+            free -h 2>/dev/null || true
+            df -h / 2>/dev/null || true
+
+            echo ""
+            echo "--- Docker 事件（最近 5 分钟）---"
+            docker events --since "5m" --until "0s" --format "{{.Time}} {{.Action}} {{.Actor.Attributes.name}}" 2>/dev/null || echo "  无事件"
+DIAG_EOF
+
+          rm -f /tmp/deploy_key
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # ---- 自动回滚 ----
+      - name: 自动回滚到上一版本
+        if: failure() && steps.deploy.outcome == 'failure'
+        run: |
+          echo "============================================"
+          echo "  自动回滚 - 恢复到上一个版本"
+          echo "============================================"
+
+          if [ -z "${SERVER_HOST}" ]; then
+            echo "[跳过] 未配置远程服务器"
+            exit 0
+          fi
+
+          echo "${SSH_PRIVATE_KEY}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i /tmp/deploy_key \
+            ${SERVER_USER}@${SERVER_HOST} << 'ROLLBACK_EOF'
+            set -e
+
+            PREV_IMAGE="python-var-lesson:previous"
+            if ! docker image inspect $PREV_IMAGE > /dev/null 2>&1; then
+              echo "[错误] 没有可用的上一版本，无法回滚"
+              echo "可用备份:"
+              docker images --filter "reference=python-var-lesson" --format "table {{.Tag}}\t{{.CreatedAt}}" | grep "backup-"
+              exit 1
+            fi
+
+            echo "[1/3] 停止当前容器..."
+            docker-compose down --remove-orphans 2>/dev/null || true
+
+            echo "[2/3] 恢复上一版本..."
+            docker tag $PREV_IMAGE python-var-lesson:current
+
+            echo "[3/3] 启动回滚版本..."
+            docker-compose up -d
+
+            echo "等待健康检查..."
+            for i in $(seq 1 30); do
+              STATUS=$(docker inspect pyvar_app --format='{{.State.Health.Status}}' 2>/dev/null || echo "starting")
+              if [ "$STATUS" = "healthy" ]; then
+                echo ""
+                echo "============================================"
+                echo "  回滚成功！服务已恢复 (${i}s)"
+                echo "============================================"
+                exit 0
+              fi
+              sleep 1
+            done
+            echo "[警告] 回滚后健康检查超时"
+            exit 1
+ROLLBACK_EOF
+
+          rm -f /tmp/deploy_key
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: 部署成功通知
+        if: success()
+        run: |
+          echo "============================================"
+          echo "  部署成功！"
+          echo "============================================"
+          echo "时间: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "提交: ${{ github.sha }}"
+          echo "URL:  https://python-lesson.example.com"
+
+  # ---------- 6. 手动回滚工作流 ----------
+  rollback:
+    name: 手动回滚
+    runs-on: ubuntu-latest
+    if: inputs.rollback == true
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 执行回滚
+        run: |
+          echo "============================================"
+          echo "  手动回滚 - 恢复到上一个版本"
+          echo "============================================"
+          echo "触发者: ${{ github.actor }}"
+          echo "时间: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo ""
+
+          if [ -z "${SERVER_HOST}" ]; then
+            echo "[跳过] 未配置远程服务器，请在 Secrets 中配置"
+            exit 0
+          fi
+
+          echo "${SSH_PRIVATE_KEY}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i /tmp/deploy_key \
+            ${SERVER_USER}@${SERVER_HOST} << 'ROLLBACK_EOF'
+            set -e
+
+            PREV_IMAGE="python-var-lesson:previous"
+            if ! docker image inspect $PREV_IMAGE > /dev/null 2>&1; then
+              echo "[错误] 没有可用的上一版本"
+              echo "可用镜像:"
+              docker images --filter "reference=python-var-lesson" --format "table {{.Tag}}\t{{.CreatedAt}}\t{{.Size}}"
+              exit 1
+            fi
+
+            echo "上一版本: $(docker image inspect $PREV_IMAGE --format='{{.Created}}')"
+            docker-compose down --remove-orphans 2>/dev/null || true
+            docker tag $PREV_IMAGE python-var-lesson:current
+            docker-compose up -d
+
+            for i in $(seq 1 30); do
+              STATUS=$(docker inspect pyvar_app --format='{{.State.Health.Status}}' 2>/dev/null || echo "starting")
+              if [ "$STATUS" = "healthy" ]; then
+                echo "回滚成功！服务已恢复 (${i}s)"
+                exit 0
+              fi
+              sleep 1
+            done
+            echo "[警告] 回滚后健康检查超时"
+            exit 1
+ROLLBACK_EOF
+
+          rm -f /tmp/deploy_key
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}

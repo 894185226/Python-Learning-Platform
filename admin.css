@@ -1048,6 +1048,52 @@ body {
     display: block;
 }
 
+/* ===== 一键备份 ===== */
+.backup-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.btn-backup {
+    font-size: 15px;
+    padding: 10px 24px;
+    min-width: 180px;
+}
+
+.btn-restore {
+    cursor: pointer;
+}
+
+.backup-status {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.backup-status.backup-progress {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.backup-status.backup-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.backup-status.backup-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
 .logs-table-wrapper {
     overflow-x: auto;
 }
@@ -1406,5 +1452,396 @@ canvas#trendChart {
     }
     .modal-card.modal-wide {
         max-width: 95vw;
+    }
+    /* 移动端表格横向滚动提示 */
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table-wrapper::after {
+        content: "← 左右滑动查看更多 →";
+        display: block;
+        text-align: center;
+        padding: 8px;
+        font-size: 12px;
+        color: var(--text-muted, #888);
+    }
+    .data-table {
+        min-width: 700px;
+    }
+    /* 小屏幕按钮不重叠 */
+    .batch-bar {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .batch-bar .btn {
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+}
+
+/* ===== 暗色主题 ===== */
+[data-theme="dark"] {
+    --bg: #1a1a2e;
+    --card-bg: #2d2d44;
+    --text: #e0e0e0;
+    --text-secondary: #a0a0b0;
+    --text-muted: #707080;
+    --border: #3d3d5c;
+    --border-light: #2a2a40;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.4);
+    --primary-light: rgba(102, 126, 234, 0.15);
+}
+
+/* 暗色主题 - 页面标题 */
+[data-theme="dark"] .admin-header h1 {
+    color: #e0e0e0;
+}
+
+/* 暗色主题 - 统计卡片数值 */
+[data-theme="dark"] .stat-value {
+    color: #e0e0e0;
+}
+
+/* 暗色主题 - 统计卡片悬停阴影 */
+[data-theme="dark"] .stat-card:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+
+/* 暗色主题 - 最近登录列表分隔线 */
+[data-theme="dark"] .login-item {
+    border-bottom-color: #3d3d5c;
+}
+
+/* 暗色主题 - 批量操作栏 */
+[data-theme="dark"] .batch-bar {
+    background: #2d2d44;
+}
+
+/* 暗色主题 - 学生详情标签 */
+[data-theme="dark"] .detail-item label {
+    color: #a0a0b0;
+}
+
+/* 暗色主题 - 公告表单聚焦背景 */
+[data-theme="dark"] .notice-form-group input[type="text"]:focus,
+[data-theme="dark"] .notice-form-group textarea:focus {
+    background: #2d2d44;
+}
+
+/* 暗色主题 - 系统设置表单聚焦背景 */
+[data-theme="dark"] .settings-form-group input:focus {
+    background: #2d2d44;
+}
+
+/* 暗色主题 - 进度条文字 */
+[data-theme="dark"] .progress-bar-text {
+    color: #e0e0e0;
+}
+
+/* 暗色主题 - 导入文本域 */
+[data-theme="dark"] .import-textarea {
+    background: #2d2d44;
+    color: #e0e0e0;
+}
+
+/* 暗色主题 - 导入提示代码块 */
+[data-theme="dark"] .import-info code {
+    background: rgba(0,0,0,0.3);
+}
+
+/* 暗色主题 - 自定义滚动条 */
+[data-theme="dark"] ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+    background: #1a1a2e;
+    border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: #059862;
+    border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: #04AA6D;
+}
+
+/* 暗色主题 - 侧边栏保持不变（已有深色背景） */
+/* 暗色主题 - 卡片、表格、表单、弹窗、按钮等元素通过 CSS 变量自动适配 */
+
+/* ===================================================
+   通用确认弹窗样式
+   =================================================== */
+.confirm-modal-content {
+    max-width: 420px;
+    margin: 15% auto;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--card-bg, #1e1e2e);
+    border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+}
+
+.confirm-modal-content .w3-container {
+    text-align: center;
+}
+
+.confirm-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+.confirm-title {
+    font-size: 1.2rem;
+    margin: 0 0 8px 0;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.confirm-message {
+    font-size: 0.95rem;
+    color: var(--text-muted, #999);
+    margin: 0 0 24px 0;
+    line-height: 1.5;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.confirm-btn {
+    padding: 10px 28px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.confirm-btn.cancel {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-color);
+}
+
+.confirm-btn.cancel:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.confirm-btn.danger {
+    background: #e74c3c;
+    color: #fff;
+}
+
+.confirm-btn.danger:hover {
+    background: #c0392b;
+}
+
+/* 亮色主题适配 */
+[data-theme="light"] .confirm-modal-content {
+    background: #fff;
+    border-color: #e0e0e0;
+}
+
+[data-theme="light"] .confirm-btn.cancel {
+    background: #f0f0f0;
+    color: #333;
+}
+
+[data-theme="light"] .confirm-btn.cancel:hover {
+    background: #e0e0e0;
+}
+
+/* ===== 管理员登录浮层 ===== */
+.admin-login-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+}
+
+.admin-login-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 400px;
+    overflow: hidden;
+}
+
+.admin-login-header {
+    background: var(--primary);
+    color: #fff;
+    padding: 24px;
+    text-align: center;
+}
+
+.admin-login-header i {
+    font-size: 32px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.admin-login-header h2 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.admin-login-body {
+    padding: 24px;
+}
+
+.admin-login-body .settings-form-group {
+    margin-bottom: 16px;
+}
+
+.admin-login-body .settings-form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.admin-login-body input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--card-bg);
+    color: var(--text);
+    box-sizing: border-box;
+}
+
+.admin-login-body input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(4, 170, 109, 0.15);
+}
+
+/* ===== 注册管理 - 开关样式 ===== */
+.reg-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 28px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background-color: #04AA6D;
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(24px);
+}
+
+input:focus + .toggle-slider {
+    box-shadow: 0 0 1px #04AA6D;
+}
+
+/* ===== 注册管理 - 合并表单 ===== */
+.merge-form-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.merge-search-results {
+    position: absolute;
+    z-index: 10;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    width: 100%;
+    box-shadow: var(--shadow-lg);
+}
+
+.merge-search-results > div:hover {
+    background: var(--border-light);
+}
+
+/* 注册管理 - 配置表单中的 number input */
+#page-registration input[type="number"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--card-bg);
+    color: var(--text);
+}
+
+#page-registration .settings-form-group {
+    margin-bottom: 16px;
+    position: relative;
+}
+
+#page-registration .settings-form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+@media (max-width: 768px) {
+    .merge-form-row {
+        flex-direction: column;
+    }
+    .reg-toggle-row {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }

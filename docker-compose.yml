@@ -1,0 +1,72 @@
+# ===================================================
+# Python 基础学习平台 - Docker Compose 编排
+# 启动：docker-compose up -d
+# 停止：docker-compose down
+# ===================================================
+
+version: "3.8"
+
+services:
+  # ---- MySQL 数据库 ----
+  mysql:
+    image: mysql:8.0
+    container_name: pyvar_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root123}
+      MYSQL_DATABASE: ${DB_NAME:-python_var_lesson}
+      MYSQL_USER: ${DB_APP_USER:-app_user}
+      MYSQL_PASSWORD: ${DB_APP_PASSWORD:-app_pass_2024}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - pyvar_net
+
+  # ---- Node.js 应用 ----
+  app:
+    # 两种部署模式（二选一）：
+    #   模式A - 从源码构建：取消注释 build，注释 image
+    #   模式B - 从镜像仓库拉取：取消注释 image，注释 build
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # image: ${DOCKER_IMAGE:-python-var-lesson:latest}
+    container_name: pyvar_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: mysql
+      DB_ROOT_USER: root
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root123}
+      DB_APP_USER: ${DB_APP_USER:-app_user}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:-app_pass_2024}
+      DB_NAME: ${DB_NAME:-python_var_lesson}
+      SESSION_SECRET: ${SESSION_SECRET:-change_me_in_production}
+      SEED_TEST_DATA: "false"
+      CSRF_DISABLED: "false"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - pyvar_net
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  pyvar_net:
+    driver: bridge

@@ -1,4 +1,4 @@
-# Python Variable Adventure - Start Server
+﻿# Python Variable Adventure - Start Server
 # Usage: Right-click -> Run with PowerShell
 # Or: powershell -ExecutionPolicy Bypass -File start_server.ps1
 
@@ -24,10 +24,31 @@ try {
 # Check MySQL
 Write-Host "[2/3] Checking MySQL..." -ForegroundColor Cyan
 $mysqlOk = $false
+
+# 读取 .env 中的密码（如果存在）
+$envPwd = $null
+if (Test-Path ".env") {
+    $envLines = Get-Content ".env" -Encoding UTF8
+    foreach ($line in $envLines) {
+        if ($line -match '^DB_ROOT_PASSWORD=(.+)') {
+            $envPwd = $matches[1]
+        }
+    }
+}
+
+# 尝试无密码连接
 try {
     $null = & mysql -u root -e "SELECT 1" 2>&1
     if ($LASTEXITCODE -eq 0) { $mysqlOk = $true }
 } catch { }
+
+# 如果无密码失败，尝试用 .env 中的密码
+if (-not $mysqlOk -and $envPwd) {
+    try {
+        $null = & mysql -u root -p"$envPwd" -e "SELECT 1" 2>&1
+        if ($LASTEXITCODE -eq 0) { $mysqlOk = $true }
+    } catch { }
+}
 
 if (-not $mysqlOk) {
     Write-Host "[WARN] MySQL is not running. Attempting to start..." -ForegroundColor Yellow
@@ -58,8 +79,8 @@ $portInUse = & netstat -ano 2>$null | Select-String ":3000 .*LISTENING"
 if ($portInUse) {
     Write-Host "[INFO] Port 3000 is in use, freeing..." -ForegroundColor Yellow
     $portInUse | ForEach-Object {
-        $pid = ($_ -split '\s+')[-1]
-        & taskkill /f /pid $pid 2>$null | Out-Null
+        $portPid = ($_ -split '\s+')[-1]
+        & taskkill /f /pid $portPid 2>$null | Out-Null
     }
     Start-Sleep -Seconds 2
     Write-Host "[OK] Port 3000 freed" -ForegroundColor Green

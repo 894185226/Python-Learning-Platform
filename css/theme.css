@@ -1,0 +1,1274 @@
+﻿/* ================================================================
+   theme.css - 主题相关（亮色/暗色主题变量及主题样式）
+   从 style.css 和 style-chapters.css 提取
+   ================================================================ */
+
+:root {
+    --w3-green: #04AA6D;
+    --w3-green-dark: #059862;
+    --w3-green-hover: #048c5a;
+    --w3-dark: #282A35;
+    --w3-light-grey: #E7E9EB;
+    --w3-text-color: #282A35;
+    --w3-white: #ffffff;
+    --w3-yellow: #FFF4A3;
+    --w3-pink: #FFC0C7;
+    --success: #28a745;
+    --danger: #dc3545;
+    --warning: #ffc107;
+    --info: #17a2b8;
+    --primary-purple: #667eea;
+    --primary-purple-dark: #5a6fd6;
+    --bg-light-green: #D9EEE1;
+    --bg-light-yellow: #FFF4A3;
+    --border-light: #ddd;
+    --shadow-light: rgba(0, 0, 0, 0.1);
+    --shadow-medium: rgba(0, 0, 0, 0.15);
+    --text-primary: #333;
+    --text-secondary: #666;
+    --text-muted: #999;
+    --monokai-bg: #f8f8f2;
+    --monokai-output: #a6e22e;
+    --monokai-error: #f92672;
+    --radar-axis: #ddd;
+    /* 鐜颁唬璁捐Token */
+    --radius-xs: 6px;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-xl: 28px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.06);
+    --shadow-xl: 0 20px 50px rgba(0,0,0,0.15), 0 8px 16px rgba(0,0,0,0.08);
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --navbar-height: 60px;
+}
+
+/* 鏆楄壊涓婚 */
+[data-theme="dark"] {
+    --w3-dark: #1a1a2e;
+    --w3-light-grey: #2d2d44;
+    --w3-text-color: #e0e0e0;
+    --w3-white: #1e1e30;
+    --bg-light-green: #1e3a2f;
+    --bg-light-yellow: #3a3520;
+    --border-light: #444;
+    --shadow-light: rgba(0, 0, 0, 0.3);
+    --shadow-medium: rgba(0, 0, 0, 0.4);
+    --text-primary: #e0e0e0;
+    --text-secondary: #aaa;
+    --text-muted: #777;
+    --radar-axis: #555;
+    --monokai-bg: #272822;
+}
+
+[data-theme="dark"] body {
+    background-color: #0f0f1a;
+    color: #e0e0e0;
+}
+
+[data-theme="light"] body {
+    background-color: #ffffff;
+    color: #333;
+}
+
+
+/* ===== 浜壊涓婚 - 瀛︿範鍗＄墖 & 鐗硅壊鍖哄煙 ===== */
+[data-theme="light"] .lesson-card {
+    background-color: #fff;
+    border-color: #e0e0e0;
+}
+
+[data-theme="light"] .lesson-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    border-color: rgba(4,170,109,0.3);
+}
+
+[data-theme="light"] .feature-card-inner {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+[data-theme="light"] .feature-card-inner:hover {
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+    border-color: rgba(4,170,109,0.3);
+}
+
+[data-theme="light"] .features-section {
+    background: #f5f5f5;
+}
+
+[data-theme="light"] .feature-card-image {
+    background: rgba(4,170,109,0.06);
+    border-bottom: 1px solid #f0f0f0;
+}
+
+[data-theme="light"] .ws-code-editor {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+    background: #1a1a2e;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: #059862;
+}
+
+/* 鏆楄壊妯″紡 - 閫傞厤锛堢珯鐐归粯璁ゆ殫鑹诧紝鏆楄壊妯″紡涓嬪熀鏈笉鍙橈級 */
+[data-theme="dark"] .hero-form input[type="text"] {
+    background: rgba(255,255,255,0.05);
+    color: #e0e0e0;
+    border-color: rgba(255,255,255,0.12);
+}
+[data-theme="dark"] .ws-code-editor > div:first-child {
+    background-color: #16162a !important;
+}
+[data-theme="dark"] .ws-code-editor > div:last-child {
+    background-color: #0d0d1a !important;
+}
+
+[data-theme="dark"] .story-scenes {
+    background: #1a202a;
+    border-color: rgba(255,255,255,0.06);
+}
+
+[data-theme="dark"] .lab-sidebar {
+    background: #1a1a2e;
+    border-color: rgba(255,255,255,0.06);
+}
+
+[data-theme="dark"] .practice-output {
+    background: #1a1a2e;
+    border-color: rgba(255,255,255,0.06);
+}
+
+[data-theme="dark"] .practice-instruction {
+    background: #252015;
+    border-color: rgba(255,193,7,0.1);
+}
+
+[data-theme="dark"] .practice-instruction h3 {
+    color: #ffc107;
+}
+
+[data-theme="dark"] .intro-conclusion {
+    background: #252015;
+    border-color: rgba(255,193,7,0.1);
+}
+
+[data-theme="dark"] .debug-options button {
+    background: #2d2d44;
+    border-color: rgba(255,255,255,0.08);
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .debug-options button:hover {
+    background: rgba(4,170,109,0.08);
+    border-color: var(--w3-green);
+}
+
+[data-theme="dark"] .debug-btn {
+    background: #2d2d44;
+    border-color: rgba(255,255,255,0.08);
+    color: #aaa;
+}
+
+[data-theme="dark"] .level-btn {
+    background: #2d2d44;
+    color: #ccc;
+}
+
+[data-theme="dark"] .level-btn:hover {
+    border-color: rgba(4,170,109,0.4);
+}
+
+[data-theme="dark"] .var-value {
+    background: #2d2d44;
+    color: #e0e0e0;
+    border-color: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .scene-btn {
+    background: #2d2d44;
+    border-color: rgba(255,255,255,0.1);
+    color: #aaa;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+[data-theme="dark"] .card-content {
+    color: #ccc;
+}
+
+[data-theme="dark"] .code-example pre {
+    background-color: #272822;
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .footer {
+    background-color: #1a1a2e;
+}
+
+[data-theme="dark"] .search-form {
+    background: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .search-form:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(4,170,109,0.3);
+}
+
+[data-theme="dark"] .search-form:focus-within {
+    background: rgba(255,255,255,0.14);
+    border-color: var(--w3-green);
+    box-shadow: 0 0 0 4px rgba(4,170,109,0.2);
+}
+
+[data-theme="dark"] .search-input {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .search-input::placeholder {
+    color: rgba(255,255,255,0.4);
+}
+
+[data-theme="dark"] .hero-section .hero-form input[type="text"] {
+    background-color: #2d2d44;
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .form-input {
+    background-color: #2d2d44;
+    color: #e0e0e0;
+    border-color: #444;
+}
+
+[data-theme="dark"] .kbd {
+    background: #2d2d44;
+    border-color: #555;
+    color: #ccc;
+}
+
+/* 鎼滅储寤鸿鏆楄壊 */
+[data-theme="dark"] .search-suggestions {
+    background: #1e1e2e;
+    border-color: rgba(255,255,255,0.1);
+}
+
+[data-theme="dark"] .search-suggestion-item {
+    border-bottom-color: rgba(255,255,255,0.06);
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .search-suggestion-item:hover {
+    background: rgba(4,170,109,0.15);
+    transform: translateX(2px);
+}
+
+[data-theme="dark"] .search-suggestion-text {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .search-suggestion-desc {
+    color: #888;
+}
+
+/* ===== 浜壊涓婚 - 鎼滅储妗?===== */
+
+/* ===== 浜壊涓婚 - 鎼滅储妗?===== */
+[data-theme="light"] .search-form {
+    background: #f0f2f5;
+    border-color: #e0e0e0;
+}
+
+[data-theme="light"] .search-form:hover {
+    background: #e8eaed;
+    border-color: rgba(4,170,109,0.4);
+}
+
+[data-theme="light"] .search-form:focus-within {
+    background: #fff;
+    border-color: var(--w3-green);
+    box-shadow: 0 0 0 4px rgba(4,170,109,0.12);
+}
+
+[data-theme="light"] .search-input {
+    color: #333;
+}
+
+[data-theme="light"] .search-input::placeholder {
+    color: #999;
+}
+
+[data-theme="light"] .search-suggestions {
+    background: #fff;
+    border-color: #e0e0e0;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+[data-theme="light"] .search-suggestion-item {
+    border-bottom-color: #f0f0f0;
+    color: #333;
+}
+
+[data-theme="light"] .search-suggestion-item:hover {
+    background: rgba(4,170,109,0.08);
+}
+
+[data-theme="light"] .search-suggestion-text {
+    color: #333;
+}
+
+[data-theme="light"] .search-suggestion-desc {
+    color: #888;
+}
+
+/* ===== 浜壊涓婚 - 瀵艰埅鏍?===== */
+
+/* ===== 浜壊涓婚 - 瀵艰埅鏍?===== */
+[data-theme="light"] .nav-actions .signin-btn {
+    background: #04AA6D !important;
+    color: #fff !important;
+}
+
+[data-theme="light"] .nav-actions .signin-btn:hover {
+    background: #059862 !important;
+}
+
+/* ===== 浜壊涓婚 - 涓婚鍒囨崲鎸夐挳 ===== */
+[data-theme="light"] .theme-toggle-btn {
+    background: rgba(0,0,0,0.06);
+}
+
+[data-theme="light"] .theme-toggle-btn:hover {
+    background: rgba(0,0,0,0.1) !important;
+    box-shadow: 0 2px 8px rgba(4,170,109,0.1);
+}
+
+[data-theme="light"] .theme-toggle-btn:hover::after {
+    border-color: rgba(4,170,109,0.2);
+}
+
+/* ===== 浜壊涓婚 - 绉诲姩绔彍鍗?===== */
+
+/* ===== 浜壊涓婚 - 绉诲姩绔彍鍗?===== */
+[data-theme="light"] .mobile-menu-content {
+    background: #fff;
+    color: #333;
+}
+
+[data-theme="light"] .mobile-menu-items .w3-button {
+    color: #333;
+}
+
+[data-theme="light"] .mobile-menu-items .w3-button:hover {
+    background: rgba(4,170,109,0.08) !important;
+}
+
+/* ===== 浜壊涓婚 - 棣栭〉 Hero 鍖哄煙 ===== */
+
+/* ===== 浜壊涓婚 - 棣栭〉 Hero 鍖哄煙 ===== */
+[data-theme="light"] .hero-section {
+    background: #e8f5e9;
+}
+
+[data-theme="light"] .hero-section .learntocodeh1 {
+    color: #333;
+}
+
+[data-theme="light"] .hero-section .learntocodeh3 {
+    color: #059862;
+}
+
+[data-theme="light"] .hero-section .learntocodeh4 {
+    color: #555;
+}
+
+[data-theme="light"] .hero-section .learntocodeh4 a {
+    color: #059862;
+}
+
+[data-theme="light"] .hero-section .learntocodeh4 a:hover {
+    color: #037a4a;
+}
+
+[data-theme="light"] .hero-section .hero-form input[type="text"] {
+    background: #fff;
+    color: #333;
+    border-color: #ddd;
+}
+
+[data-theme="light"] .hero-section .hero-form input[type="text"]:focus {
+    border-color: var(--w3-green);
+}
+
+[data-theme="light"] .hero-section .hero-form input[type="text"]::placeholder {
+    color: #999;
+}
+
+/* 浜壊涓婚 - Hero CTA 鎸夐挳 */
+[data-theme="light"] .hero-cta-buttons a[style*="color:#ccc"] {
+    color: #555 !important;
+    border-color: rgba(0,0,0,0.2) !important;
+}
+
+[data-theme="light"] .hero-cta-buttons a[style*="color:#ccc"]:hover {
+    color: #333 !important;
+    border-color: rgba(4,170,109,0.4) !important;
+    background: rgba(4,170,109,0.06) !important;
+}
+
+/* 浜壊涓婚 - Welcome 鐗硅壊鍗＄墖 */
+[data-theme="light"] .welcome-features-section {
+    background: #f0f4f0 !important;
+}
+
+[data-theme="light"] .welcome-feature-card {
+    background: #fff !important;
+    border: 1px solid #e0e0e0 !important;
+}
+
+[data-theme="light"] .welcome-feature-card:hover {
+    background: rgba(4,170,109,0.04) !important;
+    border-color: rgba(4,170,109,0.3) !important;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08) !important;
+}
+
+[data-theme="light"] .welcome-feature-title {
+    color: #333 !important;
+}
+
+[data-theme="light"] .welcome-feature-desc {
+    color: #666 !important;
+}
+
+/* ===== 浜壊涓婚 - Welcome Hero 鍖哄煙 ===== */
+
+/* ===== 浜壊涓婚 - Welcome Hero 鍖哄煙 ===== */
+[data-theme="light"] .ws-hero {
+    background: #e8f5e9 !important;
+    border-bottom: 1px solid rgba(0,0,0,0.06) !important;
+}
+[data-theme="light"] .ws-hero h1 {
+    color: #1a1a2e !important;
+}
+[data-theme="light"] .ws-hero > div > div > p {
+    color: #555 !important;
+}
+[data-theme="light"] .ws-hero div[style*="rgba(4,170,109,0.1)"] {
+    background: rgba(4,170,109,0.08) !important;
+    border-color: rgba(4,170,109,0.2) !important;
+}
+[data-theme="light"] .ws-hero .hero-form input[type="text"] {
+    background: #fff !important;
+    color: #333 !important;
+    border-color: #ddd !important;
+}
+[data-theme="light"] .ws-hero .hero-form input[type="text"]:focus {
+    border-color: var(--w3-green) !important;
+    background: #fff !important;
+}
+[data-theme="light"] .ws-hero .hero-form input[type="text"]::placeholder {
+    color: #999 !important;
+}
+[data-theme="light"] .hero-cta-buttons a[style*="color:#ccc"],
+[data-theme="light"] .hero-cta-buttons a[style*="color: #ccc"] {
+    color: #555 !important;
+    border-color: rgba(0,0,0,0.2) !important;
+}
+[data-theme="light"] .hero-cta-buttons a[style*="color:#ccc"]:hover,
+[data-theme="light"] .hero-cta-buttons a[style*="color: #ccc"]:hover {
+    color: #333 !important;
+    background: rgba(4,170,109,0.06) !important;
+    border-color: rgba(4,170,109,0.4) !important;
+}
+
+/* ===== 浜壊涓婚 - 妯″潡鏍囬鍖哄煙 ===== */
+
+/* ===== 浜壊涓婚 - 妯″潡鏍囬鍖哄煙 ===== */
+[data-theme="light"] div[style*="background:#282A35"][style*="text-align:center"] {
+    background: #f5f7fa !important;
+}
+[data-theme="light"] div[style*="background:#282A35"][style*="text-align:center"] h2 {
+    color: #1a1a2e !important;
+}
+
+/* ===== 浜壊涓婚 - 浠ｇ爜缂栬緫鍣ㄥ睍绀哄尯 ===== */
+[data-theme="light"] div[style*="background:#0f0f1a"] {
+    background: #f5f7fa !important;
+}
+[data-theme="light"] div[style*="background:#16162a"] {
+    background: #e8eaed !important;
+    border-bottom-color: rgba(0,0,0,0.06) !important;
+}
+[data-theme="light"] div[style*="background:#0d0d1a"] {
+    background: #fff !important;
+}
+[data-theme="light"] div[style*="border:1px solid rgba(255,255,255,0.08)"] {
+    border-color: rgba(0,0,0,0.08) !important;
+}
+[data-theme="light"] div[style*="box-shadow:0 8px 40px rgba(0,0,0,0.5)"] {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+}
+
+/* ===== 浜壊涓婚 - 娣辫壊妯″潡鍖哄煙锛堢被姣斿疄楠屽銆佸€艰拷韪級===== */
+
+/* ===== 浜壊涓婚 - 娣辫壊妯″潡鍖哄煙锛堢被姣斿疄楠屽銆佸€艰拷韪級===== */
+[data-theme="light"] div[style*="background-color:#282A35"][style*="color:#fff"] {
+    background-color: #f0f4f0 !important;
+    color: #333 !important;
+}
+[data-theme="light"] div[style*="background-color:#282A35"][style*="color:#fff"] h2 {
+    color: #1a1a2e !important;
+}
+[data-theme="light"] div[style*="background-color:#282A35"][style*="color:#fff"] p[style*="color:#ccc"] {
+    color: #666 !important;
+}
+[data-theme="light"] div[style*="background-color:#282A35"][style*="color:#fff"] .w3-card-2[style*="background:#1a1a2e"] {
+    background: #fff !important;
+    color: #333 !important;
+}
+[data-theme="light"] div[style*="background-color:#282A35"][style*="color:#fff"] .w3-card-2[style*="background:#1a1a2e"] h3 {
+    color: #333 !important;
+}
+[data-theme="light"] div[style*="background-color:#282A35"][style*="color:#fff"] div[style*="background:#0d0d1a"] {
+    background: #f5f5f5 !important;
+    color: #333 !important;
+}
+
+/* ===== 浜壊涓婚 - 銆屾洿澶氭ā鍧椼€嶅簳閮ㄥ崱鐗囧尯鍩?===== */
+
+/* ===== 浜壊涓婚 - 銆屾洿澶氭ā鍧椼€嶅簳閮ㄥ崱鐗囧尯鍩?===== */
+[data-theme="light"] div[style*="background-color:#282A35"] > div[style*="max-width:1200px"] > div[style*="text-align:center"] h2 {
+    color: #fff !important;
+}
+
+/* 浜壊涓婚 - 鎵撳瓧鏈哄鍣ㄦ枃瀛楅鑹?*/
+[data-theme="light"] .typewriter-output {
+    color: #333 !important;
+}
+
+/* ===== 浜壊涓婚 - 涓嬫媺鑿滃崟 ===== */
+
+/* ===== 浜壊涓婚 - 涓嬫媺鑿滃崟 ===== */
+[data-theme="light"] .w3-dropdown-content {
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    border-top: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+[data-theme="light"] .w3-dropdown-content .dropdown-header {
+    background: rgba(4,170,109,0.05);
+    color: #059862;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+[data-theme="light"] .w3-dropdown-content a {
+    color: #444 !important;
+}
+
+[data-theme="light"] .w3-dropdown-content a:hover {
+    background: rgba(4,170,109,0.06) !important;
+    color: #059862 !important;
+    border-color: rgba(4,170,109,0.15);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* ===== 浜壊涓婚 - Footer ===== */
+
+/* ===== 浜壊涓婚 - Footer ===== */
+[data-theme="light"] .footer {
+    background: #f5f5f5;
+    color: #333;
+}
+
+[data-theme="light"] .footer-section a {
+    color: #555;
+}
+
+[data-theme="light"] .footer-section a:hover {
+    color: var(--w3-green);
+}
+
+[data-theme="light"] .footer-bottom {
+    color: #999;
+}
+
+/* ===== 浜壊涓婚 - 寮圭獥/妯℃€佹 ===== */
+
+/* ===== 浜壊涓婚 - 寮圭獥/妯℃€佹 ===== */
+[data-theme="light"] .w3-modal-content {
+    background: #fff;
+    color: #333;
+}
+
+[data-theme="light"] .w3-modal-content .w3-button {
+    color: #333;
+}
+
+[data-theme="light"] .form-input {
+    background: #fff;
+    color: #333;
+    border-color: #ddd;
+}
+
+[data-theme="light"] .form-input:focus {
+    border-color: var(--w3-green);
+    box-shadow: 0 0 0 3px rgba(4,170,109,0.12);
+}
+
+/* 绉诲姩绔彍鍗曟殫鑹?*/
+
+/* 绉诲姩绔彍鍗曟殫鑹?*/
+[data-theme="dark"] .mobile-menu-content {
+    background: #1a1a2e;
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .mobile-menu-items .w3-button {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .mobile-menu-items .w3-button:hover {
+    background: rgba(4,170,109,0.15) !important;
+    color: #fff !important;
+}
+
+/* 鐧诲綍/娉ㄥ唽寮圭獥鏆楄壊 */
+[data-theme="dark"] .login-modal-content {
+    background: #1e1e30;
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .form-group label {
+    color: #ccc;
+}
+
+[data-theme="dark"] .form-switch {
+    border-top-color: rgba(255,255,255,0.08);
+    color: #999;
+}
+
+[data-theme="dark"] .form-switch a {
+    color: var(--w3-green);
+}
+
+/* 鎴愬氨寮瑰嚭鏆楄壊 */
+[data-theme="dark"] .achievement-toast {
+    background: #1e2a3a;
+    border-color: rgba(255,255,255,0.1);
+    color: #e0e0e0;
+}
+
+/* 鎴愬氨寮瑰嚭浜壊 */
+[data-theme="light"] .achievement-toast {
+    background: #fff;
+    border-color: #e8e8e8;
+    color: #333;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+[data-theme="light"] .achievement-toast-title {
+    color: #b8860b;
+}
+[data-theme="light"] .achievement-toast-desc {
+    color: #888;
+}
+
+/* 鎴愬氨澧欐殫鑹?*/
+
+/* 鎴愬氨澧欐殫鑹?*/
+[data-theme="dark"] .map-item {
+    background: #2d2d44;
+    border-left-color: #555;
+    color: #ccc;
+}
+
+[data-theme="dark"] .map-item.completed {
+    background: #1a3a2a;
+    border-left-color: var(--w3-green);
+}
+
+[data-theme="dark"] .achievement-date {
+    color: #888;
+}
+
+[data-theme="dark"] .stat-item {
+    background: #2d2d44;
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .exploration-map h3,
+[data-theme="dark"] .achievements h3,
+[data-theme="dark"] .learning-stats h3,
+[data-theme="dark"] .recap h3 {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .exploration-map,
+[data-theme="dark"] .achievements,
+[data-theme="dark"] .recap,
+[data-theme="dark"] .learning-stats {
+    background: #2d2d44;
+}
+
+[data-theme="dark"] .map-item {
+    background: #3a3a5a;
+    color: #ddd;
+}
+
+[data-theme="dark"] .map-item.completed {
+    background: #1a3a2a;
+    color: #7affb8;
+}
+
+[data-theme="dark"] .achievement-item {
+    background: #3a3a5a;
+    color: #ddd;
+}
+
+[data-theme="dark"] .achievement-item .ach-info h4 {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .achievement-item .ach-info p {
+    color: #aaa;
+}
+
+[data-theme="dark"] .achievement-item.locked {
+    opacity: 0.6;
+    filter: grayscale(40%);
+    background: #2a2a3a;
+}
+
+[data-theme="dark"] .achievement-item.locked .ach-info h4 {
+    color: #999;
+}
+
+[data-theme="dark"] .achievement-item.locked .ach-info p {
+    color: #777;
+}
+
+[data-theme="dark"] .mnemonic {
+    background: #2d2d44;
+    color: #ccc;
+}
+
+[data-theme="dark"] .progress-bar-container {
+    background: #3d3d54 !important;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* 椤佃剼鏆楄壊 */
+[data-theme="dark"] .footer-section h3 {
+
+/* 椤佃剼鏆楄壊 */
+[data-theme="dark"] .footer-section h3 {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .footer-section a {
+    color: #aaa;
+}
+
+[data-theme="dark"] .footer-section a:hover {
+    color: var(--w3-green);
+}
+
+[data-theme="dark"] .footer-bottom {
+    border-top-color: rgba(255,255,255,0.08);
+    color: #888;
+}
+
+/* 瑁佸垽/娴嬭瘯/璋冭瘯鍖哄煙鏆楄壊 */
+
+/* 瑁佸垽/娴嬭瘯/璋冭瘯鍖哄煙鏆楄壊 */
+[data-theme="dark"] .court-room {
+    background: #2d2d44;
+}
+
+[data-theme="dark"] .rule-book {
+    background: #2d2d44;
+    color: #ccc;
+}
+
+[data-theme="dark"] .rule-book li {
+    color: #bbb;
+}
+
+/* 绔犺妭妯″潡鏆楄壊涓婚閫傞厤 */
+[data-theme="dark"] .ch-card {
+    background: #2d2d44;
+    border-color: rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .ch-card h4 { color: #e0e0e0; }
+[data-theme="dark"] .ch-card p { color: #aaa; }
+[data-theme="dark"] .ch-card.green { background: #1a3a2a; border-color: rgba(4,170,109,0.2); }
+[data-theme="dark"] .ch-card.green h4, [data-theme="dark"] .ch-card.green p { color: #7affb8 !important; }
+[data-theme="dark"] .ch-card.yellow { background: #3a3520; border-color: rgba(255,244,163,0.2); }
+[data-theme="dark"] .ch-card.yellow h4, [data-theme="dark"] .ch-card.yellow p { color: #ffe880 !important; }
+[data-theme="dark"] .ch-card.pink { background: #3a2028; border-color: rgba(255,192,199,0.2); }
+[data-theme="dark"] .ch-card.pink h4, [data-theme="dark"] .ch-card.pink p { color: #ffa0b8 !important; }
+[data-theme="dark"] .ch-card.cyan { background: #1a3035; border-color: rgba(150,212,212,0.2); }
+[data-theme="dark"] .ch-card.cyan h4, [data-theme="dark"] .ch-card.cyan p { color: #80e8e8 !important; }
+
+/* 鏆楄壊涓婚锛氬崱鐗囨偓鍋滄晥鏋?*/
+
+/* 鏆楄壊涓婚锛氬崱鐗囨偓鍋滄晥鏋?*/
+[data-theme="dark"] .ch-card:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    border-color: rgba(255,255,255,0.15);
+}
+[data-theme="dark"] .ch-card.green:hover { box-shadow: 0 4px 24px rgba(4,170,109,0.2); }
+[data-theme="dark"] .ch-card.yellow:hover { box-shadow: 0 4px 24px rgba(255,244,163,0.2); }
+[data-theme="dark"] .ch-card.pink:hover { box-shadow: 0 4px 24px rgba(255,192,199,0.2); }
+[data-theme="dark"] .ch-card.cyan:hover { box-shadow: 0 4px 24px rgba(150,212,212,0.2); }
+
+/* 鏆楄壊涓婚锛氶椤靛洓鑹叉ā鍧楅€傞厤锛?welcome 鍖哄煙锛?*/
+[data-theme="dark"] #welcome .w3-row[style*="D9EEE1"],
+[data-theme="dark"] #welcome div[style*="background-color:#D9EEE1"] {
+    background-color: #1a3a2a !important;
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] #welcome .w3-row[style*="FFF4A3"],
+[data-theme="dark"] #welcome div[style*="background-color:#FFF4A3"] {
+    background-color: #3a3520 !important;
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] #welcome .w3-row[style*="FFC0C7"],
+[data-theme="dark"] #welcome div[style*="background-color:#FFC0C7"] {
+    background-color: #3a2028 !important;
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] #welcome .w3-row[style*="96D4D4"],
+[data-theme="dark"] #welcome div[style*="background-color:#96D4D4"] {
+    background-color: #1a3035 !important;
+    color: #e0e0e0 !important;
+}
+/* 鏆楄壊涓婚锛氶椤靛洓鑹叉ā鍧楀唴鐨勭櫧鑹插崱鐗?*/
+[data-theme="dark"] #welcome div[style*="background:#fff"],
+[data-theme="dark"] #welcome div[style*="background-color:#fff"] {
+    background: #2d2d44 !important;
+    background-color: #2d2d44 !important;
+    color: #ddd !important;
+}
+[data-theme="dark"] #welcome div[style*="background:#f5f5f5"] {
+    background: #1a1a2e !important;
+}
+
+/* 鏆楄壊涓婚锛氶椤垫墍鏈夋枃瀛楃‘淇濆彲璇?*/
+[data-theme="dark"] #welcome .w3-row[style*="color:#000"],
+[data-theme="dark"] #welcome .w3-row[style*="color:#000"] p,
+[data-theme="dark"] #welcome .w3-row[style*="color:#000"] h2,
+[data-theme="dark"] #welcome .w3-row[style*="color:#000"] h3 {
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] #welcome div[style*="color:#333"] {
+    color: #ddd !important;
+}
+[data-theme="dark"] #welcome .w3-card-2[style*="color:#333"] {
+    color: #ddd !important;
+}
+[data-theme="dark"] #welcome .w3-card-2[style*="background:#fff"] {
+    background: #2d2d44 !important;
+    color: #ddd !important;
+}
+[data-theme="dark"] #welcome .w3-card-2[style*="background:#fff"] h3,
+[data-theme="dark"] #welcome .w3-card-2[style*="background:#fff"] p {
+    color: #ddd !important;
+}
+[data-theme="dark"] #welcome div[style*="background:#f5f5f5"][style*="border-left"] {
+    background: #1a1a2e !important;
+    border-left-color: #04AA6D !important;
+}
+[data-theme="dark"] #welcome span[style*="color:#999"] {
+    color: #888 !important;
+}
+
+[data-theme="dark"] .ch-step-item {
+    background: #2d2d44;
+    border-color: rgba(255,255,255,0.06);
+}
+[data-theme="dark"] .ch-step-content h4 { color: #e0e0e0; }
+[data-theme="dark"] .ch-step-content p { color: #aaa; }
+
+[data-theme="dark"] .ch-hint-box {
+    background: #1a2a22;
+    border-color: rgba(4,170,109,0.2);
+    color: #ccc;
+}
+[data-theme="dark"] .ch-hint-box p { color: #aaa; }
+
+[data-theme="dark"] .ch-section-title {
+    color: #e0e0e0;
+    border-bottom-color: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .ch-practice-left,
+[data-theme="dark"] .ch-practice-right {
+    background: #2d2d44;
+    border-color: rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .ch-practice-left h4,
+[data-theme="dark"] .ch-practice-right h4 { color: #e0e0e0; }
+
+[data-theme="dark"] .ch-module-header h2 { color: #e0e0e0; }
+[data-theme="dark"] .ch-module-header p { color: #aaa; }
+
+[data-theme="light"] .ch-module-header h2 { color: #1a1a2e; }
+[data-theme="light"] .ch-module-header p { color: #555; }
+
+[data-theme="dark"] .ch-quiz-option {
+    background: #2d2d44;
+    border-color: rgba(255,255,255,0.08);
+    color: #e0e0e0;
+}
+[data-theme="dark"] .ch-quiz-option:hover {
+    border-color: var(--w3-green);
+    background: #1a2a22;
+}
+[data-theme="dark"] .ch-quiz-option.correct {
+    background: #1a3a2a;
+    border-color: var(--w3-green);
+}
+[data-theme="dark"] .ch-quiz-option.wrong {
+    background: #3a1a1a;
+    border-color: #e74c3c;
+}
+
+body {
+    font-family: 'Source Sans Pro', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    background-color: #0f0f1a;
+    color: #e0e0e0;
+    min-height: 100vh;
+    margin-top: var(--navbar-height);
+    scroll-behavior: smooth;
+}
+
+/* 鑷畾涔夋粴鍔ㄦ潯 */
+
+/* 浜壊涓婚 - 鎸夐挳 hover 閫傞厤 */
+[data-theme="light"] .w3-button {
+    color: #333;
+}
+
+[data-theme="light"] .w3-button:hover {
+    color: #1a1a2e !important;
+    background-color: rgba(4, 170, 109, 0.06) !important;
+}
+
+[data-theme="light"] .w3-hover-green:hover {
+    color: #333 !important;
+    background-color: rgba(4, 170, 109, 0.12) !important;
+}
+
+.ws-light-green {
+    background-color: var(--bg-light-green) !important;
+}
+
+/* W3Schools椋庢牸鎸夐挳 */
+
+/* ---- 鏆楄壊涓婚閫傞厤 ---- */
+[data-theme="dark"] .chapter-hero .chapter-badge-tag {
+    background: #04AA6D;
+    color: #fff;
+}
+
+[data-theme="dark"] .chapter-hero .chapter-stat-item {
+    color: #888;
+}
+
+[data-theme="dark"] .chapter-hero .chapter-stat-item .stat-value {
+    color: #04AA6D;
+}
+
+[data-theme="dark"] .ch-next-btn {
+    background: #04AA6D;
+    color: #fff;
+}
+
+[data-theme="dark"] .ch-next-btn-done {
+    background: #1565C0;
+}
+
+/* ============================================
+
+/* ---- 鏆楄壊涓婚閫傞厤 ---- */
+[data-theme="dark"] .ch-section-title {
+    color: #e0e0e0;
+    border-bottom-color: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .ch-divider {
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+}
+
+[data-theme="dark"] .ch-divider-sm {
+    background: rgba(255,255,255,0.06);
+}
+
+[data-theme="dark"] .ch-info-box { background: rgba(33,150,243,0.1); border-color: rgba(33,150,243,0.4); color: #b3d4fc; }
+[data-theme="dark"] .ch-tip-box { background: rgba(4,170,109,0.1); border-color: rgba(4,170,109,0.4); color: #b3e6d0; }
+[data-theme="dark"] .ch-warn-box { background: rgba(255,152,0,0.1); border-color: rgba(255,152,0,0.4); color: #fce4b3; }
+[data-theme="dark"] .ch-error-box { background: rgba(244,67,54,0.1); border-color: rgba(244,67,54,0.4); color: #f5c6cb; }
+[data-theme="dark"] .ch-success-box { background: rgba(40,167,69,0.1); border-color: rgba(40,167,69,0.4); color: #b3e6c0; }
+
+[data-theme="dark"] .ch-highlight-box {
+    background: rgba(255,251,235,0.08);
+    border-color: rgba(253,230,138,0.3);
+    color: #e0d5a0;
+}
+
+[data-theme="dark"] .ch-highlight-box::before {
+    background: #1e1e30;
+}
+
+[data-theme="dark"] .ch-definition-box {
+    background: #1e1e32;
+    border-color: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .ch-definition-box .ch-def-content { color: #ccc; }
+
+[data-theme="dark"] .ch-example-box {
+    background: #1e1e32;
+    border-color: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .ch-example-box .ch-example-header {
+    background: rgba(255,255,255,0.05);
+    color: #999;
+}
+
+[data-theme="dark"] .ch-step-list li {
+    border-left-color: rgba(255,255,255,0.1);
+    color: #bbb;
+}
+
+[data-theme="dark"] .ch-step-list li::before {
+    background: #2a2a40;
+    color: #999;
+}
+
+[data-theme="dark"] .ch-step-list li:hover::before {
+    background: #04AA6D;
+    color: #fff;
+}
+
+[data-theme="dark"] .ch-card-accent {
+    background: #1e1e32;
+    border-color: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .ch-card-accent h4 { color: #e0e0e0; }
+[data-theme="dark"] .ch-card-accent p { color: #aaa; }
+
+[data-theme="dark"] .ch-inline-code {
+    background: #2a2a40;
+    border-color: rgba(255,255,255,0.1);
+    color: #f78da7;
+}
+
+[data-theme="dark"] .ch-process-flow {
+    background: #1a1a2e;
+    border-color: rgba(255,255,255,0.06);
+}
+
+[data-theme="dark"] .ch-process-flow .ch-process-node {
+    background: #252540;
+    color: #ddd;
+}
+
+[data-theme="dark"] .ch-compare-table .ch-compare-col.good {
+    background: rgba(40,167,69,0.08);
+    border-color: rgba(40,167,69,0.2);
+}
+
+[data-theme="dark"] .ch-compare-table .ch-compare-col.bad {
+    background: rgba(244,67,54,0.08);
+    border-color: rgba(244,67,54,0.2);
+}
+
+/* ---- 澧炲己鐨?w3-card-2 鍦ㄦā鍧椾腑鐨勬牱寮?---- */
+
+/* ---- 鏆楄壊涓婚閫傞厤锛堝寮洪儴鍒嗭級 ---- */
+[data-theme="dark"] .ch-knowledge-card {
+    background: #1e1e32;
+    border-color: rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .ch-knowledge-card h3 { color: #e0e0e0; }
+[data-theme="dark"] .ch-knowledge-card p { color: #aaa; }
+[data-theme="dark"] .ch-knowledge-card .ch-kw-code {
+    background: #252540;
+    border-color: rgba(255,255,255,0.08);
+    color: #cdd6f4;
+}
+[data-theme="dark"] .ch-lab-panel {
+    background: #1e1e32;
+    border-color: rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .ch-lab-panel h4 { color: #e0e0e0; }
+[data-theme="dark"] .ch-practice-panel {
+    background: #1e1e32;
+    border-color: rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .ch-practice-panel h4 { color: #e0e0e0; }
+[data-theme="dark"] .ch-step-quiz-btn-submit {
+    background: #e65100;
+}
+
+@media (max-width: 768px) {
+    .ch-knowledge-grid {
+        grid-template-columns: 1fr;
+    }
+    .ch-step-quiz-detail {
+        gap: 12px;
+    }
+    .ch-step-quiz-stat {
+        min-width: 60px;
+        padding: 10px 14px;
+    }
+    .ch-compare-table {
+        grid-template-columns: 1fr;
+    }
+    .ch-grid-2, .ch-grid-3, .ch-grid-4 {
+        grid-template-columns: 1fr;
+    }
+    .ch-practice-wrap {
+        flex-direction: column;
+    }
+    .ch-practice-panel {
+        min-width: auto;
+    }
+    .ch-process-flow {
+        flex-direction: column;
+        gap: 4px;
+    }
+    .ch-process-flow .ch-process-arrow {
+        transform: rotate(90deg);
+    }
+}
+
+/* ============================================================
+
+/* ============================================================
+   鏆楄壊涓婚 - 绔犺妭鐙壒瑙嗚閫傞厤
+   ============================================================ */
+[data-theme="dark"] #chapter-ch3 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch3 .ch-module-wrap .w3-card {
+    background: linear-gradient(to bottom, #1e1e30 0%, #1e1e32 100%);
+}
+[data-theme="dark"] #chapter-ch5 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch5 .ch-module-wrap .w3-card {
+    background: linear-gradient(135deg, #1e1828 0%, #1e1e32 50%);
+}
+[data-theme="dark"] #chapter-ch8 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch8 .ch-module-wrap .w3-card {
+    background: #1a1a2e;
+}
+[data-theme="dark"] #chapter-ch9 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch9 .ch-module-wrap .w3-card {
+    background: #1e1a18;
+}
+[data-theme="dark"] #chapter-ch11 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch11 .ch-module-wrap .w3-card {
+    background: #1a1e1a;
+}
+[data-theme="dark"] #chapter-ch13 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch13 .ch-module-wrap .w3-card {
+    background: #1e1a18;
+}
+[data-theme="dark"] #chapter-ch14 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch14 .ch-module-wrap .w3-card {
+    background: linear-gradient(135deg, #1a1428 0%, #1e1e32 100%);
+}
+[data-theme="dark"] #chapter-ch16 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch16 .ch-module-wrap .w3-card {
+    background: #1a1c20;
+}
+[data-theme="dark"] #chapter-ch17 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch17 .ch-module-wrap .w3-card {
+    background: #141418;
+}
+[data-theme="dark"] #chapter-ch18 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch18 .ch-module-wrap .w3-card {
+    background: #1a1428;
+}
+[data-theme="dark"] #chapter-ch19 .ch-module-wrap .w3-card-2,
+[data-theme="dark"] #chapter-ch19 .ch-module-wrap .w3-card {
+    background: #1a1e1a;
+}
+
+/* 鏆楄壊涓婚涓嬬珷鑺傜壒鏈夌殑鎻愮ず妗?*/
+[data-theme="dark"] #chapter-ch5 .ch-hint-box { background: #1e1828; }
+[data-theme="dark"] #chapter-ch10 .ch-hint-box { background: #1e1c14; }
+[data-theme="dark"] #chapter-ch13 .ch-hint-box { background: #1e1a16; }
+[data-theme="dark"] #chapter-ch15 .ch-hint-box { background: #1e1818; }
+
+/* ============================================================
+   鏆楄壊涓婚 - 鏂板缁勪欢閫傞厤
+   ============================================================ */
+[data-theme="dark"] .ch-back-to-top {
+    background: #04AA6D;
+    box-shadow: 0 4px 16px rgba(4,170,109,0.25);
+}
+[data-theme="dark"] .ch-tag {
+    background: rgba(4,170,109,0.15);
+    color: #7affb8;
+    border-color: rgba(4,170,109,0.3);
+}
+[data-theme="dark"] .ch-step-progress .ch-step-dot {
+    background: #444;
+}
+[data-theme="dark"] .ch-step-progress .ch-step-line {
+    background: #444;
+}
+[data-theme="dark"] .ch-progress-bar {
+    background: #333;
+}
+[data-theme="dark"] .ch-module-wrap select {
+    background-color: #1e1e32;
+    color: #e0e0e0;
+    border-color: rgba(255,255,255,0.15);
+}
+[data-theme="dark"] .ch-module-wrap select option {
+    background: #1e1e32;
+    color: #e0e0e0;
+}
+[data-theme="dark"] .ch-section-divider {
+    color: #777;
+}
+[data-theme="dark"] #chapter-ch18 .ch-hint-box { background: #1e1828; }
+
+/* ============================================================
+   暗色主题：通用卡片适配（减少 !important 依赖）
+   ============================================================ */
+[data-theme="dark"] .ch-module-wrap .w3-card-2,
+[data-theme="dark"] .ch-module-wrap .w3-card {
+    background: #2d2d44 !important;
+    color: #ddd !important;
+}
+
+[data-theme="dark"] .ch-module-wrap h4,
+[data-theme="dark"] .ch-module-wrap h3:not(.module-header h3):not(#question-text) {
+    color: #ddd !important;
+}
+
+[data-theme="dark"] .ch-module-wrap label {
+    border-color: #3d3d5c !important;
+    color: #ddd !important;
+}
+
+[data-theme="dark"] .ch-module-wrap input[type="radio"] {
+    accent-color: #04AA6D;
+}
+
+[data-theme="dark"] .ch-module-wrap code:not(.CodeMirror *) {
+    background: #3d3d5c !important;
+    color: #04AA6D !important;
+}
+

@@ -4,10 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理后台 - Python 变量学习平台</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <link rel="stylesheet" href="lib/all.min.css" onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css'">
     <link rel="stylesheet" href="admin.css">
 </head>
 <body>
+    <!-- 管理员登录表单（未登录时显示） -->
+    <div class="admin-login-overlay" id="adminLoginOverlay">
+        <div class="admin-login-card">
+            <div class="admin-login-header">
+                <i class="fas fa-shield-alt"></i>
+                <h2>管理后台登录</h2>
+            </div>
+            <div class="admin-login-body">
+                <div class="settings-form-group">
+                    <label>用户名</label>
+                    <input type="text" id="adminUsername" placeholder="请输入管理员用户名" autocomplete="username">
+                </div>
+                <div class="settings-form-group">
+                    <label>密码</label>
+                    <input type="password" id="adminPassword" placeholder="请输入密码" autocomplete="current-password">
+                </div>
+                <div id="adminLoginError" style="color:var(--danger);font-size:13px;margin-bottom:12px;display:none;"></div>
+                <button class="btn btn-primary" id="adminLoginBtn" onclick="handleAdminLogin()" style="width:100%;">
+                    <i class="fas fa-sign-in-alt"></i> 登录
+                </button>
+                <p style="text-align:center;margin-top:12px;color:var(--text-secondary);font-size:12px;">
+                    默认账号: admin / admin123
+                </p>
+            </div>
+        </div>
+    </div>
+
     <div class="admin-layout">
         <!-- 侧边栏 -->
         <aside class="admin-sidebar">
@@ -34,11 +61,23 @@
                 <a href="javascript:void(0)" class="nav-item" data-page="assignments">
                     <i class="fas fa-tasks"></i> <span>作业管理</span>
                 </a>
+                <a href="javascript:void(0)" class="nav-item" data-page="screenshots">
+                    <i class="fas fa-images"></i> <span>作品截图</span>
+                </a>
                 <a href="javascript:void(0)" class="nav-item" data-page="activity">
                     <i class="fas fa-heartbeat"></i> <span>活跃度监控</span>
                 </a>
                 <a href="javascript:void(0)" class="nav-item" data-page="daily-questions">
                     <i class="fas fa-calendar-check"></i> <span>每日一题</span>
+                </a>
+                <a href="javascript:void(0)" class="nav-item" data-page="discussions">
+                    <i class="fas fa-comments"></i> <span>讨论区管理</span>
+                </a>
+                <a href="javascript:void(0)" class="nav-item" data-page="chapter-locks">
+                    <i class="fas fa-lock"></i> <span>章节锁定</span>
+                </a>
+                <a href="javascript:void(0)" class="nav-item" data-page="registration">
+                    <i class="fas fa-user-plus"></i> <span>注册管理</span>
                 </a>
                 <a href="javascript:void(0)" class="nav-item" data-page="settings">
                     <i class="fas fa-cog"></i> <span>系统设置</span>
@@ -183,10 +222,10 @@
                     <div class="card-body">
                         <div class="import-info">
                             <p><i class="fas fa-info-circle"></i> 每行一条学生数据，格式：<code>姓名,用户名,密码,年级,班级</code></p>
-                            <p>示例：<code>张三,zhangsan,123456,七年级,3</code></p>
-                            <p>密码可省略，默认为 <code>123456</code></p>
+                            <p>示例：<code>张三,zhangsan,abc123,七年级,3</code></p>
+                            <p>密码可省略，默认为 <code>abc123</code></p>
                         </div>
-                        <textarea id="importText" class="import-textarea" rows="10" placeholder="张三,zhangsan,123456,七年级,3&#10;李四,lisi,123456,七年级,3&#10;王五,wangwu,123456,八年级,5"></textarea>
+                        <textarea id="importText" class="import-textarea" rows="10" placeholder="张三,zhangsan,abc123,七年级,3&#10;李四,lisi,abc123,七年级,3&#10;王五,wangwu,abc123,八年级,5"></textarea>
                         <div class="import-actions">
                             <button class="btn btn-primary" onclick="doImport()"><i class="fas fa-upload"></i> 开始导入</button>
                             <button class="btn btn-outline" onclick="downloadTemplate()"><i class="fas fa-download"></i> 下载模板</button>
@@ -334,6 +373,22 @@
                 </div>
             </section>
 
+            <!-- ===== 作品截图查看 ===== -->
+            <section class="page-content" id="page-screenshots">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-images"></i> 学生作品截图</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-sm btn-primary" onclick="loadScreenshots()"><i class="fas fa-sync-alt"></i> 刷新</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">查看学生在「创意项目」中提交的程序运行截图，点击图片可放大查看。</p>
+                        <div id="screenshotList"></div>
+                    </div>
+                </div>
+            </section>
+
             <!-- ===== 活跃度监控 ===== -->
             <section class="page-content" id="page-activity">
                 <div class="card">
@@ -429,6 +484,183 @@
                 </div>
             </section>
 
+            <!-- ===== 注册管理 ===== -->
+            <section class="page-content" id="page-registration">
+                <div class="settings-grid">
+                    <!-- 注册开关 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-power-off"></i> 注册开关</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="reg-toggle-row">
+                                <div>
+                                    <strong style="font-size:16px;">允许学生注册</strong>
+                                    <p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">
+                                        关闭后，学生将无法注册新账号，已注册的账号不受影响
+                                    </p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="regEnabledToggle" onchange="toggleRegistration()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div id="regStatusBadge" style="margin-top:12px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 资料编辑开关 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-user-edit"></i> 资料编辑开关</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="reg-toggle-row">
+                                <div>
+                                    <strong style="font-size:16px;">允许学生自行修改资料</strong>
+                                    <p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">
+                                        关闭后，学生将无法修改显示名称、年级、班级等信息
+                                    </p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="profileEditToggle" onchange="toggleProfileEdit()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div id="profileEditStatusBadge" style="margin-top:12px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 注册配置 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-sliders-h"></i> 注册限制配置</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="settings-form-group">
+                                <label>
+                                    <input type="checkbox" id="requireStudentId" onchange="markSettingsChanged()">
+                                    要求填写学号（启用后学生必须填写学号才能注册）
+                                </label>
+                            </div>
+                            <div class="settings-form-group">
+                                <label>同一IP最大注册数（冷却期内）</label>
+                                <input type="number" id="maxAccountsPerIp" min="1" max="50" value="3" onchange="markSettingsChanged()">
+                                <span style="color:var(--text-secondary);font-size:12px;">建议值：3-5，防止同一台电脑注册过多账号</span>
+                            </div>
+                            <div class="settings-form-group">
+                                <label>注册冷却时间（分钟）</label>
+                                <input type="number" id="regCooldownMinutes" min="1" max="1440" value="5" onchange="markSettingsChanged()">
+                                <span style="color:var(--text-secondary);font-size:12px;">在此时长内，同一IP达到上限后将无法继续注册</span>
+                            </div>
+                            <div class="settings-form-group">
+                                <label>同一学号最大可注册账号数</label>
+                                <input type="number" id="maxAccountsPerStudentId" min="1" max="10" value="1" onchange="markSettingsChanged()">
+                                <span style="color:var(--text-secondary);font-size:12px;">建议设为1，防止学生用同一学号注册多个账号</span>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-primary" id="saveRegSettingsBtn" onclick="saveRegistrationSettings()" disabled>
+                                    <i class="fas fa-save"></i> 保存配置
+                                </button>
+                                <span id="settingsSavedHint" style="color:var(--success);font-size:13px;display:none;margin-left:12px;">
+                                    <i class="fas fa-check"></i> 已保存
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 疑似重复账号检测 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-search"></i> 疑似重复账号检测</h3>
+                            <button class="btn btn-sm btn-primary" onclick="loadDuplicateStudents()">
+                                <i class="fas fa-sync-alt"></i> 检测
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="duplicateResults">
+                                <div class="empty-state">点击"检测"按钮查找疑似重复注册的账号</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 账号合并 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-object-group"></i> 账号合并</h3>
+                        </div>
+                        <div class="card-body">
+                            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
+                                将一个学生的多个账号合并为一个。源账号的所有学习数据（进度、成就、笔记等）将迁移到目标账号，源账号将被删除。
+                            </p>
+                            <div class="merge-form-row">
+                                <div class="settings-form-group" style="flex:1;">
+                                    <label>源账号（将被合并的账号）</label>
+                                    <input type="text" id="mergeSourceSearch" placeholder="输入学生姓名或用户名搜索..." oninput="searchMergeStudent('source')">
+                                    <div class="merge-search-results" id="mergeSourceResults"></div>
+                                    <input type="hidden" id="mergeSourceId">
+                                    <div id="mergeSourceSelected" style="margin-top:4px;font-size:13px;color:var(--primary);"></div>
+                                </div>
+                                <div style="display:flex;align-items:center;padding-top:20px;font-size:24px;color:var(--text-secondary);">
+                                    <i class="fas fa-arrow-right"></i>
+                                </div>
+                                <div class="settings-form-group" style="flex:1;">
+                                    <label>目标账号（数据保留账号）</label>
+                                    <input type="text" id="mergeTargetSearch" placeholder="输入学生姓名或用户名搜索..." oninput="searchMergeStudent('target')">
+                                    <div class="merge-search-results" id="mergeTargetResults"></div>
+                                    <input type="hidden" id="mergeTargetId">
+                                    <div id="mergeTargetSelected" style="margin-top:4px;font-size:13px;color:var(--primary);"></div>
+                                </div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-danger" id="mergeBtn" onclick="mergeAccounts()" disabled>
+                                    <i class="fas fa-object-group"></i> 合并账号
+                                </button>
+                            </div>
+                            <div id="mergeResult" style="margin-top:12px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 注册审计日志 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-history"></i> 注册审计日志</h3>
+                            <div class="card-actions">
+                                <select id="regLogFilter" class="search-input" style="width:auto;" onchange="loadRegistrationLogs(1)">
+                                    <option value="">全部</option>
+                                    <option value="success">成功</option>
+                                    <option value="failed">失败</option>
+                                    <option value="blocked">被阻止</option>
+                                </select>
+                                <button class="btn btn-sm btn-primary" onclick="loadRegistrationLogs(1)">
+                                    <i class="fas fa-sync-alt"></i> 刷新
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body table-wrapper">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>用户名</th>
+                                        <th>姓名</th>
+                                        <th>年级/班级</th>
+                                        <th>学号</th>
+                                        <th>IP地址</th>
+                                        <th>结果</th>
+                                        <th>原因</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="regLogsBody">
+                                    <tr><td colspan="8" class="empty-state">加载中...</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="pagination-bar" id="regLogPagination" style="padding:10px 0;text-align:center;"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- ===== 系统设置 ===== -->
             <section class="page-content" id="page-settings">
                 <div class="settings-grid">
@@ -458,19 +690,50 @@
                     </div>
                     <div class="card">
                         <div class="card-header">
-                            <h3><i class="fas fa-database"></i> 数据管理</h3>
+                            <h3><i class="fas fa-database"></i> 数据备份</h3>
                         </div>
                         <div class="card-body">
                             <div class="data-management-info">
-                                <p>导出完整数据库备份，或从备份文件恢复数据。建议定期备份数据以防意外丢失。</p>
+                                <p>一键备份所有数据到服务器。备份文件保存在服务器 <code>backups/</code> 目录中，系统自动保留最近 7 个备份。建议每次下课前备份一次。</p>
+                            </div>
+                            <div class="backup-actions">
+                                <button class="btn btn-primary btn-backup" id="btnTriggerBackup" onclick="triggerBackup()">
+                                    <i class="fas fa-save"></i> 一键备份数据
+                                </button>
+                                <button class="btn btn-outline" onclick="loadBackupList()">
+                                    <i class="fas fa-list"></i> 刷新列表
+                                </button>
+                            </div>
+                            <div class="backup-status" id="backupStatus" style="display:none;"></div>
+                            <div class="backup-list-container" style="margin-top:16px;">
+                                <h4 style="margin:0 0 8px 0;font-size:14px;color:var(--text-secondary);">
+                                    <i class="fas fa-history"></i> 备份历史
+                                </h4>
+                                <div class="table-wrapper" style="max-height:240px;overflow-y:auto;">
+                                    <table class="data-table" id="backupListTable">
+                                        <thead>
+                                            <tr><th>文件名</th><th>大小</th><th>创建时间</th><th>操作</th></tr>
+                                        </thead>
+                                        <tbody id="backupListBody">
+                                            <tr><td colspan="4" class="empty-state">点击"刷新列表"查看备份记录</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-upload"></i> 数据恢复</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="data-management-info">
+                                <p>从备份文件恢复数据。<strong>恢复操作将覆盖现有数据，请谨慎操作！</strong></p>
                             </div>
                             <div class="data-actions">
-                                <button class="btn btn-primary" onclick="backupDatabase()">
-                                    <i class="fas fa-download"></i> 导出备份
-                                </button>
-                                <label class="btn btn-outline" for="restoreFile">
-                                    <i class="fas fa-upload"></i> 恢复备份
-                                    <input type="file" id="restoreFile" accept=".json" onchange="restoreDatabase()">
+                                <label class="btn btn-outline btn-restore" for="restoreFile">
+                                    <i class="fas fa-upload"></i> 选择备份文件并恢复
+                                    <input type="file" id="restoreFile" accept=".json" onchange="restoreDatabase()" style="display:none;">
                                 </label>
                             </div>
                             <div class="restore-result" id="restoreResult"></div>
@@ -509,6 +772,78 @@
                                     <tr><td colspan="4" class="empty-state">加载中...</td></tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== 讨论区管理 ===== -->
+            <section class="page-content" id="page-discussions">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-comments"></i> 讨论区管理</h3>
+                        <span style="color:#888;font-size:13px;">可以审核和删除不当内容</span>
+                    </div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table" id="discussionsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>标题</th>
+                                    <th>作者</th>
+                                    <th>班级</th>
+                                    <th>回复数</th>
+                                    <th>发布时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="discussionsBody">
+                                <tr><td colspan="7" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="pagination-bar" id="discPaginationBar" style="padding:10px 0;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;"></div>
+                    </div>
+                </div>
+                <!-- 回复详情弹窗 -->
+                <div class="modal" id="repliesModal" style="display:none;">
+                    <div class="modal-content" style="max-width:600px;">
+                        <div class="modal-header">
+                            <h3>帖子回复</h3>
+                            <button class="modal-close" onclick="closeRepliesModal()">&times;</button>
+                        </div>
+                        <div class="modal-body" id="repliesModalBody" style="max-height:400px;overflow-y:auto;">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== 章节锁定 ===== -->
+            <section class="page-content" id="page-chapter-locks">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-lock"></i> 章节锁定管理</h3>
+                        <span style="color:#888;font-size:13px;">锁定后学生无法访问该章节内容</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="filter-bar" style="margin-bottom:12px;">
+                            <label style="margin-right:8px;">年级：</label>
+                            <select id="lockFilterGrade" class="search-input" style="width:auto;" onchange="loadChapterLocks()">
+                                <option value="">全部</option>
+                                <option value="七年级">七年级</option>
+                                <option value="八年级">八年级</option>
+                            </select>
+                            <label style="margin:0 8px;">班级：</label>
+                            <select id="lockFilterClass" class="search-input" style="width:auto;" onchange="loadChapterLocks()">
+                                <option value="0">全部</option>
+                            </select>
+                            <button class="btn btn-sm btn-primary" onclick="toggleAllChapters()">全部解锁</button>
+                            <button class="btn btn-sm btn-danger" onclick="toggleAllChapters(true)">全部锁定</button>
+                            <button class="btn btn-sm btn-success" onclick="saveChapterLocks()">
+                                <i class="fas fa-save"></i> 保存设置
+                            </button>
+                        </div>
+                        <div id="chapterLocksGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">
+                            <div class="empty-state">加载中...</div>
                         </div>
                     </div>
                 </div>
@@ -656,6 +991,22 @@
         </div>
     </div>
 
-    <script src="admin.js"></script>
+    <!-- 通用确认弹窗 -->
+    <div class="w3-modal" id="confirmModal" onclick="if(event.target===this)closeConfirmModal()" role="dialog" aria-modal="true">
+        <div class="w3-modal-content w3-animate-zoom w3-card-4 confirm-modal-content">
+            <div class="w3-container w3-padding-24">
+                <div class="confirm-icon" id="confirmIcon">⚠️</div>
+                <h3 class="confirm-title" id="confirmTitle">确认操作</h3>
+                <p class="confirm-message" id="confirmMessage">确定要执行此操作吗？</p>
+                <div class="confirm-actions">
+                    <button class="confirm-btn cancel" onclick="closeConfirmModal()">取消</button>
+                    <button class="confirm-btn danger" id="confirmOkBtn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="constants.js"></script>
+    <script src="admin.js?v=20260929-1"></script>
 </body>
 </html>

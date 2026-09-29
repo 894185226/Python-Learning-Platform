@@ -1044,7 +1044,13 @@ module.exports = function(app) {
             const safeFileName = (fileName || 'screenshot').replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '_');
             const timestamp = Date.now();
             const uniqueName = `${timestamp}_${students[0].id}_${safeFileName}.${fileExt}`;
-            const uploadPath = path.join(__dirname, '..', 'uploads', uniqueName);
+            const uploadDir = path.join(__dirname, '..', 'uploads');
+            const uploadPath = path.join(uploadDir, uniqueName);
+
+            // 确保 uploads 目录存在（全新部署时该目录可能不存在）
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
 
             // 将 base64 数据写入文件
             const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');

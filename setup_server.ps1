@@ -249,12 +249,21 @@ if (-not $mysqlOk) {
 }
 
 if (-not $mysqlOk) {
-    Write-Host "[INFO] winget 不可用，改用直接下载 MySQL 8.0（约 230MB，依网速约需数分钟）..." -ForegroundColor Cyan
-    $mysqlVer = "8.0.40"
-    $mysqlDirName = "mysql-$mysqlVer-winx64"
     $mysqlTargetDir = "C:\Program Files\MySQL\MySQL Server 8.0"
-    $zipPath = Join-Path $env:TEMP "$mysqlDirName.zip"
     $extractRoot = Join-Path $env:TEMP "mysql_extract"
+
+    # 优先检测项目目录下是否已放置 MySQL 压缩包（支持离线安装）
+    $localZip = Get-ChildItem -Path $PSScriptRoot -Filter "mysql-*-winx64.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($localZip) {
+        $zipPath = $localZip.FullName
+        $mysqlDirName = $localZip.BaseName
+        Write-Host "[INFO] 检测到本地 MySQL 压缩包 $($localZip.Name)，开始离线安装" -ForegroundColor Green
+    } else {
+        $mysqlVer = "8.0.40"
+        $mysqlDirName = "mysql-$mysqlVer-winx64"
+        $zipPath = Join-Path $env:TEMP "$mysqlDirName.zip"
+        Write-Host "[INFO] winget 不可用，改用直接下载 MySQL 8.0（约 230MB，依网速约需数分钟）..." -ForegroundColor Cyan
+    }
 
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12

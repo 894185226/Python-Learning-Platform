@@ -51,6 +51,32 @@ function Refresh-Path {
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 }
 
+# 稳定下载：依次尝试 curl.exe → BITS → WebClient，确保大文件下载成功
+function Download-File {
+    param([string]$Url, [string]$Path)
+    if (Test-Path $Path) { return $true }
+    try {
+        # 方式1：curl.exe（Windows 10 自带，最可靠）
+        if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+            & curl.exe -L --retry 3 --connect-timeout 30 -o $Path $Url 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0 -and (Test-Path $Path)) { return $true }
+        }
+        # 方式2：Start-BitsTransfer（断点续传，大文件更稳）
+        try {
+            Start-BitsTransfer -Source $Url -Destination $Path -ErrorAction Stop
+            if (Test-Path $Path) { return $true }
+        } catch { }
+        # 方式3：WebClient（兜底）
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $wc = New-Object System.Net.WebClient
+        $wc.DownloadFile($Url, $Path)
+        $wc.Dispose()
+        return (Test-Path $Path)
+    } catch {
+        return $false
+    }
+}
+
 # ============================================================
 # Phase 1: Check/Install Node.js
 # ============================================================
@@ -266,14 +292,12 @@ if (-not $mysqlOk) {
     }
 
     try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
         # 下载（已存在则跳过）
         if (-not (Test-Path $zipPath)) {
             Write-Host "[INFO] 正在下载 MySQL ..." -ForegroundColor Cyan
-            $wc = New-Object System.Net.WebClient
-            $wc.DownloadFile("https://dev.mysql.com/get/Downloads/MySQL-8.0/$mysqlDirName.zip", $zipPath)
-            $wc.Dispose()
+            if (-not (Download-File -Url "https://dev.mysql.com/get/Downloads/MySQL-8.0/$mysqlDirName.zip" -Path $zipPath)) {
+                throw "MySQL 压缩包下载失败（已尝试 curl/BITS/WebClient 三种方式）"
+            }
             Write-Host "[OK] MySQL 下载完成" -ForegroundColor Green
         } else {
             Write-Host "[INFO] 检测到已下载的 MySQL 压缩包，跳过下载" -ForegroundColor Gray
@@ -347,9 +371,9 @@ if ($mysqlOk) {
         $vcRedistPath = Join-Path $env:TEMP "vc_redist.x64.exe"
         if (-not (Test-Path $vcRedistPath)) {
             Write-Host "[INFO] 正在下载 VC++ 运行库 ..." -ForegroundColor Cyan
-            $wc = New-Object System.Net.WebClient
-            $wc.DownloadFile("https://aka.ms/vs/17/release/vc_redist.x64.exe", $vcRedistPath)
-            $wc.Dispose()
+            if (-not (Download-File -Url "https://aka.ms/vs/17/release/vc_redist.x64.exe" -Path $vcRedistPath)) {
+                throw "VC++ 运行库下载失败"
+            }
         }
         Write-Host "[INFO] 正在安装 VC++ 运行库 ..." -ForegroundColor Cyan
         Start-Process $vcRedistPath -ArgumentList "/install /quiet /norestart" -Wait

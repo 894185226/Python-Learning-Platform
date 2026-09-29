@@ -115,6 +115,18 @@ function startVariableModule(moduleId) {
     // 更新子模块导航高亮
     const nav = document.getElementById('chapterModNav-ch2');
     const moduleNames = ['ch2_intro', 'ch2_lab', 'ch2_lesson', 'ch2_judge', 'ch2_practice', 'ch2_trace', 'ch2_debug', 'ch2_extend', 'ch2_project', 'ch2_test'];
+    const CH2_MODULE_LABELS = {
+        'ch2_intro': '🎬 情境导入',
+        'ch2_lab': '🧪 类比实验室',
+        'ch2_lesson': '📚 知识讲解',
+        'ch2_judge': '⚖️ 命名小法官',
+        'ch2_practice': '💻 实践操作',
+        'ch2_trace': '🔍 值追踪挑战',
+        'ch2_debug': '🏥 调试诊所',
+        'ch2_extend': '🚀 扩展思维',
+        'ch2_project': '🎨 创意项目',
+        'ch2_test': '📝 课堂小测'
+    };
     if (nav) {
         nav.querySelectorAll('.mod-nav-btn').forEach((btn, i) => {
             btn.classList.toggle('active', moduleNames[i] === moduleId);
@@ -147,7 +159,7 @@ function startVariableModule(moduleId) {
                         </button>
                     ` : `
                         <button class="ch-next-btn" onclick="startVariableModule('${moduleNames[nextIndex]}')">
-                            下一页：${moduleNames[nextIndex] === 'lab' ? '🧪 类比实验室' : moduleNames[nextIndex] === 'lesson' ? '📚 知识讲解' : moduleNames[nextIndex] === 'judge' ? '⚖️ 命名小法官' : moduleNames[nextIndex] === 'practice' ? '💻 实践操作' : moduleNames[nextIndex] === 'trace' ? '🔍 值追踪挑战' : moduleNames[nextIndex] === 'debug' ? '🏥 调试诊所' : moduleNames[nextIndex] === 'extend' ? '🚀 扩展思维' : moduleNames[nextIndex] === 'project' ? '🎨 创意项目' : '📝 课堂小测'} →
+                            下一页：${CH2_MODULE_LABELS[moduleNames[nextIndex]] || moduleNames[nextIndex]} →
                         </button>
                     `}
                 </div>

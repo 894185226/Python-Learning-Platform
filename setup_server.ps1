@@ -249,9 +249,69 @@ if (-not $mysqlOk) {
 }
 
 if (-not $mysqlOk) {
-    Write-Host "[WARN] MySQL not found and winget not available" -ForegroundColor Yellow
-    Write-Host "[INFO] Attempting to continue without MySQL installation..." -ForegroundColor Yellow
-    Write-Host "[INFO] server.js will create database if MySQL is running" -ForegroundColor Yellow
+    Write-Host "[INFO] winget 不可用，改用直接下载 MySQL 8.0（约 230MB，依网速约需数分钟）..." -ForegroundColor Cyan
+    $mysqlVer = "8.0.40"
+    $mysqlDirName = "mysql-$mysqlVer-winx64"
+    $mysqlTargetDir = "C:\Program Files\MySQL\MySQL Server 8.0"
+    $zipPath = Join-Path $env:TEMP "$mysqlDirName.zip"
+    $extractRoot = Join-Path $env:TEMP "mysql_extract"
+
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+        # 下载（已存在则跳过）
+        if (-not (Test-Path $zipPath)) {
+            Write-Host "[INFO] 正在下载 MySQL ..." -ForegroundColor Cyan
+            $wc = New-Object System.Net.WebClient
+            $wc.DownloadFile("https://dev.mysql.com/get/Downloads/MySQL-8.0/$mysqlDirName.zip", $zipPath)
+            $wc.Dispose()
+            Write-Host "[OK] MySQL 下载完成" -ForegroundColor Green
+        } else {
+            Write-Host "[INFO] 检测到已下载的 MySQL 压缩包，跳过下载" -ForegroundColor Gray
+        }
+
+        # 解压（已存在则跳过）
+        $extractedDir = Join-Path $extractRoot $mysqlDirName
+        if (-not (Test-Path $extractedDir)) {
+            Write-Host "[INFO] 正在解压 MySQL ..." -ForegroundColor Cyan
+            Expand-Archive -Path $zipPath -DestinationPath $extractRoot -Force
+            Write-Host "[OK] 解压完成" -ForegroundColor Green
+        }
+
+        # 安装到 Program Files
+        if (-not (Test-Path "$mysqlTargetDir\bin\mysqld.exe")) {
+            Write-Host "[INFO] 正在安装 MySQL 到 $mysqlTargetDir ..." -ForegroundColor Cyan
+            if (-not (Test-Path "C:\Program Files\MySQL")) {
+                New-Item -ItemType Directory -Path "C:\Program Files\MySQL" -Force | Out-Null
+            }
+            if (Test-Path $mysqlTargetDir) {
+                Remove-Item $mysqlTargetDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            Move-Item -Path $extractedDir -Destination $mysqlTargetDir -Force
+        }
+
+        if (Test-Path "$mysqlTargetDir\bin\mysql.exe") {
+            $mysqlBin = "$mysqlTargetDir\bin"
+            $env:Path = "$mysqlBin;$env:Path"
+            $mysqlOk = $true
+            Write-Host "[OK] MySQL 直接下载安装成功: $mysqlBin" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "[WARN] 直接下载 MySQL 失败: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+if (-not $mysqlOk) {
+    Write-Host ""
+    Write-Host "==============================================" -ForegroundColor Red
+    Write-Host "[ERROR] MySQL 无法自动安装！" -ForegroundColor Red
+    Write-Host "==============================================" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "网站保存学生数据、登录、管理后台都依赖 MySQL，必须手动安装：" -ForegroundColor Yellow
+    Write-Host "  1. 下载 MySQL Installer：https://dev.mysql.com/downloads/installer/" -ForegroundColor White
+    Write-Host "  2. 安装时选择 'Server only'，把 root 密码留空（或记住密码后填入 .env）" -ForegroundColor White
+    Write-Host "  3. 完成后重新双击 setup_server.bat" -ForegroundColor White
+    Write-Host ""
 }
 Write-Host ""
 
@@ -272,6 +332,22 @@ if (Test-Path ".env") {
 
 if ($mysqlOk) {
     Write-Host "[Phase 4/6] Configuring MySQL..." -ForegroundColor Cyan
+
+    # 安装 MySQL 运行所需的 VC++ 运行库（缺失会导致 mysqld 无法启动，报 vcruntime140.dll 错误）
+    try {
+        $vcRedistPath = Join-Path $env:TEMP "vc_redist.x64.exe"
+        if (-not (Test-Path $vcRedistPath)) {
+            Write-Host "[INFO] 正在下载 VC++ 运行库 ..." -ForegroundColor Cyan
+            $wc = New-Object System.Net.WebClient
+            $wc.DownloadFile("https://aka.ms/vs/17/release/vc_redist.x64.exe", $vcRedistPath)
+            $wc.Dispose()
+        }
+        Write-Host "[INFO] 正在安装 VC++ 运行库 ..." -ForegroundColor Cyan
+        Start-Process $vcRedistPath -ArgumentList "/install /quiet /norestart" -Wait
+        Write-Host "[OK] VC++ 运行库安装完成" -ForegroundColor Green
+    } catch {
+        Write-Host "[WARN] VC++ 运行库安装失败，MySQL 可能无法启动" -ForegroundColor Yellow
+    }
     
     # Find mysqld
     $mysqld = $null

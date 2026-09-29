@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Simulate container startup failure scenarios and verify diagnostic output
 .DESCRIPTION

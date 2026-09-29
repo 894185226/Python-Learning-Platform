@@ -1,4 +1,4 @@
-﻿﻿<#
+﻿<#
 .SYNOPSIS
     Python Basic Learning Platform - One-Click Deploy & Rollback
 .DESCRIPTION

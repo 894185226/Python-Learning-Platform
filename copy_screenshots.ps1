@@ -1,4 +1,4 @@
-$src = "C:\Users\89418\AppData\Local\Temp\trae\screenshots"
+﻿$src = "C:\Users\89418\AppData\Local\Temp\trae\screenshots"
 $dest = "c:\Users\89418\Desktop\PythonVariableLesson\images\manual"
 $files = Get-ChildItem -Path "$src\*.png" | Sort-Object LastWriteTime -Descending | Select-Object -First 6
 $names = @("01-homepage.png", "02-chapter-view.png", "03-admin-login.png", "05-achievement-wall.png", "07-search.png", "08-chapter2-variable.png")

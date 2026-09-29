@@ -989,10 +989,18 @@
 
         const nextIndex = index + 1;
         const isLast = nextIndex >= chapter.modules.length;
-        const nextBtnHTML = '<div class="ch-next-bar">' + (isLast ?
-            '<button class="ch-next-btn ch-next-btn-done" onclick="var h=document.getElementById(\'chapterHero-' + chapterId + '\');if(h)h.style.display=\'\';markChapterCompleted(\'' + chapterId + '\');window.scrollTo({top:0,behavior:\'smooth\'})">✓ 本章学习完成，返回顶部</button>' :
-            '<button class="ch-next-btn" onclick="switchChapterModule(\'' + chapterId + '\', \'' + chapter.modules[nextIndex].id + '\', ' + nextIndex + ')">下一页：' + chapter.modules[nextIndex].icon + ' ' + chapter.modules[nextIndex].title + ' →</button>'
-        ) + '</div>';
+        const chapterIdx = CHAPTERS.findIndex(function(c) { return c.id === chapterId; });
+        const nextChapter = chapterIdx >= 0 ? CHAPTERS[chapterIdx + 1] : null;
+        let nextBtnHTML;
+        if (isLast) {
+            if (nextChapter) {
+                nextBtnHTML = '<div class="ch-next-bar"><button class="ch-next-btn ch-next-btn-done" onclick="markChapterCompleted(\'' + chapterId + '\');window.switchChapter(\'' + nextChapter.id + '\')">✓ 本章完成，进入下一章：' + nextChapter.icon + ' ' + nextChapter.title + ' →</button></div>';
+            } else {
+                nextBtnHTML = '<div class="ch-next-bar"><button class="ch-next-btn ch-next-btn-done" onclick="var h=document.getElementById(\'chapterHero-' + chapterId + '\');if(h)h.style.display=\'\';markChapterCompleted(\'' + chapterId + '\');window.scrollTo({top:0,behavior:\'smooth\'})">🎉 全部章节已完成，返回顶部</button></div>';
+            }
+        } else {
+            nextBtnHTML = '<div class="ch-next-bar"><button class="ch-next-btn" onclick="switchChapterModule(\'' + chapterId + '\', \'' + chapter.modules[nextIndex].id + '\', ' + nextIndex + ')">下一页：' + chapter.modules[nextIndex].icon + ' ' + chapter.modules[nextIndex].title + ' →</button></div>';
+        }
         contentArea.insertAdjacentHTML('beforeend', nextBtnHTML);
 
         contentArea.scrollIntoView({ behavior: 'smooth', block: 'start' });

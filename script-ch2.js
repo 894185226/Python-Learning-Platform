@@ -154,8 +154,8 @@ function startVariableModule(moduleId) {
             const nextBtnHTML = `
                 <div class="ch-next-bar">
                     ${isLast ? `
-                        <button class="ch-next-btn ch-next-btn-done" onclick="markChapterCompleted('ch2');document.getElementById('ch2-hero').style.display='';window.scrollTo({top:0,behavior:'smooth'})">
-                            ✓ 本章学习完成，返回顶部
+                        <button class="ch-next-btn ch-next-btn-done" onclick="markChapterCompleted('ch2');window.switchChapter('ch3')">
+                            ✓ 本章完成，进入下一章：📊 变量类型 →
                         </button>
                     ` : `
                         <button class="ch-next-btn" onclick="startVariableModule('${moduleNames[nextIndex]}')">

@@ -35,10 +35,15 @@ async function initializeDatabase() {
     });
 
     console.log('[数据库] 正在创建数据库...');
-    await initPool.execute(
-        `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
-    );
-    console.log(`[数据库] 数据库 ${DB_NAME} 已就绪`);
+    try {
+        await initPool.execute(
+            `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+        );
+        console.log(`[数据库] 数据库 ${DB_NAME} 已就绪`);
+    } catch (err) {
+        // root 密码与实际不符时此处会失败——不致命：数据库可能已存在，改用应用账号继续建表
+        console.warn('[数据库] root 连接失败（数据库可能已存在，改用应用账号继续）:', err.message);
+    }
 
     // 2. 创建应用用户（如果设置了密码）
     if (DB_APP_PASSWORD) {

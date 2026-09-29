@@ -25,6 +25,22 @@ try {
 Write-Host "[2/3] Checking MySQL..." -ForegroundColor Cyan
 $mysqlOk = $false
 
+# 定位 mysql 命令行客户端（它可能不在系统 PATH 中）
+$mysqlCmd = $null
+$mysqlBinCandidates = @(
+    "C:\Program Files\MySQL\MySQL Server 9.7\bin",
+    "C:\Program Files\MySQL\MySQL Server 9.0\bin",
+    "C:\Program Files\MySQL\MySQL Server 8.4\bin",
+    "C:\Program Files\MySQL\MySQL Server 8.0\bin",
+    "C:\Program Files\MySQL\MySQL Server 5.7\bin",
+    "C:\Program Files (x86)\MySQL\MySQL Server 8.0\bin",
+    "C:\Program Files (x86)\MySQL\MySQL Server 5.7\bin"
+)
+foreach ($p in $mysqlBinCandidates) {
+    if (Test-Path "$p\mysql.exe") { $mysqlCmd = "$p\mysql.exe"; break }
+}
+if (-not $mysqlCmd -and (Get-Command mysql -ErrorAction SilentlyContinue)) { $mysqlCmd = "mysql" }
+
 # 读取 .env 中的密码（如果存在）
 $envPwd = $null
 if (Test-Path ".env") {
@@ -37,15 +53,17 @@ if (Test-Path ".env") {
 }
 
 # 尝试无密码连接
-try {
-    $null = & mysql -u root -e "SELECT 1" 2>&1
-    if ($LASTEXITCODE -eq 0) { $mysqlOk = $true }
-} catch { }
+if ($mysqlCmd) {
+    try {
+        $null = & $mysqlCmd -u root -e "SELECT 1" 2>&1
+        if ($LASTEXITCODE -eq 0) { $mysqlOk = $true }
+    } catch { }
+}
 
 # 如果无密码失败，尝试用 .env 中的密码
-if (-not $mysqlOk -and $envPwd) {
+if (-not $mysqlOk -and $envPwd -and $mysqlCmd) {
     try {
-        $null = & mysql -u root -p"$envPwd" -e "SELECT 1" 2>&1
+        $null = & $mysqlCmd -u root -p"$envPwd" -e "SELECT 1" 2>&1
         if ($LASTEXITCODE -eq 0) { $mysqlOk = $true }
     } catch { }
 }
@@ -59,8 +77,10 @@ if (-not $mysqlOk) {
             Write-Host "Starting $svc..." -ForegroundColor Yellow
             & net start $svc 2>&1 | Out-Null
             Start-Sleep -Seconds 3
-            $null = & mysql -u root -e "SELECT 1" 2>&1
-            if ($LASTEXITCODE -eq 0) { $mysqlOk = $true; break }
+            if ($mysqlCmd) {
+                $null = & $mysqlCmd -u root -e "SELECT 1" 2>&1
+                if ($LASTEXITCODE -eq 0) { $mysqlOk = $true; break }
+            }
         }
     }
 }

@@ -50,8 +50,8 @@ const pool = mysql.createPool({
     database: DB_NAME,
     charset: 'utf8mb4',
     waitForConnections: true,
-    connectionLimit: 20,           // 最大连接数（40-50 人课堂足够）
-    queueLimit: 10,                // 等待队列上限（超过则立即报错，防止雪崩）
+    connectionLimit: 30,           // 最大连接数（56 人课堂峰值场景留有安全余量）
+    queueLimit: 20,                // 等待队列上限（超过则立即报错，防止雪崩）
     idleTimeout: 60000,            // 空闲连接 60 秒后释放
     connectTimeout: 5000,          // 建立连接超时 5 秒
     enableKeepAlive: true,

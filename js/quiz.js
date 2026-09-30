@@ -81,7 +81,7 @@
             testControls.style.display = 'none';
             testResult.style.display = 'block';
 
-            window.markModuleCompleted('ch2_test');
+            window.markModuleCompleted('ch2_test', Math.round(percentage));
 
             drawRadarChart(score);
         });
@@ -269,7 +269,7 @@
             if (testControls) testControls.style.display = 'none';
             if (testResult) testResult.style.display = 'block';
 
-            window.markModuleCompleted(chapterId + '_quiz');
+            window.markModuleCompleted(chapterId + '_quiz', Math.round(percentage));
             drawRadarChart(score, root);
         });
 

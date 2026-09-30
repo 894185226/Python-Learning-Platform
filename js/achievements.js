@@ -59,12 +59,12 @@
     }
 
     // ===== 学习进度追踪 =====
-    async function markModuleCompleted(moduleId) {
+    async function markModuleCompleted(moduleId, score) {
         const currentUser = window.getCurrentUser();
 
         if (currentUser) {
             try {
-                await window.API.markModuleCompleted(currentUser.username, moduleId);
+                await window.API.markModuleCompleted(currentUser.username, moduleId, score);
             } catch (e) {
                 window.log.error('保存进度失败，将存入本地:', e.message);
                 saveLocalModule(moduleId);

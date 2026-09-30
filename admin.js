@@ -879,6 +879,15 @@ async function loadChapterCompletion() {
     } catch (e) { console.error('加载章节完成率失败:', e); }
 }
 
+// 将测验模块ID（如 ch1_quiz / ch2_test）映射为「第X章 章名 · 综合测试」
+function formatQuizChapterName(moduleId) {
+    const m = /^(ch\d+)_/.exec(moduleId || '');
+    if (m && CHAPTER_NAMES[m[1]]) {
+        return CHAPTER_NAMES[m[1]] + ' · 综合测试';
+    }
+    return MODULE_NAMES[moduleId] || moduleId;
+}
+
 // ===== 测验成绩 =====
 async function loadQuizScores() {
     try {
@@ -891,7 +900,7 @@ async function loadQuizScores() {
         }
         const sorted = [...data.quizScores].sort((a, b) => (a.avgScore || 0) - (b.avgScore || 0));
         tbody.innerHTML = sorted.map(s => {
-            const name = CHAPTER_NAMES[s.moduleId] || s.moduleId;
+            const name = formatQuizChapterName(s.moduleId);
             const avg = (s.avgScore || 0).toFixed(1);
             const lowScore = parseFloat(avg) < 60;
             return `<tr>

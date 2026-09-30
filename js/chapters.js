@@ -227,7 +227,10 @@
         }
 
         function checkAnswer(isValid) {
+            // 防止快速重复点击导致重复计分
             if (validBtn.disabled) return;
+            validBtn.disabled = true;
+            invalidBtn.disabled = true;
 
             const current = shuffledQuestions[window.state.currentJudgeIndex];
             const questionEl = document.getElementById('current-variable');
@@ -265,6 +268,8 @@
                     return;
                 }
 
+                validBtn.disabled = false;
+                invalidBtn.disabled = false;
                 showCurrentQuestion();
             }, 1500);
         }

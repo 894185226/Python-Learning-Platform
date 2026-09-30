@@ -1031,6 +1031,30 @@ module.exports = function(app) {
         }
     });
 
+    // 批量删除讨论帖（含级联删除回复）
+    app.post('/api/admin/discussions/batch-delete', adminAuth, requireDB, async (req, res) => {
+        try {
+            const { ids } = req.body;
+            if (!Array.isArray(ids) || ids.length === 0) {
+                return res.json({ success: false, error: '请先选择要删除的讨论帖' });
+            }
+            const validIds = ids.map(Number).filter(n => Number.isInteger(n) && n > 0);
+            if (validIds.length === 0) {
+                return res.json({ success: false, error: '无效的帖子ID' });
+            }
+            const placeholders = validIds.map(() => '?').join(',');
+            const [result] = await pool.query(
+                `DELETE FROM discussion_posts WHERE id IN (${placeholders})`,
+                validIds
+            );
+            await logAdminAction(req.adminUser.username, '批量删除讨论帖', `帖子IDs: ${validIds.join(',')}`);
+            res.json({ success: true, message: `已删除 ${result.affectedRows} 个帖子` });
+        } catch (err) {
+            log.error('批量删除讨论帖失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
     app.delete('/api/admin/discussions/:id', adminAuth, requireDB, async (req, res) => {
         try {
             await pool.query('DELETE FROM discussion_posts WHERE id = ?', [req.params.id]);

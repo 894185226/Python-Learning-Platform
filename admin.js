@@ -1512,11 +1512,15 @@ async function loadDiscussions(page = 1) {
         if (!data.success) return;
         discTotal = data.total;
         const tbody = document.getElementById('discussionsBody');
+        // 每次加载后重置全选框，避免切页后残留勾选状态
+        const selectAll = document.getElementById('discSelectAll');
+        if (selectAll) selectAll.checked = false;
         if (data.discussions.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无讨论帖</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">暂无讨论帖</td></tr>';
         } else {
             tbody.innerHTML = data.discussions.map(d => `
                 <tr>
+                    <td><input type="checkbox" class="disc-checkbox" value="${d.id}"></td>
                     <td>${d.id}</td>
                     <td><strong>${esc(d.title)}</strong></td>
                     <td>${esc(d.display_name)} (${esc(d.username)})</td>
@@ -1538,7 +1542,7 @@ async function loadDiscussions(page = 1) {
         html += `<button class="btn-sm btn-outline" onclick="loadDiscussions(${discPage+1})" ${discPage>=totalPages?'disabled':''}>下一页</button>`;
         document.getElementById('discPaginationBar').innerHTML = html;
     } catch (e) {
-        document.getElementById('discussionsBody').innerHTML = `<tr><td colspan="7" class="empty-state">加载失败：${e.message}</td></tr>`;
+        document.getElementById('discussionsBody').innerHTML = `<tr><td colspan="8" class="empty-state">加载失败：${e.message}</td></tr>`;
     }
 }
 
@@ -1581,6 +1585,36 @@ async function deleteReply(id, postId) {
         try {
             const data = await apiFetch(API_BASE + '/discussions/replies/' + id, { method: 'DELETE' });
             if (data.success) viewReplies(postId);
+        } catch (e) { alert('删除失败: ' + e.message); }
+    });
+}
+
+// 全选/取消全选本页讨论帖
+function toggleAllDiscussions(cb) {
+    document.querySelectorAll('.disc-checkbox').forEach(c => { c.checked = cb.checked; });
+}
+
+// 批量删除选中的讨论帖
+async function batchDeleteDiscussions() {
+    const checked = [...document.querySelectorAll('.disc-checkbox:checked')].map(c => parseInt(c.value));
+    if (checked.length === 0) {
+        alert('请先勾选要删除的讨论帖');
+        return;
+    }
+    showConfirm('批量删除', `确定删除选中的 ${checked.length} 个讨论帖及其所有回复？此操作不可恢复！`, '🗑️', '删除', async () => {
+        try {
+            const data = await apiFetch(API_BASE + '/discussions/batch-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: checked })
+            });
+            if (data.success) {
+                const all = document.getElementById('discSelectAll');
+                if (all) all.checked = false;
+                loadDiscussions(discPage);
+            } else {
+                alert(data.error || '删除失败');
+            }
         } catch (e) { alert('删除失败: ' + e.message); }
     });
 }

@@ -15,6 +15,34 @@
     log.log('[utils.js] 屏幕尺寸:', window.innerWidth + 'x' + window.innerHeight);
     log.log('[utils.js] 主题偏好:', localStorage.getItem('pv_theme') || '(未设置，默认暗色)');
 
+    // ===== 旧浏览器检测提示 =====
+    // 检测 IE 内核或缺少现代 Web API（fetch/closest/Promise）的浏览器，提示用户更换 Chrome/Edge
+    // 注意：本段代码必须用 ES5 语法书写，确保在旧浏览器上也能正常执行并弹出提示
+    (function initLegacyBrowserCheck() {
+        function isLegacy() {
+            if (window.document && window.document.documentMode) return true; // IE 内核特有属性
+            if (typeof window.fetch === 'undefined') return true;
+            if (typeof Promise === 'undefined') return true;
+            if (window.Element && typeof Element.prototype.closest === 'undefined') return true;
+            return false;
+        }
+        function showLegacyBanner() {
+            if (document.getElementById('legacyBrowserBanner')) return;
+            var banner = document.createElement('div');
+            banner.id = 'legacyBrowserBanner';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#f59e0b;color:#1e293b;text-align:center;padding:12px 48px 12px 16px;font-size:14px;font-weight:600;box-shadow:0 2px 12px rgba(0,0,0,0.25);';
+            banner.appendChild(document.createTextNode('检测到您正在使用旧版浏览器（如 IE），部分功能可能无法正常使用，请改用 Chrome 或 Edge 浏览器打开本网站。'));
+            var closeBtn = document.createElement('button');
+            closeBtn.style.cssText = 'position:absolute;top:50%;right:12px;transform:translateY(-50%);background:rgba(0,0,0,0.15);border:none;border-radius:4px;color:#1e293b;cursor:pointer;font-size:14px;line-height:1;padding:4px 9px;';
+            closeBtn.title = '关闭';
+            closeBtn.appendChild(document.createTextNode('\u2715'));
+            closeBtn.onclick = function() { if (banner.parentNode) banner.parentNode.removeChild(banner); };
+            banner.appendChild(closeBtn);
+            document.body.insertBefore(banner, document.body.firstChild);
+        }
+        if (isLegacy()) showLegacyBanner();
+    })();
+
     // ===== 全局错误处理 =====
     // 误报错误过滤器：判断是否为环境注入/外部脚本导致的非应用错误
     function isFalsePositiveError(message, source, lineno, colno) {

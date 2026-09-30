@@ -183,7 +183,8 @@ const ADMIN_HASH_MAP = {
 };
 
 // 当前页面追踪（防止重复导航）
-let currentAdminPage = 'dashboard';
+// 初始值必须为空，否则登录/刷新后 switchPage('dashboard') 会因守卫提前 return，导致数据不加载
+let currentAdminPage = '';
 
 // 有效的管理后台页面列表
 const VALID_ADMIN_PAGES = ['dashboard', 'students', 'import', 'class-stats',

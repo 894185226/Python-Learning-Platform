@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <!-- 关键 CSS 优先加载 -->
     <link rel="stylesheet" href="style.css?v=20260928-1" fetchpriority="high">
-    <link rel="stylesheet" href="style-chapters.css?v=20260928-1">
+    <link rel="stylesheet" href="style-chapters.css?v=20261001-11">
     <!--
       CSS 拆分方案（可选）：
       如需使用拆分后的 CSS 文件，请取消下方注释，
@@ -76,6 +76,12 @@
                 <a onclick="closeAllDropdowns(); switchModule('discussion')" class="w3-bar-item w3-button w3-hover-green" href="javascript:void(0)">
                     💬 讨论区
                 </a>
+                <a onclick="closeAllDropdowns(); switchModule('assignments')" class="w3-bar-item w3-button w3-hover-green" href="javascript:void(0)">
+                    📋 作业
+                </a>
+                <a onclick="closeAllDropdowns(); switchModule('daily-question')" class="w3-bar-item w3-button w3-hover-green" href="javascript:void(0)">
+                    📅 每日一题
+                </a>
             </div>
             
             <!-- 搜索框 -->
@@ -128,43 +134,43 @@
         <div id="nav_tutorials" class="w3-dropdown-content w3-hide">
             <div class="dropdown-header">🚀 入门基础</div>
             <div class="dropdown-links">
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch1');">🐍 第1章 认识Python</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch2');">📦 第2章 变量</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch3');">📊 第3章 变量类型</a>
+                <a href="javascript:void(0)" data-chapter="ch1" onclick="closeAllDropdowns(); switchChapter('ch1');">🐍 第1章 认识Python</a>
+                <a href="javascript:void(0)" data-chapter="ch2" onclick="closeAllDropdowns(); switchChapter('ch2');">📦 第2章 变量</a>
+                <a href="javascript:void(0)" data-chapter="ch3" onclick="closeAllDropdowns(); switchChapter('ch3');">📊 第3章 变量类型</a>
             </div>
         </div>
         
         <div id="nav_practice" class="w3-dropdown-content w3-hide">
             <div class="dropdown-header">🔀 控制流程</div>
             <div class="dropdown-links">
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch4');">🔀 第4章 条件判断</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch5');">🔗 第5章 if进阶</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch6');">🔄 第6章 while循环</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch7');">⏭️ 第7章 while拓展</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch8');">🔁 第8章 循环嵌套</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch9');">🧮 第9章 综合应用</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch10');">⭐ 第10章 排列小星星</a>
+                <a href="javascript:void(0)" data-chapter="ch4" onclick="closeAllDropdowns(); switchChapter('ch4');">🔀 第4章 条件判断</a>
+                <a href="javascript:void(0)" data-chapter="ch5" onclick="closeAllDropdowns(); switchChapter('ch5');">🔗 第5章 if进阶</a>
+                <a href="javascript:void(0)" data-chapter="ch6" onclick="closeAllDropdowns(); switchChapter('ch6');">🔄 第6章 while循环</a>
+                <a href="javascript:void(0)" data-chapter="ch7" onclick="closeAllDropdowns(); switchChapter('ch7');">⏭️ 第7章 while拓展</a>
+                <a href="javascript:void(0)" data-chapter="ch8" onclick="closeAllDropdowns(); switchChapter('ch8');">🔁 第8章 循环嵌套</a>
+                <a href="javascript:void(0)" data-chapter="ch9" onclick="closeAllDropdowns(); switchChapter('ch9');">🧮 第9章 综合应用一</a>
+                <a href="javascript:void(0)" data-chapter="ch10" onclick="closeAllDropdowns(); switchChapter('ch10');">⭐ 第10章 排列小星星</a>
             </div>
         </div>
         
         <div id="nav_challenge" class="w3-dropdown-content w3-hide">
             <div class="dropdown-header">📋 数据结构</div>
             <div class="dropdown-links">
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch11');">📋 第11章 初识列表</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch12');">📝 第12章 列表的使用</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch13');">🔒 第13章 元组与集合</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch14');">📖 第14章 神奇的字典</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch15');">✂️ 第15章 再遇字符串</a>
+                <a href="javascript:void(0)" data-chapter="ch11" onclick="closeAllDropdowns(); switchChapter('ch11');">📋 第11章 初识列表</a>
+                <a href="javascript:void(0)" data-chapter="ch12" onclick="closeAllDropdowns(); switchChapter('ch12');">📝 第12章 列表的使用</a>
+                <a href="javascript:void(0)" data-chapter="ch13" onclick="closeAllDropdowns(); switchChapter('ch13');">🔒 第13章 元组与集合</a>
+                <a href="javascript:void(0)" data-chapter="ch14" onclick="closeAllDropdowns(); switchChapter('ch14');">📖 第14章 神奇的字典</a>
+                <a href="javascript:void(0)" data-chapter="ch15" onclick="closeAllDropdowns(); switchChapter('ch15');">✂️ 第15章 再遇字符串</a>
             </div>
         </div>
         
         <div id="nav_project" class="w3-dropdown-content w3-hide">
             <div class="dropdown-header">💡 进阶拓展</div>
             <div class="dropdown-links">
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch16');">🧰 第16章 公共语法</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch17');">💡 第17章 二进制</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch18');">🧠 第18章 编程思维</a>
-                <a href="javascript:void(0)" onclick="closeAllDropdowns(); switchChapter('ch19');">🔢 第19章 各种各样的数</a>
+                <a href="javascript:void(0)" data-chapter="ch16" onclick="closeAllDropdowns(); switchChapter('ch16');">🧰 第16章 公共语法</a>
+                <a href="javascript:void(0)" data-chapter="ch17" onclick="closeAllDropdowns(); switchChapter('ch17');">💡 第17章 轻松搞定二进制</a>
+                <a href="javascript:void(0)" data-chapter="ch18" onclick="closeAllDropdowns(); switchChapter('ch18');">🧠 第18章 编程思维实践</a>
+                <a href="javascript:void(0)" data-chapter="ch19" onclick="closeAllDropdowns(); switchChapter('ch19');">🔢 第19章 各种各样的数</a>
             </div>
         </div>
     </div>
@@ -184,6 +190,8 @@
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchModule('leaderboard');">📊 排行榜</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchModule('mistakes');">📝 错题本</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchModule('discussion');">💬 讨论区</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchModule('daily-question');">📅 每日一题</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchModule('assignments');">📋 作业</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); toggleSidebar();">📚 章节导航</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch1');">🐍 第1章 认识Python</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch2');">📦 第2章 变量</a>
@@ -201,8 +209,8 @@
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch14');">📖 第14章 神奇的字典</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch15');">✂️ 第15章 再遇字符串</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch16');">🧰 第16章 公共语法</a>
-                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch17');">💡 第17章 二进制</a>
-                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch18');">🧠 第18章 编程思维</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch17');">💡 第17章 轻松搞定二进制</a>
+                <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch18');">🧠 第18章 编程思维实践</a>
                 <a href="javascript:void(0)" class="w3-button w3-block w3-left-align w3-hover-green mobile-nav-link" onclick="closeMobileMenu(); switchChapter('ch19');">🔢 第19章 各种各样的数</a>
             </div>
             <div class="mobile-menu-footer">
@@ -287,6 +295,10 @@
                         <select id="regClassNum" class="form-input" required>
                             <option value="">请选择班级</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-hashtag"></i> 学号（选填）</label>
+                        <input type="text" id="regStudentId" class="form-input" placeholder="如有学号请填写" maxlength="50">
                     </div>
                     <div id="registerError" class="form-error w3-hide"></div>
                     <button type="submit" class="form-submit-btn">
@@ -582,7 +594,7 @@
             <div class="w3-row w3-padding-32 chapter-card-row card-row-green">
                 <div class="chapter-card-content">
                     <div class="w3-col l6 w3-center chapter-card-col">
-                        <h2 class="chapter-card-title">🚀 综合应用</h2>
+                        <h2 class="chapter-card-title">🚀 综合应用一</h2>
                         <p class="chapter-card-desc chapter-card-desc-dark">综合运用所学知识，完成小型编程项目</p>
                         <a href="javascript:void(0)" onclick="switchChapter('ch9')" class="chapter-learn-btn">开始探索</a>
                     </div>
@@ -609,7 +621,7 @@
                         <div class="w3-col l4 m6 s12 w3-center module-card-col">
                             <div onclick="switchChapter('ch18')" class="w3-card-2 w3-round module-card module-card-yellow">
                                 <div class="module-card-icon">🧠</div>
-                                <h2 class="module-card-title">编程思维</h2>
+                                <h2 class="module-card-title">编程思维实践</h2>
                                 <p class="module-card-desc">学习流程图和算法思维</p>
                                 <span class="chapter-learn-btn-sm">开始学习</span>
                             </div>
@@ -625,7 +637,7 @@
                         <div class="w3-col l4 m6 s12 w3-center module-card-col">
                             <div onclick="switchChapter('ch17')" class="w3-card-2 w3-round module-card module-card-teal">
                                 <div class="module-card-icon">💡</div>
-                                <h2 class="module-card-title">二进制</h2>
+                                <h2 class="module-card-title">轻松搞定二进制</h2>
                                 <p class="module-card-desc">理解计算机的数字世界</p>
                                 <span class="chapter-learn-btn-sm">开始学习</span>
                             </div>
@@ -849,6 +861,7 @@ score = 95.5  # 浮点数类型</pre>
                 <div class="practice-editor">
                     <div id="code-input" class="code-input"></div>
                     <button class="run-btn" id="run-code">▶️ 运行 (Ctrl+Enter)</button>
+                    <button class="run-btn" id="collect-code" onclick="collectPracticeCode(2)" style="margin-left:8px;">⭐ 收藏</button>
                     <p class="shortcuts-hint">
                         <span class="kbd">Ctrl+Enter</span> 运行代码 &nbsp;|&nbsp;
                         <span class="kbd">Esc</span> 关闭弹窗 &nbsp;|&nbsp;
@@ -1053,7 +1066,7 @@ z = x + y</pre>
                         <div class="map-item" data-chapter-id="ch6">6. while循环</div>
                         <div class="map-item" data-chapter-id="ch7">7. while拓展</div>
                         <div class="map-item" data-chapter-id="ch8">8. 循环嵌套</div>
-                        <div class="map-item" data-chapter-id="ch9">9. 综合应用</div>
+                        <div class="map-item" data-chapter-id="ch9">9. 综合应用一</div>
                         <div class="map-item" data-chapter-id="ch10">10. 排列小星星</div>
                         <div class="map-item" data-chapter-id="ch11">11. 初识列表</div>
                         <div class="map-item" data-chapter-id="ch12">12. 列表的使用</div>
@@ -1061,8 +1074,8 @@ z = x + y</pre>
                         <div class="map-item" data-chapter-id="ch14">14. 神奇的字典</div>
                         <div class="map-item" data-chapter-id="ch15">15. 再遇字符串</div>
                         <div class="map-item" data-chapter-id="ch16">16. 公共语法</div>
-                        <div class="map-item" data-chapter-id="ch17">17. 二进制</div>
-                        <div class="map-item" data-chapter-id="ch18">18. 编程思维</div>
+                        <div class="map-item" data-chapter-id="ch17">17. 轻松搞定二进制</div>
+                        <div class="map-item" data-chapter-id="ch18">18. 编程思维实践</div>
                         <div class="map-item" data-chapter-id="ch19">19. 各种各样的数</div>
                     </div>
                     <div class="progress-summary" id="progressSummary">
@@ -1299,8 +1312,9 @@ z = x + y</pre>
                     <select id="discussionChapterFilter" class="form-input" onchange="renderDiscussions(this.value)">
                         <option value="">全部章节</option>
                     </select>
-                    <button class="form-submit-btn ml-auto" onclick="showDiscussionForm()">📝 发帖</button>
+                    <button class="form-submit-btn ml-auto" id="discussionPostBtn" onclick="showDiscussionForm()">📝 发帖</button>
                 </div>
+                <div id="discussionStatusBanner" class="discussion-status-banner" style="display:none;"></div>
                 <div class="discussion-form-wrap" id="discussionFormWrap" style="display:none">
                     <h3>📝 发布新帖</h3>
                     <form id="discussionForm" onsubmit="return createPost(event)">
@@ -1333,9 +1347,33 @@ z = x + y</pre>
             </div>
         </section>
 
-        <!-- 每日一题卡片（集成到首页） -->
-        <div id="dailyQuestionCard" class="daily-question-card" style="display:none"></div>
+        <!-- 每日一题独立模块 -->
+        <section id="daily-question" class="module">
+            <div class="module-header">
+                <h2>📅 每日一题</h2>
+                <p>每天一道题，巩固今天学的知识点</p>
+            </div>
+            <div class="daily-question-module" id="dailyQuestionContent">
+                <p style="text-align:center;color:var(--text-secondary);padding:40px;">加载中...</p>
+            </div>
+        </section>
+
+        <!-- 作业模块 -->
+        <section id="assignments" class="module">
+            <div class="module-header">
+                <h2>📋 作业</h2>
+                <p>查看老师布置的作业并在线提交</p>
+            </div>
+            <div id="assignmentsContent">
+                <p style="text-align:center;color:var(--text-secondary);padding:40px;">加载中...</p>
+            </div>
+        </section>
     </main>
+
+    <!-- 每日一题强制弹窗（作答完成前不可关闭） -->
+    <div class="daily-question-overlay" id="dailyQuestionOverlay" style="display:none;">
+        <div class="daily-question-modal" id="dailyQuestionModalBox"></div>
+    </div>
 
     <!-- 成就弹出提示 -->
     <div class="achievement-toast-container" id="achievementToastContainer"></div>
@@ -1365,7 +1403,7 @@ z = x + y</pre>
                     <li><a href="javascript:void(0)" onclick="switchChapter('ch4')">条件判断</a></li>
                     <li><a href="javascript:void(0)" onclick="switchChapter('ch6')">while循环</a></li>
                     <li><a href="javascript:void(0)" onclick="switchChapter('ch8')">循环嵌套</a></li>
-                    <li><a href="javascript:void(0)" onclick="switchChapter('ch9')">综合应用</a></li>
+                    <li><a href="javascript:void(0)" onclick="switchChapter('ch9')">综合应用一</a></li>
                 </ul>
             </div>
             <div class="footer-section">
@@ -1398,17 +1436,17 @@ z = x + y</pre>
     <!-- 模块化 script.js 拆分为 12 个独立模块 -->
     <script src="js/utils.js?v=20260930-1" defer></script>
     <script src="js/ui.js" defer></script>
-    <script src="js/api.js?v=20260929-3" defer></script>
-    <script src="js/auth.js?v=20260929-3" defer></script>
-    <script src="js/router.js?v=20260929-1" defer></script>
-    <script src="js/chapters.js?v=20260929-5" defer></script>
-    <script src="js/lab.js?v=20260929-1" defer></script>
-    <script src="js/quiz.js?v=20260930-1" defer></script>
+    <script src="js/api.js?v=20261001-6" defer></script>
+    <script src="js/auth.js?v=20261001-2" defer></script>
+    <script src="js/router.js?v=20261001-3" defer></script>
+    <script src="js/chapters.js?v=20261001-2" defer></script>
+    <script src="js/lab.js?v=20261001-1" defer></script>
+    <script src="js/quiz.js?v=20261001-3" defer></script>
     <script src="js/achievements.js?v=20260930-1" defer></script>
     <script src="js/discussions.js" defer></script>
-    <script src="js/search.js" defer></script>
+    <script src="js/search.js?v=20261001-1" defer></script>
     <script src="script.js" defer></script>
-    <script src="script-ch2.js?v=20260929-5" defer></script>
-    <script src="script-extras.js?v=20260929-3" defer></script>
+    <script src="script-ch2.js?v=20261001-3" defer></script>
+    <script src="script-extras.js?v=20261001-9" defer></script>
 </body>
 </html>

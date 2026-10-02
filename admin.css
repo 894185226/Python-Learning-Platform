@@ -80,7 +80,18 @@ body {
 .sidebar-nav {
     flex: 1;
     padding: 12px 0;
+    overflow-y: auto;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(4,170,109,0.35) transparent;
 }
+
+/* 侧边栏滚动条样式（与站点绿色主题一致） */
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(4,170,109,0.35); border-radius: 10px; }
+.sidebar-nav::-webkit-scrollbar-thumb:hover { background: rgba(4,170,109,0.6); }
 
 .nav-item {
     display: flex;
@@ -691,6 +702,9 @@ body {
     border-radius: var(--radius-lg);
     width: 100%;
     max-width: 480px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
     box-shadow: var(--shadow-lg);
     overflow: hidden;
     border: 1px solid var(--border);
@@ -703,6 +717,7 @@ body {
     padding: 18px 24px;
     border-bottom: 1px solid var(--border);
     background: var(--bg);
+    flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -739,6 +754,9 @@ body {
 
 .modal-body {
     padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .modal-body .form-group {

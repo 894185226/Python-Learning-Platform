@@ -114,7 +114,12 @@ module.exports = function (app) {
     // 获取公告列表（学生端）
     app.get('/api/notices', requireDB, async (req, res) => {
         try {
-            const [rows] = await shared.pool.query('SELECT id, title, content, created_at FROM notices ORDER BY created_at DESC LIMIT 10');
+            const [rows] = await shared.pool.query(
+            `SELECT id, title, content, created_at FROM notices
+             WHERE (publish_at IS NULL OR publish_at <= NOW())
+               AND (expire_at IS NULL OR expire_at > NOW())
+             ORDER BY created_at DESC LIMIT 10`
+        );
             res.json({ success: true, notices: rows });
         } catch (err) {
             console.error('获取公告错误:', err);

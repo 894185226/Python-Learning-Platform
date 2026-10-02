@@ -5,6 +5,7 @@
     // 全局状态
     const state = {
         currentModule: 'welcome',
+        transition: null,
         judgeScore: 0,
         judgeQuestions: [
             { name: 'my_name', valid: true, reason: '符合命名规则' },
@@ -396,33 +397,41 @@
             stopIntroAnimations();
         }
 
+        // 若上一次过渡尚未结束（快速连续点击），先完整取消再切换
+        if (state.transition) {
+            clearTimeout(state.transition.timer);
+            state.transition.finish(true);
+            state.transition = null;
+        }
+
         const currentActive = document.querySelector('.module.active');
         if (currentActive && currentActive !== targetModule) {
             let transitionDone = false;
+            // 交叉淡化：旧模块淡出，同时新模块淡入并覆盖在上方，做到无空白间隔
             currentActive.classList.add('module-transitioning');
-            const onTransitionEnd = function() {
+            targetModule.classList.add('active', 'module-showing', 'module-entering');
+            const finish = function(cancel) {
                 if (transitionDone) return;
                 transitionDone = true;
-                currentActive.classList.remove('module-transitioning');
-                currentActive.classList.remove('active');
-                targetModule.classList.add('active');
-                targetModule.classList.add('module-showing');
-                setTimeout(function() { targetModule.classList.remove('module-showing'); }, 260);
-                currentActive.removeEventListener('animationend', onTransitionEnd);
-            };
-            currentActive.addEventListener('animationend', onTransitionEnd);
-            setTimeout(function() {
-                if (!transitionDone) {
-                    onTransitionEnd();
+                currentActive.classList.remove('active', 'module-transitioning');
+                if (cancel) {
+                    targetModule.classList.remove('active', 'module-entering', 'module-showing');
+                } else {
+                    targetModule.classList.remove('module-entering', 'module-showing');
                 }
+            };
+            const timer = setTimeout(function() {
+                finish(false);
+                if (state.transition && state.transition.timer === timer) state.transition = null;
             }, 250);
+            state.transition = { timer: timer, finish: finish };
         } else {
             modules.forEach(function(module) { module.classList.remove('active'); });
             targetModule.classList.add('active');
         }
         state.currentModule = moduleId;
 
-        if (['welcome', 'achievement', 'leaderboard', 'mistakes', 'report', 'snippets', 'goals', 'discussion'].indexOf(moduleId) !== -1) {
+        if (['welcome', 'achievement', 'leaderboard', 'mistakes', 'report', 'snippets', 'goals', 'discussion', 'daily-question', 'assignments'].indexOf(moduleId) !== -1) {
                 document.querySelectorAll('.chapter-section').forEach(function(c) { c.classList.remove('active'); });
                 hideSidebarToggle();
                 currentChapter = null;
@@ -464,6 +473,12 @@
         if (moduleId === 'discussion' && typeof renderDiscussions === 'function') {
             renderDiscussions();
         }
+        if (moduleId === 'daily-question' && typeof renderDailyQuestionModule === 'function') {
+            renderDailyQuestionModule();
+        }
+        if (moduleId === 'assignments' && typeof renderAssignments === 'function') {
+            renderAssignments();
+        }
 
         setTimeout(function() {
             targetModule.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -486,7 +501,7 @@
         });
 
         // 特殊页面（成就墙/排行榜/错题本/讨论区）直接映射到自身
-        if (['achievement', 'leaderboard', 'mistakes', 'discussion'].indexOf(moduleId) !== -1) {
+        if (['achievement', 'leaderboard', 'mistakes', 'discussion', 'daily-question'].indexOf(moduleId) !== -1) {
             highlightNavButton(moduleId);
             return;
         }

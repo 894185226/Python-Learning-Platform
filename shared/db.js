@@ -141,9 +141,19 @@ async function initializeDatabase() {
         id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(200) NOT NULL,
         content TEXT NOT NULL,
+        publish_at DATETIME DEFAULT NULL,
+        expire_at DATETIME DEFAULT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB COMMENT='系统公告表'`);
+
+    // 幂等迁移：为已有 notices 表补充定时发布列（列已存在则忽略）
+    for (const col of [
+        'ALTER TABLE notices ADD COLUMN publish_at DATETIME DEFAULT NULL',
+        'ALTER TABLE notices ADD COLUMN expire_at DATETIME DEFAULT NULL'
+    ]) {
+        try { await pool.execute(col); } catch (e) { /* 列已存在，忽略 */ }
+    }
 
     await pool.execute(`CREATE TABLE IF NOT EXISTS discussion_posts (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -184,12 +194,25 @@ async function initializeDatabase() {
         assignment_id INT NOT NULL,
         student_id INT NOT NULL,
         content TEXT,
-        score INT DEFAULT 0,
+        file_name VARCHAR(255) DEFAULT NULL,
+        file_path VARCHAR(512) DEFAULT NULL,
+        file_original_name VARCHAR(255) DEFAULT NULL,
+        score INT DEFAULT NULL,
         submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
         FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
         UNIQUE KEY uk_assignment_student (assignment_id, student_id)
     ) ENGINE=InnoDB COMMENT='作业提交表'`);
+
+    // 迁移：score 默认值改为 NULL（NULL=未批改，0=实得 0 分），与前端「待批改」判断一致
+    try {
+        await pool.execute(`ALTER TABLE assignment_submissions MODIFY score INT DEFAULT NULL`);
+    } catch (e) { /* 默认值已生效则忽略 */ }
+
+    // 迁移：作业提交支持文件附件
+    try { await pool.execute(`ALTER TABLE assignment_submissions ADD COLUMN file_name VARCHAR(255) DEFAULT NULL`); } catch (e) { /* 已存在则忽略 */ }
+    try { await pool.execute(`ALTER TABLE assignment_submissions ADD COLUMN file_path VARCHAR(512) DEFAULT NULL`); } catch (e) { /* 已存在则忽略 */ }
+    try { await pool.execute(`ALTER TABLE assignment_submissions ADD COLUMN file_original_name VARCHAR(255) DEFAULT NULL`); } catch (e) { /* 已存在则忽略 */ }
 
     await pool.execute(`CREATE TABLE IF NOT EXISTS daily_questions (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -336,6 +359,44 @@ async function initializeDatabase() {
         INDEX idx_source (source_student_id),
         INDEX idx_target (target_student_id)
     ) ENGINE=InnoDB COMMENT='账号合并记录表'`);
+
+    // 讨论区管理（警告/封禁）
+    await pool.execute(`CREATE TABLE IF NOT EXISTS discussion_moderation (
+        student_id    INT PRIMARY KEY COMMENT '学生ID',
+        warning_count INT        DEFAULT 0 COMMENT '警告次数',
+        banned        TINYINT(1) DEFAULT 0 COMMENT '是否被封禁发言',
+        banned_at     DATETIME   DEFAULT NULL COMMENT '封禁时间',
+        banned_by     VARCHAR(50) DEFAULT '' COMMENT '操作管理员',
+        updated_at    DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB COMMENT='讨论区学生管理(警告/封禁)表'`);
+
+    // 讨论区总开关
+    await pool.execute(`CREATE TABLE IF NOT EXISTS discussion_switches (
+        id         INT PRIMARY KEY COMMENT '固定为1',
+        enabled    TINYINT(1) NOT NULL DEFAULT 1 COMMENT '讨论区是否开放',
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB COMMENT='讨论区总开关表'`);
+    await pool.execute(`INSERT IGNORE INTO discussion_switches (id, enabled) VALUES (1, 1)`);
+
+    // 每日一题作答记录（用于判断学生是否已完成当前题目）
+    await pool.execute(`CREATE TABLE IF NOT EXISTS daily_question_answers (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        student_id  INT NOT NULL COMMENT '学生ID',
+        question_id INT NOT NULL COMMENT '题目ID',
+        is_correct  TINYINT(1) DEFAULT 0 COMMENT '是否答对',
+        answered_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '作答时间',
+        UNIQUE KEY uk_student_question (student_id, question_id),
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB COMMENT='每日一题作答记录表'`);
+
+    await pool.execute(`CREATE TABLE IF NOT EXISTS admin_reports (
+        id             INT AUTO_INCREMENT PRIMARY KEY,
+        generated_at   DATETIME COMMENT '报告生成时间',
+        total_students INT DEFAULT 0 COMMENT '学生总数',
+        report_data    JSON COMMENT '报告快照数据',
+        created_at     DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间'
+    ) ENGINE=InnoDB COMMENT='详细报告历史快照表'`);
 
     // 初始化注册管理默认配置
     try {
@@ -494,7 +555,8 @@ async function autoBackup() {
         'admins', 'admin_logs', 'notices', 'discussion_posts',
         'discussion_replies', 'assignments', 'assignment_submissions',
         'daily_questions', 'chapter_locks', 'notifications',
-        'code_snippets', 'mistake_book', 'study_notes', 'student_goals'
+        'code_snippets', 'mistake_book', 'study_notes', 'student_goals',
+        'discussion_moderation', 'discussion_switches', 'daily_question_answers'
     ];
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

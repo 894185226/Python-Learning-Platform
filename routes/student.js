@@ -609,6 +609,11 @@ module.exports = function(app) {
             const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
             if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
 
+            const [sw] = await pool.query('SELECT enabled FROM discussion_switches WHERE id = 1');
+            if (sw.length && !sw[0].enabled) return res.json({ success: false, error: '讨论区已暂时关闭，无法发表内容' });
+            const [mod] = await pool.query('SELECT banned FROM discussion_moderation WHERE student_id = ?', [students[0].id]);
+            if (mod.length && mod[0].banned) return res.json({ success: false, error: '你已被暂时禁止使用讨论区，请遵守讨论规范' });
+
             const [result] = await pool.query(
                 'INSERT INTO discussion_posts (student_id, title, content, chapter_id) VALUES (?, ?, ?, ?)',
                 [students[0].id, title, content, chapterId || '']
@@ -664,6 +669,11 @@ module.exports = function(app) {
             const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
             if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
 
+            const [sw] = await pool.query('SELECT enabled FROM discussion_switches WHERE id = 1');
+            if (sw.length && !sw[0].enabled) return res.json({ success: false, error: '讨论区已暂时关闭，无法发表内容' });
+            const [mod] = await pool.query('SELECT banned FROM discussion_moderation WHERE student_id = ?', [students[0].id]);
+            if (mod.length && mod[0].banned) return res.json({ success: false, error: '你已被暂时禁止使用讨论区，请遵守讨论规范' });
+
             await pool.query(
                 'INSERT INTO discussion_replies (post_id, student_id, content) VALUES (?, ?, ?)',
                 [postId, students[0].id, content]
@@ -671,6 +681,25 @@ module.exports = function(app) {
             res.json({ success: true });
         } catch (err) {
             log.error('回复失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 讨论区状态（是否开放 / 当前学生是否被封禁）
+    app.get('/api/discussion-status', requireDB, sessionAuth, async (req, res) => {
+        try {
+            const [sw] = await pool.query('SELECT enabled FROM discussion_switches WHERE id = 1');
+            const enabled = sw.length ? !!sw[0].enabled : true;
+
+            let banned = false, warningCount = 0;
+            const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [req.sessionUser.username]);
+            if (students.length) {
+                const [mod] = await pool.query('SELECT warning_count, banned FROM discussion_moderation WHERE student_id = ?', [students[0].id]);
+                if (mod.length) { banned = !!mod[0].banned; warningCount = mod[0].warning_count || 0; }
+            }
+            res.json({ success: true, enabled, banned, warningCount });
+        } catch (err) {
+            log.error('获取讨论区状态失败', { error: err.message });
             res.json({ success: false, error: '服务器错误' });
         }
     });
@@ -699,6 +728,77 @@ module.exports = function(app) {
             res.json({ success: true, question: rows[0] });
         } catch (err) {
             log.error('获取每日一题失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 每日一题状态（最新题 + 是否已作答，用于学生端强制弹窗）
+    app.get('/api/daily-question/status', requireDB, sessionAuth, async (req, res) => {
+        try {
+            const [rows] = await pool.query(
+                'SELECT id, question, options, answer, explanation, question_date FROM daily_questions ORDER BY question_date DESC, id DESC LIMIT 1'
+            );
+            if (rows.length === 0) return res.json({ success: true, question: null, answered: true });
+
+            const q = rows[0];
+            const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [req.sessionUser.username]);
+            let answered = true;
+            if (students.length) {
+                const [ans] = await pool.query('SELECT id FROM daily_question_answers WHERE student_id = ? AND question_id = ?', [students[0].id, q.id]);
+                answered = ans.length > 0;
+            }
+            res.json({ success: true, question: q, answered });
+        } catch (err) {
+            log.error('获取每日一题状态失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 每日一题历史（含当前学生的作答状态）
+    app.get('/api/daily-question/history', requireDB, sessionAuth, async (req, res) => {
+        try {
+            const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [req.sessionUser.username]);
+            const studentId = students.length ? students[0].id : 0;
+            const [rows] = await pool.query(
+                `SELECT dq.id, dq.question, dq.options, dq.answer, dq.explanation, dq.question_date,
+                        a.is_correct, a.answered_at
+                 FROM daily_questions dq
+                 LEFT JOIN daily_question_answers a ON a.question_id = dq.id AND a.student_id = ?
+                 ORDER BY dq.question_date DESC, dq.id DESC LIMIT 60`,
+                [studentId]
+            );
+            res.json({ success: true, questions: rows });
+        } catch (err) {
+            log.error('获取每日一题历史失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 提交每日一题答案
+    app.post('/api/daily-question/answer', requireDB, sessionAuth, async (req, res) => {
+        try {
+            const questionId = parseInt(req.body.questionId);
+            const answerIndex = parseInt(req.body.answerIndex);
+            if (!questionId || isNaN(answerIndex)) return res.json({ success: false, error: '参数不完整' });
+
+            const [q] = await pool.query('SELECT answer FROM daily_questions WHERE id = ?', [questionId]);
+            if (q.length === 0) return res.json({ success: false, error: '题目不存在' });
+
+            const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [req.sessionUser.username]);
+            if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+            const studentId = students[0].id;
+
+            const correctLetter = String(q[0].answer || '').toUpperCase();
+            const chosenLetter = String.fromCharCode(65 + answerIndex);
+            const isCorrect = chosenLetter === correctLetter;
+
+            const [result] = await pool.execute(
+                'INSERT INTO daily_question_answers (student_id, question_id, is_correct) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_correct = VALUES(is_correct)',
+                [studentId, questionId, isCorrect ? 1 : 0]
+            );
+            res.json({ success: true, isCorrect, correctIndex: correctLetter ? correctLetter.charCodeAt(0) - 65 : -1, isFirstTime: result.affectedRows === 1 });
+        } catch (err) {
+            log.error('提交每日一题答案失败', { error: err.message });
             res.json({ success: false, error: '服务器错误' });
         }
     });
@@ -747,13 +847,11 @@ module.exports = function(app) {
             const assignmentId = parseInt(req.params.id);
             if (isNaN(assignmentId)) return res.json({ success: false, error: '无效的作业ID' });
 
-            const { username, content } = req.body;
-            if (!username || !content) {
-                return res.json({ success: false, error: '参数不完整' });
-            }
-            if (content.length > 10000) {
-                return res.json({ success: false, error: '作业内容过长（最多10000字）' });
-            }
+            const { username, content, fileData, fileName } = req.body;
+            if (!username) return res.json({ success: false, error: '未登录' });
+            const textContent = (typeof content === 'string' ? content : '').trim();
+            if (!textContent && !fileData) return res.json({ success: false, error: '请填写作业内容或上传文件' });
+            if (textContent.length > 10000) return res.json({ success: false, error: '作业内容过长（最多10000字）' });
 
             const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
             if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
@@ -762,11 +860,39 @@ module.exports = function(app) {
             const [assignments] = await pool.query('SELECT id FROM assignments WHERE id = ?', [assignmentId]);
             if (assignments.length === 0) return res.json({ success: false, error: '作业不存在' });
 
+            // 处理文件附件（支持图片及任意文件，base64 data URL）
+            let storedFileName = null, storedFilePath = null, originalName = null;
+            if (fileData) {
+                if (typeof fileData !== 'string' || !fileData.startsWith('data:')) {
+                    return res.json({ success: false, error: '文件数据格式不正确' });
+                }
+                if (fileData.length > 8 * 1024 * 1024) {
+                    return res.json({ success: false, error: '文件过大（最大约6MB），请压缩后重试' });
+                }
+                const mimeMatch = fileData.match(/^data:([^;]+);base64,/);
+                if (!mimeMatch) return res.json({ success: false, error: '文件数据格式不正确' });
+                const safeName = (fileName || 'attachment').replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5.]/g, '_');
+                const timestamp = Date.now();
+                const uniqueName = `${timestamp}_${students[0].id}_${safeName}`;
+                const uploadDir = path.join(__dirname, '..', 'uploads');
+                if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                const base64Data = fileData.replace(/^data:[^;]+;base64,/, '');
+                fs.writeFileSync(path.join(uploadDir, uniqueName), Buffer.from(base64Data, 'base64'));
+                storedFileName = uniqueName;
+                storedFilePath = path.join(uploadDir, uniqueName);
+                originalName = fileName || '附件';
+            }
+
             await pool.query(
-                `INSERT INTO assignment_submissions (assignment_id, student_id, content)
-                 VALUES (?, ?, ?)
-                 ON DUPLICATE KEY UPDATE content = VALUES(content), submitted_at = NOW()`,
-                [assignmentId, students[0].id, content]
+                `INSERT INTO assignment_submissions (assignment_id, student_id, content, file_name, file_path, file_original_name)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    content = VALUES(content),
+                    file_name = COALESCE(VALUES(file_name), file_name),
+                    file_path = COALESCE(VALUES(file_path), file_path),
+                    file_original_name = COALESCE(VALUES(file_original_name), file_original_name),
+                    submitted_at = NOW()`,
+                [assignmentId, students[0].id, textContent, storedFileName, storedFilePath, originalName]
             );
             res.json({ success: true });
         } catch (err) {

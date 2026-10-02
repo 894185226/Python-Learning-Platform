@@ -64,6 +64,12 @@
             window.state.questions.forEach(function(q, idx) {
                 if (window.state.testAnswers[idx] === q.correct) {
                     score++;
+                } else {
+                    // 记录错题（未作答也记为错题）
+                    const wrong = (window.state.testAnswers[idx] === -1 || window.state.testAnswers[idx] === undefined) ? '（未作答）' : q.options[window.state.testAnswers[idx]];
+                    if (typeof window.recordMistake === 'function') {
+                        window.recordMistake('ch2', q.question, q.options[q.correct], wrong);
+                    }
                 }
             });
 
@@ -82,6 +88,9 @@
             testResult.style.display = 'block';
 
             window.markModuleCompleted('ch2_test', Math.round(percentage));
+
+            // 测试完成后显示「本章完成」按钮
+            if (typeof window.revealChapterComplete === 'function') window.revealChapterComplete();
 
             drawRadarChart(score);
         });
@@ -256,7 +265,17 @@
 
         if (submitBtn) submitBtn.addEventListener('click', function() {
             let score = 0;
-            questions.forEach(function(q, idx) { if (answers[idx] === q.correct) score++; });
+            questions.forEach(function(q, idx) {
+                if (answers[idx] === q.correct) {
+                    score++;
+                } else {
+                    // 记录错题（未作答也记为错题）
+                    const wrong = (answers[idx] === -1 || answers[idx] === undefined) ? '（未作答）' : q.options[answers[idx]];
+                    if (typeof window.recordMistake === 'function') {
+                        window.recordMistake(chapterId, q.question, q.options[q.correct], wrong);
+                    }
+                }
+            });
             if (finalScore) finalScore.textContent = score;
             const percentage = (score / questions.length) * 100;
             let grade;
@@ -269,7 +288,13 @@
             if (testControls) testControls.style.display = 'none';
             if (testResult) testResult.style.display = 'block';
 
-            window.markModuleCompleted(chapterId + '_quiz', Math.round(percentage));
+            // 第2章测验模块名为 ch2_test，其余章节为 chX_quiz
+            const quizModuleId = (chapterId === 'ch2') ? 'ch2_test' : (chapterId + '_quiz');
+            window.markModuleCompleted(quizModuleId, Math.round(percentage));
+
+            // 测试完成后显示「本章完成」按钮
+            if (typeof window.revealChapterComplete === 'function') window.revealChapterComplete();
+
             drawRadarChart(score, root);
         });
 

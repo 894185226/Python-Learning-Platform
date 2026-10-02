@@ -85,7 +85,9 @@ CREATE TABLE IF NOT EXISTS notices (
     id          INT AUTO_INCREMENT PRIMARY KEY COMMENT '公告编号',
     title       VARCHAR(200) NOT NULL COMMENT '公告标题',
     content     TEXT         NOT NULL COMMENT '公告内容',
-    created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+    publish_at  DATETIME     DEFAULT NULL COMMENT '定时发布时间（NULL=立即发布）',
+    expire_at   DATETIME     DEFAULT NULL COMMENT '过期时间（NULL=永不过期）',
+    created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE=InnoDB COMMENT='系统公告表';
 
@@ -312,3 +314,42 @@ CREATE TABLE IF NOT EXISTS discussion_replies (
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
     INDEX idx_post_id (post_id)
 ) ENGINE=InnoDB COMMENT='讨论回复';
+
+-- ===================================================
+-- 23. 章节锁定
+-- ===================================================
+CREATE TABLE IF NOT EXISTS chapter_locks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    chapter_id VARCHAR(10) NOT NULL,
+    locked TINYINT(1) DEFAULT 1,
+    grade VARCHAR(20) DEFAULT '',
+    class_num INT DEFAULT 0,
+    UNIQUE KEY uk_chapter_grade_class (chapter_id, grade, class_num)
+) ENGINE=InnoDB COMMENT='章节锁定表';
+
+-- ===================================================
+-- 24. 截图提交
+-- ===================================================
+CREATE TABLE IF NOT EXISTS screenshot_submissions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    chapter_id VARCHAR(10) DEFAULT '',
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    INDEX idx_student_id (student_id),
+    INDEX idx_chapter_id (chapter_id)
+) ENGINE=InnoDB COMMENT='截图提交表';
+
+-- ===================================================
+-- 25. 用户会话
+-- ===================================================
+CREATE TABLE IF NOT EXISTS sessions (
+    token VARCHAR(64) PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    student_id INT NOT NULL,
+    csrf_token VARCHAR(64) DEFAULT '',
+    created_at BIGINT NOT NULL,
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB COMMENT='用户会话表';

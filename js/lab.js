@@ -14,7 +14,32 @@
         if (typeof fn === 'function') fn();
     }
 
+    // 为所有「实践操作」代码编辑器注入「⭐ 收藏」按钮（与运行按钮并排）
+    function initPracticeCollectButtons() {
+        document.querySelectorAll('textarea[id$="-practice-code"]').forEach(function(textarea) {
+            const m = /^ch(\d+)-practice-code$/.exec(textarea.id);
+            if (!m) return;
+            if (textarea.dataset.collectInjected) return;
+            textarea.dataset.collectInjected = '1';
+            const num = m[1];
+
+            const wrap = textarea.closest('.ch-module-wrap') || document;
+            const runBtn = wrap.querySelector('button[onclick*="runCh' + num + 'Practice("]');
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'run-btn collect-btn';
+            btn.textContent = '⭐ 收藏';
+            btn.style.marginLeft = '8px';
+            btn.onclick = function() { window.collectPracticeCode(parseInt(num, 10)); };
+
+            if (runBtn) runBtn.insertAdjacentElement('afterend', btn);
+            else textarea.insertAdjacentElement('afterend', btn);
+        });
+    }
+
     function initCodeMirrorForPractice() {
+        initPracticeCollectButtons();
         if (typeof CodeMirror === 'undefined') return;
         document.querySelectorAll('textarea[id$="-practice-code"]').forEach(function(textarea) {
             const id = textarea.id;

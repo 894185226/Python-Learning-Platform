@@ -166,12 +166,19 @@ module.exports = function(app) {
                 [studentId]
             );
 
+            // 错题本
+            const [mistakes] = await pool.query(
+                'SELECT id, chapter_id, question_text, correct_answer, student_answer, created_at FROM mistake_book WHERE student_id = ? ORDER BY created_at DESC',
+                [studentId]
+            );
+
             res.json({
                 success: true,
                 student: students[0],
                 modules,
                 quizScores,
                 achievements,
+                mistakes,
                 loginLogs: logs
             });
         } catch (err) {
@@ -410,7 +417,7 @@ module.exports = function(app) {
     // 管理端获取公告
     app.get('/api/admin/notices', adminAuth, requireDB, async (req, res) => {
         try {
-            const [rows] = await pool.query('SELECT id, title, content, created_at, updated_at FROM notices ORDER BY created_at DESC');
+            const [rows] = await pool.query('SELECT id, title, content, publish_at, expire_at, created_at, updated_at FROM notices ORDER BY created_at DESC');
             res.json({ success: true, notices: rows });
         } catch (err) {
             log.error('获取公告失败', { error: err.message });
@@ -421,13 +428,18 @@ module.exports = function(app) {
     // 管理端发布公告
     app.post('/api/admin/notices', adminAuth, requireDB, async (req, res) => {
         try {
-            const { title, content } = req.body;
+            const { title, content, publish_at, expire_at } = req.body;
             if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
             if (!content || !content.trim()) return res.json({ success: false, error: '内容不能为空' });
-            await pool.query('INSERT INTO notices (title, content) VALUES (?, ?)', [title.trim(), content.trim()]);
+            const toDb = (v) => { if (!v) return null; const s = String(v).replace('T', ' '); return s.length === 16 ? s + ':00' : s; };
+            const dbPublishAt = toDb(publish_at);
+            await pool.query('INSERT INTO notices (title, content, publish_at, expire_at) VALUES (?, ?, ?, ?)', [title.trim(), content.trim(), dbPublishAt, toDb(expire_at)]);
             await logAdminAction(req.adminUser.username, '发布公告', title.trim());
-            // 通过 WebSocket 向所有在线用户推送公告
-            try { const ws = require('../ws'); ws.wsBroadcastAll({ type: 'announcement', data: { title: title.trim(), content: content.trim() } }); } catch(e) { log.warn('WebSocket公告广播失败', { error: e.message }); }
+            // 仅当公告立即发布（未设定时或时间已到）时才通过 WebSocket 推送
+            const isImmediate = !dbPublishAt || new Date(String(dbPublishAt).replace(' ', 'T')).getTime() <= Date.now();
+            if (isImmediate) {
+                try { const ws = require('../ws'); ws.wsBroadcastAll({ type: 'announcement', data: { title: title.trim(), content: content.trim() } }); } catch(e) { log.warn('WebSocket公告广播失败', { error: e.message }); }
+            }
             res.json({ success: true });
         } catch (err) {
             log.error('发布公告失败', { error: err.message });
@@ -440,10 +452,11 @@ module.exports = function(app) {
         try {
             const id = parseInt(req.params.id);
             if (isNaN(id)) return res.json({ success: false, error: '无效的公告ID' });
-            const { title, content } = req.body;
+            const { title, content, publish_at, expire_at } = req.body;
             if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
             if (!content || !content.trim()) return res.json({ success: false, error: '内容不能为空' });
-            await pool.query('UPDATE notices SET title = ?, content = ? WHERE id = ?', [title.trim(), content.trim(), id]);
+            const toDb = (v) => { if (!v) return null; const s = String(v).replace('T', ' '); return s.length === 16 ? s + ':00' : s; };
+            await pool.query('UPDATE notices SET title = ?, content = ?, publish_at = ?, expire_at = ? WHERE id = ?', [title.trim(), content.trim(), toDb(publish_at), toDb(expire_at), id]);
             await logAdminAction(req.adminUser.username, '编辑公告', title.trim());
             res.json({ success: true });
         } catch (err) {
@@ -810,6 +823,158 @@ module.exports = function(app) {
         }
     });
 
+    // ---------- 数据导出（JSON 详细报告）----------
+    app.get('/api/admin/export/excel', adminAuth, requireDB, async (req, res) => {
+        try {
+            const [rows] = await pool.query(`
+                SELECT 
+                    s.display_name, s.username, s.grade, s.class_num, s.status,
+                    s.created_at,
+                    COALESCE(lp.module_count, 0) AS module_count,
+                    COALESCE(ach.ach_count, 0) AS ach_count,
+                    COALESCE(ll.login_count, 0) AS login_count,
+                    COALESCE(ll.login_days, 0) AS login_days,
+                    ll.last_login
+                FROM students s
+                LEFT JOIN (
+                    SELECT student_id, COUNT(DISTINCT module_id) AS module_count
+                    FROM learning_progress WHERE completed = 1 GROUP BY student_id
+                ) lp ON s.id = lp.student_id
+                LEFT JOIN (
+                    SELECT student_id, COUNT(*) AS ach_count
+                    FROM achievements GROUP BY student_id
+                ) ach ON s.id = ach.student_id
+                LEFT JOIN (
+                    SELECT student_id, COUNT(*) AS login_count,
+                           COUNT(DISTINCT DATE(login_time)) AS login_days,
+                           MAX(login_time) AS last_login
+                    FROM login_logs GROUP BY student_id
+                ) ll ON s.id = ll.student_id
+                ORDER BY s.grade, s.class_num, s.display_name
+            `);
+            res.json({ success: true, generatedAt: new Date().toISOString(), total: rows.length, students: rows });
+        } catch (err) {
+            log.error('导出详细报告失败', { error: err.message });
+            res.status(500).json({ success: false, error: '导出失败' });
+        }
+    });
+
+    // ---------- 历史报告：保存快照 / 列表 / 查看 / 删除 ----------
+    // 生成报告的规范指纹（key 排序后再序列化，规避 MySQL JSON 键序差异）
+    function sortAny(v) {
+        if (Array.isArray(v)) return v.map(sortAny);
+        if (v && typeof v === 'object') {
+            const o = {};
+            Object.keys(v).sort().forEach(function (k) { o[k] = sortAny(v[k]); });
+            return o;
+        }
+        return v;
+    }
+    function reportFingerprint(students) {
+        return JSON.stringify(sortAny(students));
+    }
+
+    app.post('/api/admin/reports', adminAuth, requireDB, async (req, res) => {
+        try {
+            const { students, generatedAt } = req.body;
+            if (!Array.isArray(students)) return res.json({ success: false, error: '参数错误' });
+            const fp = reportFingerprint(students);
+            // 去重：与最近一次快照数据完全相同则跳过，避免反复点击产生冗余数据
+            const [latest] = await pool.query('SELECT report_data FROM admin_reports ORDER BY id DESC LIMIT 1');
+            if (latest.length > 0) {
+                let latestData = latest[0].report_data;
+                if (typeof latestData === 'string') { try { latestData = JSON.parse(latestData); } catch (e) { latestData = []; } }
+                if (reportFingerprint(latestData || []) === fp) {
+                    return res.json({ success: true, skipped: true, reason: '数据未变化，跳过重复保存' });
+                }
+            }
+            const [r] = await pool.query(
+                'INSERT INTO admin_reports (generated_at, total_students, report_data) VALUES (?, ?, ?)',
+                [generatedAt ? new Date(generatedAt) : new Date(), students.length, JSON.stringify(students)]
+            );
+            res.json({ success: true, id: r.insertId });
+        } catch (err) {
+            log.error('保存历史报告失败', { error: err.message });
+            res.status(500).json({ success: false, error: '保存失败' });
+        }
+    });
+
+    app.get('/api/admin/reports', adminAuth, requireDB, async (req, res) => {
+        try {
+            const [rows] = await pool.query(
+                'SELECT id, generated_at, total_students, created_at FROM admin_reports ORDER BY created_at DESC, id DESC LIMIT 100'
+            );
+            res.json({ success: true, reports: rows });
+        } catch (err) {
+            log.error('获取历史报告列表失败', { error: err.message });
+            res.status(500).json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    app.get('/api/admin/reports/:id', adminAuth, requireDB, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const [rows] = await pool.query('SELECT * FROM admin_reports WHERE id = ?', [id]);
+            if (rows.length === 0) return res.json({ success: false, error: '报告不存在' });
+            const r = rows[0];
+            let students = [];
+            try { students = typeof r.report_data === 'string' ? JSON.parse(r.report_data) : (r.report_data || []); } catch (e) { students = []; }
+            res.json({ success: true, generatedAt: r.generated_at, total: r.total_students, students });
+        } catch (err) {
+            log.error('获取历史报告失败', { error: err.message });
+            res.status(500).json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    app.delete('/api/admin/reports/:id', adminAuth, requireDB, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const [r] = await pool.query('DELETE FROM admin_reports WHERE id = ?', [id]);
+            res.json({ success: r.affectedRows > 0, error: r.affectedRows > 0 ? undefined : '报告不存在' });
+        } catch (err) {
+            log.error('删除历史报告失败', { error: err.message });
+            res.status(500).json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // ---------- 活跃度监控：不活跃学生 ----------
+    app.get('/api/admin/inactive-students', adminAuth, requireDB, async (req, res) => {
+        try {
+            const days = parseInt(req.query.days) || 7;
+            const [rows] = await pool.query(`
+                SELECT s.id, s.display_name, s.grade, s.class_num, ll.last_login
+                FROM students s
+                LEFT JOIN (
+                    SELECT student_id, MAX(login_time) AS last_login
+                    FROM login_logs GROUP BY student_id
+                ) ll ON s.id = ll.student_id
+                WHERE s.status = 'active'
+                  AND (ll.last_login IS NULL OR ll.last_login < NOW() - INTERVAL ? DAY)
+                ORDER BY (ll.last_login IS NULL), ll.last_login ASC, s.id ASC
+            `, [days]);
+            res.json({ success: true, inactiveStudents: rows });
+        } catch (err) {
+            log.error('获取不活跃学生失败', { error: err.message });
+            res.status(500).json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // ---------- 活跃度监控：发送学习提醒 ----------
+    app.post('/api/admin/remind', adminAuth, requireDB, async (req, res) => {
+        try {
+            const studentId = parseInt(req.body.studentId);
+            if (!studentId) return res.json({ success: false, error: '缺少学生ID' });
+            const ws = require('../ws');
+            const nid = await ws.createNotification(studentId, '学习提醒', '老师提醒你：要继续回来学习哦，别掉队啦！', 'system');
+            if (!nid) return res.json({ success: false, error: '发送失败，请稍后重试' });
+            await logAdminAction(req.adminUser.username, '发送学习提醒', '学生ID ' + studentId);
+            res.json({ success: true, notificationId: nid });
+        } catch (err) {
+            log.error('发送提醒失败', { error: err.message });
+            res.json({ success: false, error: '发送失败' });
+        }
+    });
+
     // ===================================================
     // 管理端 API - 作业管理
     // ===================================================
@@ -891,6 +1056,7 @@ module.exports = function(app) {
 
             const [rows] = await pool.query(
                 `SELECT ass.id, ass.content, ass.score, ass.submitted_at,
+                        ass.file_name, ass.file_original_name,
                         s.display_name, s.username, s.grade, s.class_num
                  FROM assignment_submissions ass
                  JOIN students s ON ass.student_id = s.id
@@ -945,11 +1111,16 @@ module.exports = function(app) {
                 return res.json({ success: false, error: '参数不完整' });
             }
 
-            await pool.query(
+            const [result] = await pool.query(
                 'INSERT INTO daily_questions (question, options, answer, explanation, question_date) VALUES (?, ?, ?, ?, ?)',
                 [question, options ? JSON.stringify(options) : null, answer, explanation || '', questionDate]
             );
             await logAdminAction(req.adminUser.username, '添加每日一题', questionDate);
+            // 通过 WebSocket 向所有在线学生推送，触发强制弹窗
+            try {
+                const ws = require('../ws');
+                ws.wsBroadcastAll({ type: 'daily_question', data: { questionId: result.insertId, questionDate: questionDate } });
+            } catch (e) { log.warn('每日一题WS广播失败', { error: e.message }); }
             res.json({ success: true });
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') {
@@ -996,11 +1167,14 @@ module.exports = function(app) {
             const { page = 1, pageSize = 20 } = req.query;
             const offset = (parseInt(page) - 1) * parseInt(pageSize);
             const [rows] = await pool.query(`
-                SELECT dp.id, dp.title, dp.content, dp.chapter_id, dp.created_at,
+                SELECT dp.id, dp.student_id, dp.title, dp.content, dp.chapter_id, dp.created_at,
                        s.display_name, s.username, s.grade, s.class_num,
-                       (SELECT COUNT(*) FROM discussion_replies WHERE post_id = dp.id) AS reply_count
+                       (SELECT COUNT(*) FROM discussion_replies WHERE post_id = dp.id) AS reply_count,
+                       COALESCE(dm.warning_count, 0) AS warning_count,
+                       COALESCE(dm.banned, 0) AS banned
                 FROM discussion_posts dp
                 LEFT JOIN students s ON dp.student_id = s.id
+                LEFT JOIN discussion_moderation dm ON dm.student_id = dp.student_id
                 ORDER BY dp.created_at DESC
                 LIMIT ? OFFSET ?
             `, [parseInt(pageSize), offset]);
@@ -1074,6 +1248,75 @@ module.exports = function(app) {
         } catch (err) {
             log.error('删除回复失败', { error: err.message });
             res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // ---------- 讨论区总开关 ----------
+    app.get('/api/admin/discussion-settings', adminAuth, requireDB, async (req, res) => {
+        try {
+            const [rows] = await pool.query('SELECT enabled FROM discussion_switches WHERE id = 1');
+            res.json({ success: true, enabled: rows.length ? !!rows[0].enabled : true });
+        } catch (err) {
+            log.error('获取讨论区开关失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    app.put('/api/admin/discussion-settings', adminAuth, requireDB, async (req, res) => {
+        try {
+            const enabled = req.body.enabled ? 1 : 0;
+            await pool.execute(
+                'INSERT INTO discussion_switches (id, enabled) VALUES (1, ?) ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)',
+                [enabled]
+            );
+            await logAdminAction(req.adminUser.username, enabled ? '开启讨论区' : '暂时关闭讨论区', '');
+            res.json({ success: true, enabled: !!enabled });
+        } catch (err) {
+            log.error('设置讨论区开关失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // ---------- 讨论区学生管理（警告/封禁/解封） ----------
+    app.post('/api/admin/discussions/moderate', adminAuth, requireDB, async (req, res) => {
+        try {
+            const studentId = parseInt(req.body.studentId);
+            const action = req.body.action;
+            if (!studentId) return res.json({ success: false, error: '缺少学生ID' });
+            if (!['warn', 'ban', 'unban'].includes(action)) return res.json({ success: false, error: '无效操作' });
+
+            await pool.execute(
+                'INSERT IGNORE INTO discussion_moderation (student_id, warning_count, banned) VALUES (?, 0, 0)',
+                [studentId]
+            );
+
+            if (action === 'warn') {
+                await pool.execute('UPDATE discussion_moderation SET warning_count = warning_count + 1 WHERE student_id = ?', [studentId]);
+                let ws; try { ws = require('../ws'); } catch (e) {}
+                if (ws && typeof ws.createNotification === 'function') {
+                    await ws.createNotification(studentId, '讨论区提醒', '老师提醒你：请注意文明发言，遵守讨论区规范，多次违规将被暂停讨论区使用权。', 'system');
+                }
+                await logAdminAction(req.adminUser.username, '警告讨论区学生', '学生ID ' + studentId);
+                return res.json({ success: true, message: '已发送警告提醒' });
+            }
+            if (action === 'ban') {
+                await pool.execute(
+                    'UPDATE discussion_moderation SET banned = 1, banned_at = NOW(), banned_by = ? WHERE student_id = ?',
+                    [req.adminUser.username, studentId]
+                );
+                await logAdminAction(req.adminUser.username, '封禁讨论区学生', '学生ID ' + studentId);
+                return res.json({ success: true, message: '已暂停该学生的讨论区发言功能' });
+            }
+            // unban
+            await pool.execute(
+                'UPDATE discussion_moderation SET banned = 0, banned_at = NULL, banned_by = ? WHERE student_id = ?',
+                [req.adminUser.username, studentId]
+            );
+            await logAdminAction(req.adminUser.username, '解封讨论区学生', '学生ID ' + studentId);
+            res.json({ success: true, message: '已恢复该学生的讨论区发言功能' });
+        } catch (err) {
+            log.error('讨论区学生管理操作失败', { error: err.message });
+            res.json({ success: false, error: '操作失败' });
         }
     });
 

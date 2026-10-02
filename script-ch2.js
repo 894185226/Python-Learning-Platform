@@ -154,9 +154,10 @@ function startVariableModule(moduleId) {
             const nextBtnHTML = `
                 <div class="ch-next-bar">
                     ${isLast ? `
-                        <button class="ch-next-btn ch-next-btn-done" onclick="markChapterCompleted('ch2');window.switchChapter('ch3')">
+                        <button class="ch-next-btn ch-next-btn-done" id="ch-complete-btn" style="display:none;" onclick="markChapterCompleted('ch2');window.switchChapter('ch3')">
                             ✓ 本章完成，进入下一章：📊 变量类型 →
                         </button>
+                        <button class="ch-next-btn ch-next-btn-locked" id="ch-complete-locked-btn" onclick="alert('请先完成上面的综合测试哦')">🔒 完成综合测试后即可进入下一章 →</button>
                     ` : `
                         <button class="ch-next-btn" onclick="startVariableModule('${moduleNames[nextIndex]}')">
                             下一页：${CH2_MODULE_LABELS[moduleNames[nextIndex]] || moduleNames[nextIndex]} →
@@ -165,6 +166,13 @@ function startVariableModule(moduleId) {
                 </div>
             `;
             activeModule.insertAdjacentHTML('beforeend', nextBtnHTML);
+
+            // 若 ch2 综合测试已完成则直接显示「本章完成」按钮
+            if (isLast && typeof window.checkQuizCompleted === 'function') {
+                window.checkQuizCompleted('ch2', function(completed) {
+                    if (completed && typeof window.revealChapterComplete === 'function') window.revealChapterComplete();
+                });
+            }
         }
     }
 

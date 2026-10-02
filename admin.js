@@ -216,7 +216,7 @@ function switchPage(name) {
     if (name === 'screenshots') loadScreenshots();
     if (name === 'activity') loadInactiveStudents();
     if (name === 'daily-questions') loadDailyQuestions();
-    if (name === 'discussions') loadDiscussions();
+    if (name === 'discussions') { loadDiscussions(); loadDiscussionSettings(); }
     if (name === 'chapter-locks') loadChapterLocks();
     if (name === 'registration') loadRegistrationSettings();
     if (name === 'settings') loadSettings();
@@ -582,8 +582,42 @@ function downloadTemplate() {
     URL.revokeObjectURL(url);
 }
 
+// 带管理端 token 下载文件（CSV 导出等），替代 window.open（window.open 不带 token 会被鉴权拦截）
+async function downloadAdminFile(url) {
+    const token = getAdminToken();
+    try {
+        const res = await fetch(url, { headers: { 'X-Admin-Token': token } });
+        if (res.status === 401) {
+            sessionStorage.removeItem('pv_admin_user');
+            sessionStorage.removeItem('pv_admin_token');
+            window.location.href = 'index.html';
+            return;
+        }
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            alert(errData.error || '导出失败 (' + res.status + ')');
+            return;
+        }
+        const blob = await res.blob();
+        let filename = '导出文件.csv';
+        const cd = res.headers.get('Content-Disposition') || '';
+        const m = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(cd);
+        if (m) { try { filename = decodeURIComponent(m[1].replace(/["']/g, '')); } catch (e) { filename = m[1]; } }
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function() { URL.revokeObjectURL(objUrl); }, 1000);
+    } catch (e) {
+        alert('导出失败: ' + e.message);
+    }
+}
+
 function exportClassStats() {
-    window.open(API_BASE + '/stats/class/export', '_blank');
+    downloadAdminFile(API_BASE + '/stats/class/export');
 }
 
 // ===== 班级统计 =====
@@ -643,7 +677,16 @@ async function openStudentDetail(id) {
             <h4 style="margin-top:20px;">成就列表</h4>
             <div class="detail-modules">${data.achievements.length > 0 ? data.achievements.map(a => `<span class="module-chip achievement">${ACHIEVEMENT_NAMES[a.achievement_id] || a.achievement_id} <small>${fmt(a.earned_at)}</small></span>`).join('') : '<span class="empty-state">暂无</span>'}</div>
             <h4 style="margin-top:20px;">测验成绩</h4>
-            <div class="detail-modules">${data.quizScores && data.quizScores.length > 0 ? data.quizScores.map(q => `<span class="module-chip" style="background:rgba(16,185,129,0.1);color:var(--success);">${CHAPTER_NAMES[q.module_id] || q.module_id}: ${q.score}分</span>`).join('') : '<span class="empty-state">暂无</span>'}</div>
+            <div class="detail-modules">${data.quizScores && data.quizScores.length > 0 ? data.quizScores.map(q => `<span class="module-chip" style="background:rgba(16,185,129,0.1);color:var(--success);">${formatQuizChapterName(q.module_id)}: ${q.score}分</span>`).join('') : '<span class="empty-state">暂无</span>'}</div>
+            <h4 style="margin-top:20px;">错题本</h4>
+            <div>${data.mistakes && data.mistakes.length > 0 ? data.mistakes.map(m => `
+                <div style="padding:8px 0;border-bottom:1px solid var(--border-light);">
+                    <div><strong>${esc(m.question_text)}</strong> <small style="color:var(--text-muted);">${CHAPTER_NAMES[m.chapter_id] || m.chapter_id}</small></div>
+                    <div style="font-size:12px;color:#10b981;margin-top:4px;">✓ 正确答案：${esc(m.correct_answer)}</div>
+                    <div style="font-size:12px;color:#ef4444;">✗ 学生答案：${esc(m.student_answer)}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${fmt(m.created_at)}</div>
+                </div>
+            `).join('') : '<span class="empty-state">暂无错题</span>'}</div>
             <h4 style="margin-top:20px;">最近登录记录</h4>
             <div class="detail-logins">${data.loginLogs && data.loginLogs.length > 0 ? data.loginLogs.slice(0, 20).map(l => `<div class="login-item"><span>${fmt(l.login_time)}</span><span class="login-ip">${esc(l.ip_address || '')}</span></div>`).join('') : '<span class="empty-state">暂无</span>'}</div>
         `;
@@ -679,35 +722,46 @@ async function loadNotices() {
             el.innerHTML = '<div class="empty-notices"><i class="fas fa-bullhorn"></i><p>暂无公告，点击左侧发布第一条公告</p></div>';
             return;
         }
-        el.innerHTML = data.notices.map(n => `
-            <div class="notice-item">
+        el.innerHTML = data.notices.map(n => {
+            const now = Date.now();
+            const pub = n.publish_at ? new Date(String(n.publish_at).replace(' ', 'T')).getTime() : null;
+            const exp = n.expire_at ? new Date(String(n.expire_at).replace(' ', 'T')).getTime() : null;
+            let status = '<span style="color:#10b981;">展示中</span>';
+            if (pub && pub > now) status = '<span style="color:#f59e0b;">⏰ 定时未发布</span>';
+            else if (exp && exp <= now) status = '<span style="color:#94a3b8;">已过期</span>';
+            const toLocal = (v) => v ? String(v).replace(' ', 'T').slice(0, 16) : '';
+            return `<div class="notice-item">
                 <div class="notice-header">
                     <span class="notice-title">${esc(n.title)}</span>
                     <span class="notice-time">${fmt(n.created_at)}</span>
                 </div>
-                <div class="notice-body">${esc(n.content)}</div>
+                <div class="notice-body">${esc(n.content)} <div style="margin-top:6px;font-size:12px;">${status}</div></div>
                 <div class="notice-actions">
-                    <button class="btn btn-sm btn-info" onclick="openNoticeEdit(${n.id},'${esc(n.title)}','${esc(n.content)}')"><i class="fas fa-edit"></i> 编辑</button>
+                    <button class="btn btn-sm btn-info" onclick="openNoticeEdit(${n.id},'${esc(n.title)}','${esc(n.content)}','${toLocal(n.publish_at)}','${toLocal(n.expire_at)}')"><i class="fas fa-edit"></i> 编辑</button>
                     <button class="btn btn-sm btn-danger" onclick="deleteNotice(${n.id})"><i class="fas fa-trash"></i> 删除</button>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     } catch (e) { console.error(e); }
 }
 async function publishNotice() {
     const title = document.getElementById('noticeTitle').value.trim();
     const content = document.getElementById('noticeContent').value.trim();
+    const publish_at = document.getElementById('noticePublishAt').value;
+    const expire_at = document.getElementById('noticeExpireAt').value;
     if (!title) { alert('请输入标题'); return; }
     if (!content) { alert('请输入内容'); return; }
     try {
         const data = await apiFetch(API_BASE + '/notices', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, content })
+            body: JSON.stringify({ title, content, publish_at, expire_at })
         });
         if (data.success) {
             document.getElementById('noticeTitle').value = '';
             document.getElementById('noticeContent').value = '';
+            document.getElementById('noticePublishAt').value = '';
+            document.getElementById('noticeExpireAt').value = '';
             loadNotices();
         } else alert('发布失败: ' + data.error);
     } catch (e) { alert('发布失败: ' + e.message); }
@@ -722,10 +776,12 @@ async function deleteNotice(id) {
     });
 }
 
-function openNoticeEdit(id, title, content) {
+function openNoticeEdit(id, title, content, publishAt, expireAt) {
     document.getElementById('editNoticeId').value = id;
     document.getElementById('editNoticeTitle').value = title;
     document.getElementById('editNoticeContent').value = content;
+    document.getElementById('editNoticePublishAt').value = publishAt || '';
+    document.getElementById('editNoticeExpireAt').value = expireAt || '';
     document.getElementById('noticeEditModal').style.display = 'flex';
 }
 function closeNoticeEdit() {
@@ -735,10 +791,12 @@ async function saveNoticeEdit() {
     const id = document.getElementById('editNoticeId').value;
     const title = document.getElementById('editNoticeTitle').value.trim();
     const content = document.getElementById('editNoticeContent').value.trim();
+    const publish_at = document.getElementById('editNoticePublishAt').value;
+    const expire_at = document.getElementById('editNoticeExpireAt').value;
     if (!title) { alert('请输入标题'); return; }
     if (!content) { alert('请输入内容'); return; }
     try {
-        const body = { title, content };
+        const body = { title, content, publish_at, expire_at };
         const data = await apiFetch(API_BASE + '/notices/' + id, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -932,7 +990,7 @@ async function loadScreenshots() {
         el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">' +
             data.screenshots.map(function(s) {
                 const imgUrl = '/uploads/' + encodeURIComponent(s.file_name);
-                const chapterLabel = (s.chapter_id || '').toUpperCase();
+                const chapterLabel = CHAPTER_NAMES[s.chapter_id] || s.chapter_id || '';
                 const stuName = s.display_name || s.username;
                 const cls = (s.grade || '') + (s.class_num ? ' ' + s.class_num + '班' : '');
                 return '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">' +
@@ -1068,9 +1126,9 @@ async function viewSubmissions(id) {
                 <thead><tr><th>学生</th><th>提交状态</th><th>内容</th><th>评分</th><th>提交时间</th></tr></thead>
                 <tbody>${data.submissions.map(s => `<tr>
                     <td>${esc(s.display_name || s.student_name || '')}</td>
-                    <td><span class="status-tag ${s.status === 'submitted' ? 'active' : 'graduated'}">${s.status === 'submitted' ? '已提交' : '未提交'}</span></td>
-                    <td style="max-width:200px;white-space:normal;">${esc(s.content || '-')}</td>
-                    <td>${s.status === 'submitted' ? `<input type="number" id="score_${s.id}" value="${s.score !== null && s.score !== undefined ? s.score : ''}" min="0" max="100" step="0.5" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;" placeholder="0-100"><button onclick="saveScore(${id},${s.id})" style="margin-left:4px;background:#04AA6D;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;">保存</button>` : '-'}</td>
+                    <td><span class="status-tag active">已提交</span></td>
+                    <td style="max-width:200px;white-space:normal;">${esc(s.content || '-')}${s.file_name ? `<br><a href="/uploads/${encodeURIComponent(s.file_name)}" target="_blank" style="color:#04AA6D;">📎 ${esc(s.file_original_name || '附件')}</a>` : ''}</td>
+                    <td><input type="number" id="score_${s.id}" value="${s.score !== null && s.score !== undefined ? s.score : ''}" min="0" max="100" step="0.5" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;" placeholder="0-100"><button onclick="saveScore(${id},${s.id})" style="margin-left:4px;background:#04AA6D;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;">保存</button></td>
                     <td>${fmt(s.submitted_at)}</td>
                 </tr>`).join('')}</tbody>
             </table>`;
@@ -1089,14 +1147,14 @@ async function saveScore(assignmentId, submissionId) {
         return;
     }
     try {
-        const resp = await apiFetch(API_BASE + '/assignments/' + assignmentId + '/submissions/' + submissionId + '/score', {
+        const data = await apiFetch(API_BASE + '/assignments/' + assignmentId + '/submissions/' + submissionId + '/score', {
             method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ score: Math.round(score * 10) / 10 })
         });
-        const data = await resp.json();
         if (data.success) {
             input.style.borderColor = '#04AA6D';
-            setTimeout(() => { input.style.borderColor = '#ddd'; }, 2000);
+            setTimeout(function() { input.style.borderColor = '#ddd'; }, 2000);
         } else {
             alert('评分失败: ' + (data.error || '未知错误'));
         }
@@ -1130,8 +1188,19 @@ async function loadInactiveStudents(days) {
     } catch (e) { console.error('加载活跃度失败:', e); }
 }
 
-function sendReminder(id, name) {
-    alert(`已向「${name}」发送提醒通知（功能预留，需后端支持）`);
+async function sendReminder(id, name) {
+    try {
+        const data = await apiFetch(API_BASE + '/remind', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId: id })
+        });
+        if (data.success) {
+            alert(`已向「${name}」发送学习提醒`);
+        } else {
+            alert('发送失败: ' + (data.error || '未知错误'));
+        }
+    } catch (e) { alert('发送失败: ' + e.message); }
 }
 
 // ===== 每日一题管理 =====
@@ -1168,7 +1237,8 @@ async function addDailyQuestion() {
     const optionC = document.getElementById('dqOptionC').value.trim();
     const optionD = document.getElementById('dqOptionD').value.trim();
     const answer = document.getElementById('dqAnswer').value;
-    const date = document.getElementById('dqDate').value;
+    const _d = new Date(), _pad = n => String(n).padStart(2, '0');
+    const date = document.getElementById('dqDate').value || `${_d.getFullYear()}-${_pad(_d.getMonth() + 1)}-${_pad(_d.getDate())}`;
     const explanation = document.getElementById('dqExplanation').value.trim();
     if (!question) { alert('请输入题目'); return; }
     if (!optionA || !optionB || !optionC || !optionD) { alert('请填写所有选项'); return; }
@@ -1240,7 +1310,126 @@ openNoticeEdit = function(id, title, content) {
 
 // ===== 数据导出增强 =====
 function exportCSV() {
-    window.open(API_BASE + '/export', '_blank');
+    downloadAdminFile(API_BASE + '/export');
+}
+
+// ===== 查看详细报告（在管理平台内部加载分析，无需下载 JSON）=====
+// 渲染报告（实时查看与历史报告复用）
+function renderReport(students, title) {
+    const totalModules = students.reduce((s, x) => s + (Number(x.module_count) || 0), 0);
+    const totalAch = students.reduce((s, x) => s + (Number(x.ach_count) || 0), 0);
+    const totalLogins = students.reduce((s, x) => s + (Number(x.login_count) || 0), 0);
+    const activeCount = students.filter(x => x.status === 'active').length;
+    const stats = [
+        { icon: 'fa-user-graduate', value: students.length, label: '学生总数' },
+        { icon: 'fa-check-circle', value: totalModules, label: '完成模块' },
+        { icon: 'fa-trophy', value: totalAch, label: '成就获得' },
+        { icon: 'fa-sign-in-alt', value: totalLogins, label: '登录次数' },
+        { icon: 'fa-user-check', value: activeCount, label: '活跃学生' },
+    ];
+    document.getElementById('reportStats').innerHTML = stats.map(s =>
+        `<div class="stat-card"><div class="stat-icon"><i class="fas ${s.icon}"></i></div><div class="stat-body"><span class="stat-value">${s.value}</span><span class="stat-label">${s.label}</span></div></div>`
+    ).join('');
+    document.getElementById('reportTitle').textContent = '学习数据详细报告' + (title ? ' · ' + title : '');
+    const body = document.getElementById('reportBody');
+    if (students.length === 0) {
+        body.innerHTML = '<tr><td colspan="10" class="empty-state">暂无数据</td></tr>';
+    } else {
+        body.innerHTML = students.map(s => {
+            const statusText = s.status === 'active' ? '正常' : (s.status === 'disabled' ? '禁用' : (s.status === 'frozen' ? '冻结' : (s.status || '-')));
+            const lastLogin = s.last_login ? new Date(s.last_login).toLocaleString('zh-CN', { hour12: false }) : '从未登录';
+            return `<tr>
+                <td>${esc(s.display_name || '-')}</td>
+                <td>${esc(s.username || '-')}</td>
+                <td>${esc(s.grade || '-')}</td>
+                <td>${esc(s.class_num == null ? '-' : String(s.class_num))}</td>
+                <td>${esc(statusText)}</td>
+                <td>${Number(s.module_count) || 0}</td>
+                <td>${Number(s.ach_count) || 0}</td>
+                <td>${Number(s.login_count) || 0}</td>
+                <td>${Number(s.login_days) || 0}</td>
+                <td>${esc(lastLogin)}</td>
+            </tr>`;
+        }).join('');
+    }
+}
+
+async function viewDetailedReport() {
+    try {
+        const data = await apiFetch(API_BASE + '/export/excel');
+        if (!data.success) { alert('加载失败: ' + data.error); return; }
+        const students = data.students || [];
+        renderReport(students, new Date().toLocaleString('zh-CN', { hour12: false }));
+        document.getElementById('reportModal').style.display = 'flex';
+        // 静默保存一次快照，供“历史报告”查看
+        try { await apiFetch(API_BASE + '/reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ students, generatedAt: data.generatedAt }) }); } catch (e) { /* 保存失败不影响查看 */ }
+    } catch (e) {
+        alert('加载失败: ' + e.message);
+    }
+}
+
+function closeReportModal() {
+    document.getElementById('reportModal').style.display = 'none';
+}
+
+// ===== 历史报告 =====
+async function openReportHistory() {
+    document.getElementById('reportHistoryModal').style.display = 'flex';
+    await loadReportHistory();
+}
+
+async function loadReportHistory() {
+    const body = document.getElementById('reportHistoryBody');
+    try {
+        const data = await apiFetch(API_BASE + '/reports');
+        if (!data.success) { body.innerHTML = '<div class="empty-state">暂无历史报告</div>'; return; }
+        const list = data.reports || [];
+        if (list.length === 0) {
+            body.innerHTML = '<div class="empty-state">暂无历史报告，点击「查看详细报告」生成后会保存在这里。</div>';
+            return;
+        }
+        body.innerHTML = list.map(r => {
+            const t = r.generated_at ? new Date(r.generated_at).toLocaleString('zh-CN', { hour12: false }) : '-';
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 4px;border-bottom:1px solid rgba(0,0,0,0.08);">
+                <span><i class="fas fa-file-alt" style="margin-right:8px;"></i>${esc(t)}　<small style="opacity:0.6;">共 ${r.total_students} 名学生</small></span>
+                <span>
+                    <button class="btn btn-sm btn-primary" onclick="viewHistoricalReport(${r.id})">查看</button>
+                    <button class="btn btn-sm btn-outline" onclick="deleteReport(${r.id})" style="margin-left:6px;"><i class="fas fa-trash-alt"></i> 删除</button>
+                </span>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        body.innerHTML = '<div class="empty-state">加载失败: ' + esc(e.message) + '</div>';
+    }
+}
+
+async function viewHistoricalReport(id) {
+    try {
+        const data = await apiFetch(API_BASE + '/reports/' + id);
+        if (!data.success) { alert('加载失败: ' + data.error); return; }
+        closeReportHistory();
+        const title = data.generatedAt ? new Date(data.generatedAt).toLocaleString('zh-CN', { hour12: false }) : ('报告 #' + id);
+        renderReport(data.students || [], title);
+        document.getElementById('reportModal').style.display = 'flex';
+    } catch (e) {
+        alert('加载失败: ' + e.message);
+    }
+}
+
+async function deleteReport(id) {
+    showConfirm('删除历史报告', '确定要删除这份历史报告吗？删除后无法恢复。', '🗑️', '删除', async function () {
+        try {
+            const data = await apiFetch(API_BASE + '/reports/' + id, { method: 'DELETE' });
+            if (!data.success) { alert('删除失败: ' + (data.error || '请重试')); return; }
+            await loadReportHistory();
+        } catch (e) {
+            alert('删除失败: ' + e.message);
+        }
+    });
+}
+
+function closeReportHistory() {
+    document.getElementById('reportHistoryModal').style.display = 'none';
 }
 
 async function exportDetailedReport() {
@@ -1518,21 +1707,29 @@ async function loadDiscussions(page = 1) {
         if (data.discussions.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" class="empty-state">暂无讨论帖</td></tr>';
         } else {
-            tbody.innerHTML = data.discussions.map(d => `
+            tbody.innerHTML = data.discussions.map(d => {
+                const warnBadge = d.warning_count > 0 ? `<span style="background:#f59e0b;color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px;">警告${d.warning_count}次</span>` : '';
+                const banBadge = d.banned ? `<span style="background:#ef4444;color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px;">已封禁</span>` : '';
+                const banBtn = d.banned
+                    ? `<button class="btn btn-sm btn-success" onclick="unbanStudent(${d.student_id})">解封</button>`
+                    : `<button class="btn btn-sm btn-warning" onclick="banStudent(${d.student_id})">封禁</button>`;
+                return `
                 <tr>
                     <td><input type="checkbox" class="disc-checkbox" value="${d.id}"></td>
                     <td>${d.id}</td>
                     <td><strong>${esc(d.title)}</strong></td>
-                    <td>${esc(d.display_name)} (${esc(d.username)})</td>
+                    <td>${esc(d.display_name)} (${esc(d.username)}) ${warnBadge} ${banBadge}</td>
                     <td>${esc(d.grade || '')} ${d.class_num ? d.class_num + '班' : ''}</td>
                     <td>${d.reply_count}</td>
                     <td>${fmt(d.created_at)}</td>
                     <td>
                         <button class="btn btn-sm btn-outline" onclick="viewReplies(${d.id})">查看回复</button>
+                        <button class="btn btn-sm btn-outline" onclick="warnStudent(${d.student_id})">警告</button>
+                        ${banBtn}
                         <button class="btn btn-sm btn-danger" onclick="deleteDiscussion(${d.id})">删除</button>
                     </td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('');
         }
         // 分页
         const totalPages = Math.ceil(discTotal / 20);
@@ -1617,6 +1814,63 @@ async function batchDeleteDiscussions() {
             }
         } catch (e) { alert('删除失败: ' + e.message); }
     });
+}
+
+// ===== 讨论区总开关 / 学生管理 =====
+async function loadDiscussionSettings() {
+    try {
+        const data = await apiFetch(API_BASE + '/discussion-settings');
+        if (!data.success) return;
+        const btn = document.getElementById('discussionToggleBtn');
+        if (btn) {
+            btn.innerHTML = data.enabled
+                ? '<i class="fas fa-power-off"></i> 关闭讨论区'
+                : '<i class="fas fa-play"></i> 开启讨论区';
+            btn.className = data.enabled ? 'btn btn-sm btn-outline' : 'btn btn-sm btn-warning';
+        }
+    } catch (e) { console.error('获取讨论区开关失败:', e); }
+}
+
+async function toggleDiscussion() {
+    try {
+        const data = await apiFetch(API_BASE + '/discussion-settings');
+        const next = !(data && data.enabled);
+        showConfirm('讨论区开关', next ? '确定要重新开启讨论区吗？' : '确定要暂时关闭整个讨论区吗？关闭后所有学生都无法发帖和回复。', '💬', next ? '开启讨论区' : '关闭讨论区', async () => {
+            try {
+                const res = await apiFetch(API_BASE + '/discussion-settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: next })
+                });
+                if (res.success) loadDiscussionSettings();
+                else alert('操作失败: ' + (res.error || ''));
+            } catch (e) { alert('操作失败: ' + e.message); }
+        });
+    } catch (e) { alert('获取状态失败: ' + e.message); }
+}
+
+async function moderateStudent(studentId, action, confirmMsg) {
+    showConfirm('讨论区管理', confirmMsg, '💬', '确定', async () => {
+        try {
+            const data = await apiFetch(API_BASE + '/discussions/moderate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId: studentId, action: action })
+            });
+            if (data.success) loadDiscussions(discPage);
+            else alert(data.error || '操作失败');
+        } catch (e) { alert('操作失败: ' + e.message); }
+    });
+}
+
+function warnStudent(studentId) {
+    moderateStudent(studentId, 'warn', '确定向该学生发送一次讨论区警告提醒吗？');
+}
+function banStudent(studentId) {
+    moderateStudent(studentId, 'ban', '确定暂停该学生的讨论区发言功能吗？');
+}
+function unbanStudent(studentId) {
+    moderateStudent(studentId, 'unban', '确定恢复该学生的讨论区发言功能吗？');
 }
 
 // ===== 章节锁定管理 =====

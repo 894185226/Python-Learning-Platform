@@ -199,7 +199,7 @@
 
 // ==== CHAPTER ch1 END ====
 
-// ==== CHAPTER ch3 (第3章: 条件判断) BEGIN - L177-L358, 8 modules ====
+// ==== CHAPTER ch3 (第3章: 变量类型) BEGIN - L177-L358, 8 modules ====
     // ch3_intro
     m = findModule('ch3', 'ch3_intro'); if (m) m.render = function() {
                     return '<div class="ch-module-wrap" style="text-align:center;">' +
@@ -384,7 +384,7 @@
 
 // ==== CHAPTER ch3 END ====
 
-// ==== CHAPTER ch4 (第4章: if进阶) BEGIN - L359-L515, 8 modules ====
+// ==== CHAPTER ch4 (第4章: 条件判断) BEGIN - L359-L515, 8 modules ====
     // ch4_intro
     m = findModule('ch4', 'ch4_intro'); if (m) m.render = function() {
                     return '<div class="ch-module-wrap" style="text-align:center;">' +
@@ -544,7 +544,7 @@
 
 // ==== CHAPTER ch4 END ====
 
-// ==== CHAPTER ch5 (第5章: while循环) BEGIN - L516-L541, 8 modules ====
+// ==== CHAPTER ch5 (第5章: if进阶) BEGIN - L516-L541, 8 modules ====
     // ch5_intro
     m = findModule('ch5', 'ch5_intro'); if (m) m.render = function() { return '<div style="text-align:center;"><h2 style="font-size:28px;color:#667eea;margin-bottom:16px;">🛂 多重安检</h2><p style="color:#666;font-size:15px;margin-bottom:24px;">机场安检需要同时满足多个条件：有票 <strong>并且</strong> 没有违禁品才能通过！</p><div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:24px;"><div class="w3-card-2 w3-round" style="background:#D9EEE1;padding:20px;text-align:center;width:140px;"><div style="font-size:36px;">🎫</div><p style="color:#333;margin:8px 0 0;">有票?</p></div><div class="w3-card-2 w3-round" style="background:#FFC0C7;padding:20px;text-align:center;width:140px;"><div style="font-size:36px;">🔍</div><p style="color:#333;margin:8px 0 0;">安检通过?</p></div><div class="w3-card-2 w3-round" style="background:#96D4D4;padding:20px;text-align:center;width:140px;"><div style="font-size:36px;">✅</div><p style="color:#333;margin:8px 0 0;">通过!</p></div></div><div style="background:#282A35;padding:20px;border-radius:12px;text-align:left;"><pre style="color:#d4d4d4;font-family:monospace;font-size:14px;margin:0;line-height:1.8;">has_ticket = <span style="color:#569cd6;">True</span>\nno_danger = <span style="color:#569cd6;">True</span>\n<span style="color:#c586c0;">if</span> has_ticket <span style="color:#c586c0;">and</span> no_danger:\n    <span style="color:#569cd6;">print</span>(<span style="color:#ce9178;">"请通过!"</span>)</pre></div></div>'; };
 
@@ -573,7 +573,7 @@
 
 // ==== CHAPTER ch5 END ====
 
-// ==== CHAPTER ch6 (第6章: while拓展) BEGIN - L542-L567, 8 modules ====
+// ==== CHAPTER ch6 (第6章: while循环) BEGIN - L542-L567, 8 modules ====
     // ch6_intro
     m = findModule('ch6', 'ch6_intro'); if (m) m.render = function() { return '<div style="text-align:center;"><h2 style="font-size:28px;color:#04AA6D;margin-bottom:16px;">🚀 倒计时发射</h2><p style="color:#666;font-size:15px;margin-bottom:24px;">火箭发射前需要倒计时：10、9、8... 这个重复过程用while循环实现！</p><div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:24px;"><div class="w3-card-2 w3-round" style="background:#D9EEE1;padding:20px;text-align:center;width:80px;"><div style="font-size:28px;">🔟</div></div><div class="w3-card-2 w3-round" style="background:#FFF4A3;padding:20px;text-align:center;width:80px;"><div style="font-size:28px;">9️⃣</div></div><div class="w3-card-2 w3-round" style="background:#FFC0C7;padding:20px;text-align:center;width:80px;"><div style="font-size:28px;">8️⃣</div></div><div class="w3-card-2 w3-round" style="background:#96D4D4;padding:20px;text-align:center;width:80px;"><div style="font-size:28px;">...</div></div><div class="w3-card-2 w3-round" style="background:#04AA6D;padding:20px;text-align:center;width:80px;color:#fff;"><div style="font-size:28px;">🚀</div></div></div><div style="background:#282A35;padding:20px;border-radius:12px;text-align:left;"><pre style="color:#d4d4d4;font-family:monospace;font-size:14px;margin:0;line-height:1.8;">count = <span style="color:#b5cea8;">10</span>\n<span style="color:#c586c0;">while</span> count > <span style="color:#b5cea8;">0</span>:\n    <span style="color:#569cd6;">print</span>(count)\n    count = count - <span style="color:#b5cea8;">1</span>\n<span style="color:#569cd6;">print</span>(<span style="color:#ce9178;">"发射！🚀"</span>)</pre></div></div>'; };
 
@@ -602,7 +602,7 @@
 
 // ==== CHAPTER ch6 END ====
 
-// ==== CHAPTER ch7 (第7章: 循环嵌套) BEGIN - L568-L593, 8 modules ====
+// ==== CHAPTER ch7 (第7章: while拓展) BEGIN - L568-L593, 8 modules ====
     // ch7_intro
     m = findModule('ch7', 'ch7_intro'); if (m) m.render = function() { return '<div style="text-align:center;"><h2 style="font-size:28px;color:#ff9800;margin-bottom:16px;">🏭 跳过坏玩具</h2><p style="color:#666;font-size:15px;margin-bottom:24px;">流水线上，遇到坏玩具要跳过(continue)，发现严重问题要停止整条线(break)！</p><div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:24px;"><div class="w3-card-2 w3-round" style="background:#D9EEE1;padding:16px;text-align:center;">🧸<br>好玩具</div><div class="w3-card-2 w3-round" style="background:#FFC0C7;padding:16px;text-align:center;">❌<br>跳过</div><div class="w3-card-2 w3-round" style="background:#D9EEE1;padding:16px;text-align:center;">🎮<br>好玩具</div><div class="w3-card-2 w3-round" style="background:#ff4d4f;padding:16px;text-align:center;color:#fff;">🚫<br>停止!</div></div><div style="background:#282A35;padding:20px;border-radius:12px;text-align:left;"><pre style="color:#d4d4d4;font-family:monospace;font-size:14px;margin:0;line-height:1.8;">for toy in toys:\n    if toy == "坏":\n        continue  # 跳过\n    if toy == "危险":\n        break  # 停止</pre></div></div>'; };
 
@@ -631,7 +631,7 @@
 
 // ==== CHAPTER ch7 END ====
 
-// ==== CHAPTER ch8 (第8章: 综合应用) BEGIN - L594-L619, 8 modules ====
+// ==== CHAPTER ch8 (第8章: 循环嵌套) BEGIN - L594-L619, 8 modules ====
     // ch8_intro
     m = findModule('ch8', 'ch8_intro'); if (m) m.render = function() { return '<div style="text-align:center;"><h2 style="font-size:28px;color:#e91e63;margin-bottom:16px;">🕐 时钟分针</h2><p style="color:#666;font-size:15px;margin-bottom:24px;">时钟的时针每走一格，分针要走一圈！这就是循环嵌套——循环里面套循环。</p><div style="display:flex;justify-content:center;gap:20px;margin-bottom:24px;"><div style="text-align:center;font-size:48px;">🕐</div><div style="font-size:20px;color:#666;line-height:2.5;">时针: 1→12<br>分针: 0→59<br>分针转一圈<br>时针才走一格</div></div><div style="background:#282A35;padding:20px;border-radius:12px;text-align:left;"><pre style="color:#d4d4d4;font-family:monospace;font-size:14px;margin:0;line-height:1.8;">for hour in range(1, 13):\n    for minute in range(0, 60):\n        print(f"{hour}:{minute}")</pre></div></div>'; };
 
@@ -660,7 +660,7 @@
 
 // ==== CHAPTER ch8 END ====
 
-// ==== CHAPTER ch9 (第9章: 排列小星星) BEGIN - L620-L647, 8 modules ====
+// ==== CHAPTER ch9 (第9章: 综合应用一) BEGIN - L620-L647, 8 modules ====
     // ch9_intro
     m = findModule('ch9', 'ch9_intro'); if (m) m.render = function() { return '<div style="text-align:center;"><h2 style="font-size:28px;color:#04AA6D;margin-bottom:16px;">🧮 迷你计算器</h2><p style="color:#666;font-size:15px;margin-bottom:24px;">把学过的变量、类型、条件判断、循环全部用上，做一个真正有用的计算器！</p><div style="background:#282A35;padding:20px;border-radius:12px;text-align:left;"><pre style="color:#d4d4d4;font-family:monospace;font-size:14px;margin:0;line-height:1.8;">while True:\n    op = input("运算符(+,-,*,/,q): ")\n    if op == "q": break\n    a = float(input("第一个数: "))\n    b = float(input("第二个数: "))\n    if op == "+": print(a + b)\n    elif op == "-": print(a - b)\n    ...</pre></div></div>'; };
 
@@ -896,7 +896,7 @@
 
 // ==== CHAPTER ch16 END ====
 
-// ==== CHAPTER ch17 (第17章: 二进制) BEGIN - L832-L857, 8 modules ====
+// ==== CHAPTER ch17 (第17章: 轻松搞定二进制) BEGIN - L832-L857, 8 modules ====
     // ch17_intro
     m = findModule('ch17', 'ch17_intro'); if (m) m.render = function() { return '<div style="text-align:center;"><h2 style="font-size:28px;color:#2196F3;margin-bottom:16px;">💡 计算机只认识开和关</h2><p style="color:#666;font-size:15px;margin-bottom:24px;">灯泡的亮灭可以表示数字——这就是二进制的本质！</p><div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;"><div style="width:50px;height:50px;background:#ffc107;border-radius:50%;box-shadow:0 0 20px #ffc107;"></div><div style="width:50px;height:50px;background:#333;border-radius:50%;"></div><div style="width:50px;height:50px;background:#ffc107;border-radius:50%;box-shadow:0 0 20px #ffc107;"></div><div style="width:50px;height:50px;background:#333;border-radius:50%;"></div></div><div style="background:#282A35;padding:16px;border-radius:12px;color:#d4d4d4;font-family:monospace;font-size:14px;">1 0 1 0 (二进制) = 10 (十进制)</div></div>'; };
 
@@ -925,7 +925,7 @@
 
 // ==== CHAPTER ch17 END ====
 
-// ==== CHAPTER ch18 (第18章: 编程思维) BEGIN - L858-L890, 8 modules ====
+// ==== CHAPTER ch18 (第18章: 编程思维实践) BEGIN - L858-L890, 8 modules ====
     // ch18_intro
     m = findModule('ch18', 'ch18_intro'); if (m) m.render = function() { return '<div style="text-align:center;"><h2 style="font-size:28px;color:#9c27b0;margin-bottom:16px;">🎬 导演一出小剧目</h2><p style="color:#666;font-size:15px;margin-bottom:24px;">编程就像导演一部戏——把大问题拆成小步骤，一步步完成！</p><div style="background:#282A35;padding:20px;border-radius:12px;text-align:left;"><div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;"><div class="w3-card-2" style="background:#D9EEE1;padding:16px;border-radius:8px;text-align:center;"><span style="font-size:24px;">📋</span><br><span style="font-size:12px;">分析问题</span></div><span style="font-size:20px;color:#04AA6D;">→</span><div class="w3-card-2" style="background:#FFF4A3;padding:16px;border-radius:8px;text-align:center;"><span style="font-size:24px;">📐</span><br><span style="font-size:12px;">设计算法</span></div><span style="font-size:20px;color:#04AA6D;">→</span><div class="w3-card-2" style="background:#FFC0C7;padding:16px;border-radius:8px;text-align:center;"><span style="font-size:24px;">💻</span><br><span style="font-size:12px;">编写代码</span></div><span style="font-size:20px;color:#04AA6D;">→</span><div class="w3-card-2" style="background:#96D4D4;padding:16px;border-radius:8px;text-align:center;"><span style="font-size:24px;">🔧</span><br><span style="font-size:12px;">调试测试</span></div></div></div></div>'; };
 

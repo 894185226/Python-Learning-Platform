@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理后台 - Python 变量学习平台</title>
     <link rel="stylesheet" href="lib/all.min.css" onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css'">
-    <link rel="stylesheet" href="admin.css?v=20260930-1">
+    <link rel="stylesheet" href="admin.css?v=20261001-3">
 </head>
 <body>
     <!-- 管理员登录表单（未登录时显示） -->
@@ -104,6 +104,12 @@
                 <div class="header-actions">
                     <button class="btn btn-outline" onclick="exportCSV()">
                         <i class="fas fa-download"></i> 导出CSV
+                    </button>
+                    <button class="btn btn-outline" onclick="viewDetailedReport()">
+                        <i class="fas fa-chart-bar"></i> 查看详细报告
+                    </button>
+                    <button class="btn btn-outline" onclick="openReportHistory()">
+                        <i class="fas fa-history"></i> 历史报告
                     </button>
                     <button class="btn btn-outline" onclick="exportDetailedReport()">
                         <i class="fas fa-file-export"></i> 导出详细报告
@@ -784,6 +790,7 @@
                         <h3><i class="fas fa-comments"></i> 讨论区管理</h3>
                         <div style="display:flex;align-items:center;gap:12px;">
                             <span style="color:#888;font-size:13px;">可以审核和删除不当内容</span>
+                            <button class="btn btn-sm btn-outline" id="discussionToggleBtn" onclick="toggleDiscussion()"><i class="fas fa-power-off"></i> 关闭讨论区</button>
                             <button class="btn btn-sm btn-danger" onclick="batchDeleteDiscussions()"><i class="fas fa-trash-alt"></i> 批量删除</button>
                         </div>
                     </div>
@@ -1010,7 +1017,51 @@
         </div>
     </div>
 
+    <!-- 历史报告列表弹窗 -->
+    <div class="modal-overlay" id="reportHistoryModal" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fas fa-history"></i> 历史报告</h3>
+                <button class="modal-close" onclick="closeReportHistory()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="max-height:420px;overflow-y:auto;" id="reportHistoryBody"><div class="empty-state">加载中...</div></div>
+                <div class="card-actions" style="justify-content: flex-end; margin-top: 16px;">
+                    <button class="btn btn-primary" onclick="closeReportHistory()">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详细报告查看弹窗 -->
+    <div class="modal-overlay" id="reportModal" style="display:none;">
+        <div class="modal-card modal-wide">
+            <div class="modal-header">
+                <h3><i class="fas fa-chart-bar"></i> <span id="reportTitle">学习数据详细报告</span></h3>
+                <button class="modal-close" onclick="closeReportModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height:560px;overflow-y:auto;">
+                <div class="stats-grid" id="reportStats" style="margin-bottom:16px;"></div>
+                <div class="table-wrapper" style="overflow-x:auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>姓名</th><th>账号</th><th>年级</th><th>班级</th><th>状态</th>
+                                <th>完成模块</th><th>成就</th><th>登录次数</th><th>登录天数</th><th>最后登录</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportBody"></tbody>
+                    </table>
+                </div>
+                <div class="card-actions" style="justify-content: flex-end; margin-top: 16px;">
+                    <button class="btn btn-outline" onclick="exportDetailedReport()"><i class="fas fa-download"></i> 下载 JSON</button>
+                    <button class="btn btn-primary" onclick="closeReportModal()">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="constants.js"></script>
-    <script src="admin.js?v=20260930-4"></script>
+    <script src="admin.js?v=20261001-15"></script>
 </body>
 </html>

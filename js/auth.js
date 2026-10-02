@@ -231,6 +231,9 @@
             window.switchModule(pendingModule);
         }
 
+        // 登录后检查是否有未作答的每日一题，若有则弹出强制弹窗
+        if (typeof window.checkDailyQuestionStatus === 'function') window.checkDailyQuestionStatus();
+
         return false;
     }
 
@@ -241,6 +244,8 @@
         const displayName = document.getElementById('regDisplayName').value.trim();
         const grade = document.getElementById('regGrade').value;
         const classNum = parseInt(document.getElementById('regClassNum').value) || 0;
+        const studentIdEl = document.getElementById('regStudentId');
+        const studentId = studentIdEl ? studentIdEl.value.trim() : '';
         const errorEl = document.getElementById('registerError');
         const submitBtn = document.querySelector('#registerForm .form-submit-btn');
 
@@ -268,7 +273,7 @@
         window.setButtonLoading(submitBtn, true);
         let result;
         try {
-            result = await window.API.register(username, password, displayName, grade, classNum);
+            result = await window.API.register(username, password, displayName, grade, classNum, studentId);
         } catch (e) {
             errorEl.textContent = e.message || '网络错误，请稍后重试';
             errorEl.classList.remove('w3-hide');

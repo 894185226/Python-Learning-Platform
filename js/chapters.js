@@ -998,15 +998,28 @@
         const nextChapter = chapterIdx >= 0 ? CHAPTERS[chapterIdx + 1] : null;
         let nextBtnHTML;
         if (isLast) {
-            if (nextChapter) {
-                nextBtnHTML = '<div class="ch-next-bar"><button class="ch-next-btn ch-next-btn-done" onclick="markChapterCompleted(\'' + chapterId + '\');window.switchChapter(\'' + nextChapter.id + '\')">✓ 本章完成，进入下一章：' + nextChapter.icon + ' ' + nextChapter.title + ' →</button></div>';
-            } else {
-                nextBtnHTML = '<div class="ch-next-bar"><button class="ch-next-btn ch-next-btn-done" onclick="var h=document.getElementById(\'chapterHero-' + chapterId + '\');if(h)h.style.display=\'\';markChapterCompleted(\'' + chapterId + '\');window.scrollTo({top:0,behavior:\'smooth\'})">🎉 全部章节已完成，返回顶部</button></div>';
-            }
+            const doneAction = nextChapter
+                ? 'markChapterCompleted(\'' + chapterId + '\');window.switchChapter(\'' + nextChapter.id + '\')'
+                : 'var h=document.getElementById(\'chapterHero-' + chapterId + '\');if(h)h.style.display=\'\';markChapterCompleted(\'' + chapterId + '\');window.scrollTo({top:0,behavior:\'smooth\'})';
+            const doneLabel = nextChapter
+                ? '✓ 本章完成，进入下一章：' + nextChapter.icon + ' ' + nextChapter.title + ' →'
+                : '🎉 全部章节已完成，返回顶部';
+            // 本章完成按钮默认隐藏，完成综合测试后才显示；未完成时显示锁定提示
+            nextBtnHTML = '<div class="ch-next-bar">' +
+                '<button class="ch-next-btn ch-next-btn-done" id="ch-complete-btn" style="display:none;" onclick="' + doneAction + '">' + doneLabel + '</button>' +
+                '<button class="ch-next-btn ch-next-btn-locked" id="ch-complete-locked-btn" onclick="alert(\'请先完成上面的综合测试哦\')">🔒 完成综合测试后即可进入下一章 →</button>' +
+                '</div>';
         } else {
             nextBtnHTML = '<div class="ch-next-bar"><button class="ch-next-btn" onclick="switchChapterModule(\'' + chapterId + '\', \'' + chapter.modules[nextIndex].id + '\', ' + nextIndex + ')">下一页：' + chapter.modules[nextIndex].icon + ' ' + chapter.modules[nextIndex].title + ' →</button></div>';
         }
         contentArea.insertAdjacentHTML('beforeend', nextBtnHTML);
+
+        // 若综合测试已完成，则直接显示「本章完成」按钮
+        if (isLast) {
+            checkQuizCompleted(chapterId, function(completed) {
+                if (completed) revealChapterCompleteButtons();
+            });
+        }
 
         contentArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -1052,6 +1065,9 @@
 
     function updateSidebarActive(chapterId) {
         document.querySelectorAll('.chapter-link').forEach(function(link) {
+            link.classList.toggle('active', link.dataset.chapter === chapterId);
+        });
+        document.querySelectorAll('.w3-dropdown-content .dropdown-links a').forEach(function(link) {
             link.classList.toggle('active', link.dataset.chapter === chapterId);
         });
     }
@@ -1152,6 +1168,31 @@
     // 启动异步加载章节内容
     window.loadChaptersContent();
 
+    // 判断某章节的综合测试是否已完成（本地/服务端进度）
+    function checkQuizCompleted(chapterId, callback) {
+        const quizModuleId = (chapterId === 'ch2') ? 'ch2_test' : (chapterId + '_quiz');
+        try {
+            const p = JSON.parse(localStorage.getItem('pv_local_progress') || '{}');
+            if (p.modules && p.modules[quizModuleId]) { callback(true); return; }
+        } catch (e) { /* 忽略 */ }
+        const currentUser = window.getCurrentUser();
+        if (currentUser && window.API && typeof window.API.getProgress === 'function') {
+            window.API.getProgress(currentUser.username).then(function(prog) {
+                callback(!!(prog && prog.success && prog.modules && prog.modules[quizModuleId]));
+            }).catch(function() { callback(false); });
+        } else {
+            callback(false);
+        }
+    }
+
+    // 显示「本章完成」按钮、隐藏锁定提示
+    function revealChapterCompleteButtons() {
+        var done = document.getElementById('ch-complete-btn');
+        var locked = document.getElementById('ch-complete-locked-btn');
+        if (done) done.style.display = '';
+        if (locked) locked.style.display = 'none';
+    }
+
     // 暴露到全局
     window.initIntroModule = initIntroModule;
     window.initLessonModule = initLessonModule;
@@ -1168,6 +1209,8 @@
     window.renderChapterSidebar = renderChapterSidebar;
     window.isChapterCompleted = isChapterCompleted;
     window.markChapterCompleted = markChapterCompleted;
+    window.revealChapterComplete = revealChapterCompleteButtons;
+    window.checkQuizCompleted = checkQuizCompleted;
     window.toggleSidebar = toggleSidebar;
     window.switchChapter = switchChapter;
     window.renderChapterContent = renderChapterContent;

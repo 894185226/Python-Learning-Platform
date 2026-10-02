@@ -109,11 +109,11 @@
             }
         },
 
-        async register(username, password, displayName, grade, classNum) {
+        async register(username, password, displayName, grade, classNum, studentId) {
             return await this._fetch(window.API_BASE + '/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: username, password: password, displayName: displayName, grade: grade, classNum: classNum })
+                body: JSON.stringify({ username: username, password: password, displayName: displayName, grade: grade, classNum: classNum, studentId: studentId })
             });
         },
         async login(username, password) {
@@ -172,7 +172,7 @@
             });
         },
         async getNotes(username, chapterId) {
-            return await this._fetch(window.API_BASE + '/notes/' + encodeURIComponent(username) + '/' + encodeURIComponent(chapterId));
+            return await this._fetch(window.API_BASE + '/notes?chapterId=' + encodeURIComponent(chapterId || ''));
         },
         async updateNote(id, content) {
             return await this._fetch(window.API_BASE + '/notes/' + id, {
@@ -232,7 +232,7 @@
             });
         },
         async getGoals(username) {
-            return await this._fetch(window.API_BASE + '/goals/' + encodeURIComponent(username));
+            return await this._fetch(window.API_BASE + '/goals');
         },
         async getDiscussions(chapterId) {
             let url = window.API_BASE + '/discussions?';
@@ -256,10 +256,42 @@
                 body: JSON.stringify({ username: username, content: content })
             });
         },
+        async getDiscussionStatus() {
+            return await this._fetch(window.API_BASE + '/discussion-status');
+        },
         async getDailyQuestion(date) {
             let url = window.API_BASE + '/daily-question?';
             if (date) url += 'date=' + encodeURIComponent(date);
             return await this._fetch(url);
+        },
+        async getDailyQuestionStatus() {
+            return await this._fetch(window.API_BASE + '/daily-question/status');
+        },
+        async getDailyQuestionHistory() {
+            return await this._fetch(window.API_BASE + '/daily-question/history');
+        },
+        async answerDailyQuestion(questionId, answerIndex) {
+            return await this._fetch(window.API_BASE + '/daily-question/answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ questionId: questionId, answerIndex: answerIndex })
+            });
+        },
+
+        async getAssignments(username) {
+            let url = window.API_BASE + '/assignments';
+            if (username) url += '?username=' + encodeURIComponent(username);
+            return await this._fetch(url);
+        },
+
+        async submitAssignment(id, username, content, fileData, fileName) {
+            const body = { username: username, content: content };
+            if (fileData) { body.fileData = fileData; body.fileName = fileName || 'file'; }
+            return await this._fetch(window.API_BASE + '/assignments/' + id + '/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
         }
     };
 
@@ -400,6 +432,8 @@
                 } else if (msg.type === 'announcement') {
                     window.showToast(msg.data.title || '新公告', 'info');
                     handleWebSocketNotification(msg.data);
+                } else if (msg.type === 'daily_question') {
+                    if (typeof window.showDailyQuestionPopup === 'function') window.showDailyQuestionPopup();
                 }
             } catch (e) { window.log.warn('[WS] 关闭WebSocket失败:', e.message); }
         };

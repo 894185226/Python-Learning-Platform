@@ -97,6 +97,15 @@ async function renderLeaderboard() {
 // ================================================================
 //   新功能模块 - 错题本
 // ================================================================
+// 章节 ID → 中文名（支持 'ch1' 与 'chapter_ch1' 两种格式）
+function chapterDisplayName(chapterId) {
+    if (!chapterId) return '';
+    const id = String(chapterId).replace('chapter_', '');
+    if (id === 'daily') return '每日一题';
+    const opt = DISCUSSION_CHAPTER_OPTIONS.find(o => o.id === id);
+    return opt ? opt.name : chapterId;
+}
+
 async function renderMistakeBook() {
     const currentUser = getCurrentUser();
     const list = document.getElementById('mistakesList');
@@ -129,7 +138,7 @@ async function renderMistakeBook() {
         if (filter && filter.options.length <= 1) {
             const chapters = [...new Set(mistakes.map(m => m.chapter_id))];
             filter.innerHTML = '<option value="">全部章节</option>' +
-                chapters.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+                chapters.map(c => `<option value="${escHtml(c)}">${escHtml(chapterDisplayName(c))}</option>`).join('');
         }
 
         const filtered = selectedChapter ? mistakes.filter(m => m.chapter_id === selectedChapter) : mistakes;
@@ -156,7 +165,7 @@ async function renderMistakeBook() {
 
         list.innerHTML = Object.entries(grouped).map(([chapterId, items]) => `
             <div class="mistake-group">
-                <h4 class="mistake-group-title">章节：${escHtml(chapterId)} (${items.length}题)</h4>
+                <h4 class="mistake-group-title">${escHtml(chapterDisplayName(chapterId))} (${items.length}题)</h4>
                 ${items.map(m => `
                     <div class="mistake-item">
                         <div class="mistake-question"><strong>题目：</strong>${escHtml(m.question_text)}</div>
@@ -249,7 +258,7 @@ async function renderReport() {
                 <div class="timeline-item">
                     <div class="timeline-dot"></div>
                     <div class="timeline-content">
-                        <strong>${escHtml(c.moduleId)}</strong>
+                        <strong>${escHtml(chapterDisplayName(c.moduleId))}</strong>
                         <span>${c.completedAt ? new Date(c.completedAt).toLocaleDateString('zh-CN') : '未完成'}</span>
                     </div>
                 </div>
@@ -259,8 +268,8 @@ async function renderReport() {
         // 强项/弱项
         const strong = document.getElementById('strongChapters');
         const weak = document.getElementById('weakChapters');
-        if (strong) strong.innerHTML = report.strengths?.length ? report.strengths.map(c => `<span class="tag tag-green">${escHtml(c)}</span>`).join('') : '<p class="text-muted">完成更多测验来发现你的强项</p>';
-        if (weak) weak.innerHTML = report.weaknesses?.length ? report.weaknesses.map(c => `<span class="tag tag-red">${escHtml(c)}</span>`).join('') : '<p class="text-muted">错题较多的章节会显示在这里</p>';
+        if (strong) strong.innerHTML = report.strengths?.length ? report.strengths.map(c => `<span class="tag tag-green">${escHtml(chapterDisplayName(c))}</span>`).join('') : '<p class="text-muted">完成更多测验来发现你的强项</p>';
+        if (weak) weak.innerHTML = report.weaknesses?.length ? report.weaknesses.map(c => `<span class="tag tag-red">${escHtml(chapterDisplayName(c))}</span>`).join('') : '<p class="text-muted">错题较多的章节会显示在这里</p>';
 
         renderStudyCalendar('calendarGrid');
         updateStudyStreak();
@@ -483,7 +492,7 @@ async function renderSnippets() {
             <div class="snippet-item" id="snippet-${s.id}">
                 <div class="snippet-header">
                     <h4>⭐ ${escHtml(s.title)}</h4>
-                    <span class="snippet-chapter">${escHtml(s.chapter_id || '')}</span>
+                    <span class="snippet-chapter">${escHtml(chapterDisplayName(s.chapter_id))}</span>
                 </div>
                 <div class="snippet-preview">
                     <pre><code>${escHtml(s.code?.substring(0, 200) || '')}${s.code?.length > 200 ? '...' : ''}</code></pre>
@@ -520,6 +529,28 @@ async function saveSnippet(title, code, chapterId) {
     } catch (e) {
         showToast('收藏失败: ' + e.message, 'error');
     }
+}
+
+// 收藏当前章节「实践操作」编辑器里的代码
+function collectPracticeCode(chapterNum) {
+    let code = '';
+    if (chapterNum === 2) {
+        // 第2章变量模块使用独立的 CodeMirror 实例 #code-input
+        const cm = window._cmInstances && window._cmInstances['code-input'];
+        if (cm) {
+            code = cm.getValue();
+        } else {
+            const fb = document.getElementById('code-input-fallback');
+            code = fb ? fb.value : '';
+        }
+    } else {
+        const codeEl = document.getElementById('ch' + chapterNum + '-practice-code');
+        if (!codeEl) { showToast('未找到代码编辑器', 'error'); return; }
+        code = (typeof getPracticeCode === 'function') ? getPracticeCode(codeEl) : codeEl.value;
+    }
+    code = String(code || '').trim();
+    if (!code.replace(/\s/g, '')) { showToast('没有可收藏的代码', 'error'); return; }
+    saveSnippet('第' + chapterNum + '章 练习代码', code, 'ch' + chapterNum);
 }
 
 async function deleteSnippetItem(id) {
@@ -713,6 +744,102 @@ const DISCUSSION_CHAPTER_OPTIONS = [
     { id: 'ch19', name: '第19章 各种各样的数' }
 ];
 
+// ================================================================
+//   新功能模块 - 作业
+// ================================================================
+async function renderAssignments() {
+    const currentUser = getCurrentUser();
+    const container = document.getElementById('assignmentsContent');
+    if (!container) return;
+
+    if (!currentUser) {
+        container.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-secondary);"><p style="font-size:16px;margin-bottom:16px;">🔒 请先登录后查看作业</p><button class="form-submit-btn" onclick="openLoginModal()">登录</button></div>';
+        return;
+    }
+    container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:40px;">加载中...</p>';
+    try {
+        const data = await API.getAssignments(currentUser.username);
+        if (!data.success || !data.assignments || data.assignments.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-secondary);">📭 暂无作业，老师布置后会显示在这里。</div>';
+            return;
+        }
+        container.innerHTML = data.assignments.map(function (a) {
+            const overdue = a.due_date && new Date(a.due_date) < new Date();
+            const statusTag = overdue
+                ? '<span style="display:inline-block;padding:2px 10px;border-radius:12px;background:#666;color:#fff;font-size:12px;">已截止</span>'
+                : '<span style="display:inline-block;padding:2px 10px;border-radius:12px;background:#04AA6D;color:#fff;font-size:12px;">进行中</span>';
+            const sub = a.submission;
+            const subText = sub
+                ? (sub.score !== null && sub.score !== undefined ? ('✅ 已提交（得分 ' + sub.score + '）') : '✅ 已提交，待批改')
+                : '⏳ 未提交';
+            const chapterName = chapterDisplayName(a.chapter_id) || (a.chapter_id || '-');
+            const dueText = a.due_date ? new Date(a.due_date).toLocaleString('zh-CN', { hour12: false }) : '未设置';
+            return '<div style="border:1px solid rgba(0,0,0,0.12);border-radius:12px;padding:16px;margin-bottom:16px;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+                '<span style="font-weight:700;font-size:16px;">📋 ' + escHtml(a.title || '未命名作业') + ' ' + statusTag + '</span>' +
+                '<span style="font-size:12px;color:var(--text-secondary);">截止: ' + escHtml(dueText) + '</span>' +
+                '</div>' +
+                (a.description ? '<div style="margin-top:10px;color:var(--text-secondary);white-space:pre-wrap;">' + escHtml(a.description) + '</div>' : '') +
+                '<div style="font-size:12px;color:var(--text-secondary);margin-top:10px;">关联章节: ' + escHtml(chapterName) + '　|　' + subText + '</div>' +
+                (sub
+                    ? ''
+                    : '<div style="margin-top:12px;"><button class="form-submit-btn" onclick="toggleAssignmentForm(' + a.id + ')">📝 交作业</button></div>') +
+                '<div id="assignment-form-' + a.id + '" style="display:none;margin-top:12px;">' +
+                '<textarea id="assignment-content-' + a.id + '" class="form-input" rows="5" placeholder="在这里输入你的作业内容…（可只上传文件不填文字）" maxlength="10000"></textarea>' +
+                '<div style="margin-top:8px;font-size:13px;color:var(--text-secondary);">📎 附件（图片或文件，可选）：</div>' +
+                '<input type="file" id="assignment-file-' + a.id + '" class="form-input" style="margin-top:4px;" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar,.ppt,.pptx,.xls,.xlsx">' +
+                '<div style="margin-top:8px;"><button class="form-submit-btn" onclick="submitAssignmentForm(' + a.id + ')">提交作业</button> <button class="form-cancel-btn" onclick="toggleAssignmentForm(' + a.id + ')">取消</button></div>' +
+                '</div>' +
+                '</div>';
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);">⚠️ 加载失败: ' + escHtml(e.message || '请重试') + '</div>';
+    }
+}
+
+function toggleAssignmentForm(id) {
+    const f = document.getElementById('assignment-form-' + id);
+    if (f) f.style.display = (f.style.display === 'none' || f.style.display === '') ? 'block' : 'none';
+}
+
+async function submitAssignmentForm(id) {
+    const ta = document.getElementById('assignment-content-' + id);
+    const fileInput = document.getElementById('assignment-file-' + id);
+    const currentUser = getCurrentUser();
+    if (!currentUser) { alert('请先登录'); return; }
+    const content = ta ? ta.value.trim() : '';
+
+    let fileData = null, fileName = null;
+    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        if (file.size > 6 * 1024 * 1024) { alert('文件过大（最大约6MB）'); return; }
+        fileName = file.name;
+        try { fileData = await readFileAsDataURL(file); } catch (e) { alert('读取文件失败，请重试'); return; }
+    }
+
+    if (!content && !fileData) { alert('请填写作业内容或上传文件'); return; }
+    try {
+        const data = await API.submitAssignment(id, currentUser.username, content, fileData, fileName);
+        if (data.success) {
+            alert('✅ 作业提交成功！');
+            renderAssignments();
+        } else {
+            alert('提交失败: ' + (data.error || '请重试'));
+        }
+    } catch (e) {
+        alert('提交失败: ' + e.message);
+    }
+}
+
+function readFileAsDataURL(file) {
+    return new Promise(function(resolve, reject) {
+        const reader = new FileReader();
+        reader.onload = function() { resolve(reader.result); };
+        reader.onerror = function() { reject(new Error('读取文件失败')); };
+        reader.readAsDataURL(file);
+    });
+}
+
 async function renderDiscussions(chapterId) {
     const currentUser = getCurrentUser();
     const posts = document.getElementById('discussionPosts');
@@ -731,6 +858,29 @@ async function renderDiscussions(chapterId) {
     }
 
     if (loginHint) loginHint.style.display = 'none';
+
+    // 讨论区状态（总开关 / 个人封禁）
+    const banner = document.getElementById('discussionStatusBanner');
+    const postBtn = document.getElementById('discussionPostBtn');
+    const formWrap = document.getElementById('discussionFormWrap');
+    try {
+        const status = await API.getDiscussionStatus();
+        const globalClosed = (status && status.enabled === false);
+        const banned = (status && status.banned);
+        if (banner) {
+            banner.style.display = 'none';
+            if (globalClosed) {
+                banner.style.display = 'block';
+                banner.innerHTML = '🚫 讨论区已被老师暂时关闭，无法发帖和回复';
+            } else if (banned) {
+                banner.style.display = 'block';
+                banner.innerHTML = '🔒 你已被暂停讨论区使用权，如有疑问请联系老师';
+            }
+        }
+        const disabled = globalClosed || banned;
+        if (postBtn) postBtn.style.display = disabled ? 'none' : '';
+        if (formWrap && disabled) formWrap.style.display = 'none';
+    } catch (e) { /* 状态获取失败时保持默认 */ }
 
     // 初始化章节筛选下拉
     if (filter && filter.options.length <= 1) {
@@ -768,7 +918,7 @@ async function renderDiscussions(chapterId) {
                     <span>👤 ${escHtml(d.username)}</span>
                     <span>💬 ${d.reply_count || 0} 回复</span>
                     <span>📅 ${d.created_at ? new Date(d.created_at).toLocaleDateString('zh-CN') : ''}</span>
-                    ${d.chapter_id ? `<span class="discussion-chapter-tag">${escHtml(d.chapter_id)}</span>` : ''}
+                    ${d.chapter_id ? `<span class="discussion-chapter-tag">${escHtml(chapterDisplayName(d.chapter_id))}</span>` : ''}
                 </div>
             </div>
         `).join('');
@@ -803,7 +953,7 @@ async function renderDiscussionDetail(postId) {
                 <div class="discussion-detail-meta">
                     <span>👤 ${escHtml(d.username)}</span>
                     <span>📅 ${d.created_at ? new Date(d.created_at).toLocaleString('zh-CN') : ''}</span>
-                    ${d.chapter_id ? `<span class="discussion-chapter-tag">${escHtml(d.chapter_id)}</span>` : ''}
+                    ${d.chapter_id ? `<span class="discussion-chapter-tag">${escHtml(chapterDisplayName(d.chapter_id))}</span>` : ''}
                 </div>
                 <div class="discussion-detail-content">${escHtml(d.content)}</div>
             </div>
@@ -894,70 +1044,182 @@ async function createReply(postId, event) {
 }
 
 // ================================================================
-//   每日一题
+//   每日一题（独立模块 + 强制弹窗 + 历史复习）
 // ================================================================
-async function renderDailyQuestion() {
-    const card = document.getElementById('dailyQuestionCard');
-    if (!card) return;
+let _curDailyQ = null; // 当前渲染的每日一题（用于做错时记录到错题本）
 
-    try {
-        const data = await API.getDailyQuestion();
-        if (!data.success || !data.question) {
-            card.style.display = 'none';
-            return;
-        }
+function _dqParseOptions(q) {
+    try { return typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || []); }
+    catch (e) { return []; }
+}
 
-        const q = data.question;
-        card.style.display = 'block';
-        card.innerHTML = `
+function _dqOptionsHtml(q, questionId, inModal) {
+    return _dqParseOptions(q).map((opt, i) =>
+        `<button class="daily-option-btn" onclick="submitDailyAnswer(${questionId}, ${i}, this, ${inModal ? 'true' : 'false'})" data-index="${i}">
+            ${String.fromCharCode(65 + i)}. ${escHtml(opt)}
+        </button>`).join('');
+}
+
+function _dqCardHtml(q, questionId, inModal) {
+    const feedbackId = inModal ? 'dailyModalFeedback' : 'dailyFeedback';
+    return `
+        <div class="daily-question-card ${inModal ? 'dq-no-border' : ''}">
             <div class="daily-question-header">
                 <h3>📅 每日一题</h3>
-                <span class="daily-question-date">${new Date().toLocaleDateString('zh-CN')}</span>
+                <span class="daily-question-date">${escHtml(String(q.question_date || '').slice(0, 10))}</span>
             </div>
             <div class="daily-question-body">
                 <p class="daily-question-text">${escHtml(q.question)}</p>
-                <div class="daily-question-options">
-                    ${(typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || [])).map((opt, i) => `
-                        <button class="daily-option-btn" onclick="submitDailyAnswer(${i}, '${escHtml(q.answer || '').replace(/'/g, "\\'")}', this)" data-index="${i}">
-                            ${String.fromCharCode(65 + i)}. ${escHtml(opt)}
-                        </button>
-                    `).join('')}
-                </div>
-                <div class="daily-question-feedback" id="dailyFeedback" style="display:none"></div>
+                <div class="daily-question-options">${_dqOptionsHtml(q, questionId, inModal)}</div>
+                <div class="daily-question-feedback" id="${feedbackId}" style="display:none"></div>
             </div>
-        `;
+        </div>`;
+}
+
+async function renderDailyQuestionModule() {
+    const container = document.getElementById('dailyQuestionContent');
+    if (!container) return;
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:40px;">🔒 请先<a href="javascript:void(0)" onclick="openLoginModal()">登录</a>后查看每日一题</p>';
+        return;
+    }
+    try {
+        const status = await API.getDailyQuestionStatus();
+        const q = status.question;
+        _curDailyQ = q;
+        if (!q) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:24px 40px 8px;">📭 老师还没发布每日一题，先去学习吧！</p>';
+        } else {
+            container.innerHTML = _dqCardHtml(q, q.id, false);
+        }
+        container.insertAdjacentHTML('beforeend', '<h3 style="margin:28px 0 4px;">📚 历史题目</h3><div id="dqHistoryArea"><p style="color:var(--text-secondary);">加载中...</p></div>');
+        await renderDailyQuestionHistory();
     } catch (e) {
-        card.style.display = 'none';
+        container.innerHTML = '<p style="text-align:center;color:#e74c3c;padding:40px;">加载每日一题失败</p>';
     }
 }
 
-function submitDailyAnswer(answerIndex, correctAnswer, btn) {
-    const feedback = document.getElementById('dailyFeedback');
-    const allBtns = document.querySelectorAll('.daily-option-btn');
-
-    allBtns.forEach(b => b.disabled = true);
-
-    const isCorrect = String(answerIndex) === String(correctAnswer);
-    if (isCorrect) {
-        btn.classList.add('correct');
-        if (feedback) {
-            feedback.style.display = 'block';
-            feedback.innerHTML = '✅ 回答正确！太棒了！';
-            feedback.className = 'daily-question-feedback correct';
+async function renderDailyQuestionHistory() {
+    const area = document.getElementById('dqHistoryArea');
+    if (!area) return;
+    try {
+        const data = await API.getDailyQuestionHistory();
+        const list = data.questions || [];
+        if (list.length === 0) {
+            area.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:20px;">暂无历史题目</p>';
+            return;
         }
-    } else {
-        btn.classList.add('wrong');
-        // 高亮正确答案
-        allBtns.forEach(b => {
-            if (b.dataset.index === String(correctAnswer)) b.classList.add('correct');
+        area.innerHTML = list.map(it => {
+            const options = _dqParseOptions(it);
+            const state = it.answered_at ? (it.is_correct ? '✅ 已答对' : '❌ 已答错') : '⏳ 未答';
+            const correctLetter = String(it.answer || '').toUpperCase();
+            return `<div class="dq-history-item">
+                <div class="dq-history-question">${escHtml(it.question)}</div>
+                <div class="dq-history-options">${options.map((o, i) => '<span>' + String.fromCharCode(65 + i) + '. ' + escHtml(o) + '</span>').join('　')}</div>
+                <div class="dq-history-meta">
+                    <span>📅 ${escHtml(String(it.question_date || '').slice(0, 10))}</span>
+                    <span class="dq-history-state">${state}</span>
+                    <span>正确答案：${escHtml(correctLetter)}</span>
+                    ${it.explanation ? '<span class="dq-history-exp">💡 ' + escHtml(it.explanation) + '</span>' : ''}
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        area.innerHTML = '<p style="text-align:center;color:#e74c3c;">加载历史题目失败</p>';
+    }
+}
+
+function showDailyQuestionModal(q) {
+    _curDailyQ = q;
+    const overlay = document.getElementById('dailyQuestionOverlay');
+    const box = document.getElementById('dailyQuestionModalBox');
+    if (!overlay || !box) return;
+    box.innerHTML = _dqCardHtml(q, q.id, true);
+    overlay.style.display = 'flex';
+}
+
+function closeDailyQuestionModal() {
+    const overlay = document.getElementById('dailyQuestionOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+// 页面加载 / 登录后检查：若最新一题未作答则弹出强制弹窗
+async function checkDailyQuestionStatus() {
+    if (!getCurrentUser()) return;
+    try {
+        const status = await API.getDailyQuestionStatus();
+        if (status && status.question && !status.answered) {
+            showDailyQuestionModal(status.question);
+        }
+    } catch (e) { /* 忽略状态获取失败 */ }
+}
+
+// WebSocket 推送：教师发布后立即弹出（由 js/api.js 调用）
+async function showDailyQuestionPopup() {
+    if (!getCurrentUser()) return;
+    try {
+        const status = await API.getDailyQuestionStatus();
+        if (status && status.question && !status.answered) {
+            showDailyQuestionModal(status.question);
+        }
+    } catch (e) { /* 忽略 */ }
+}
+
+// 提交答案（模块内 与 强制弹窗 共用）
+async function submitDailyAnswer(questionId, answerIndex, btn, inModal) {
+    const feedbackId = inModal ? 'dailyModalFeedback' : 'dailyFeedback';
+    const feedback = document.getElementById(feedbackId);
+    const scope = btn ? btn.parentElement : document;
+    const buttons = scope.querySelectorAll('.daily-option-btn');
+    buttons.forEach(b => b.disabled = true);
+
+    try {
+        const data = await API.answerDailyQuestion(questionId, answerIndex);
+        if (!data.success) {
+            if (feedback) { feedback.style.display = 'block'; feedback.innerHTML = '提交失败，请重试'; feedback.className = 'daily-question-feedback wrong'; }
+            return;
+        }
+        const correctIndex = data.correctIndex;
+        const isCorrect = data.isCorrect;
+
+        // 做错的题目记入错题本（仅首次作答时记录，避免重复）
+        if (!isCorrect && data.isFirstTime && _curDailyQ) {
+            const opts = _dqParseOptions(_curDailyQ);
+            const cText = opts[correctIndex] || '';
+            const aText = opts[answerIndex] || '';
+            recordMistake('daily', _curDailyQ.question,
+                String.fromCharCode(65 + correctIndex) + '. ' + cText,
+                String.fromCharCode(65 + answerIndex) + '. ' + aText);
+        }
+
+        buttons.forEach(b => {
+            const idx = parseInt(b.dataset.index);
+            if (idx === correctIndex) b.classList.add('correct');
+            else if (idx === answerIndex) b.classList.add('wrong');
         });
         if (feedback) {
             feedback.style.display = 'block';
-            feedback.innerHTML = '❌ 回答错误，正确答案已标出。';
-            feedback.className = 'daily-question-feedback wrong';
+            feedback.innerHTML = isCorrect ? '✅ 回答正确！太棒了！' : '❌ 回答错误，正确答案已标出。';
+            feedback.className = 'daily-question-feedback ' + (isCorrect ? 'correct' : 'wrong');
         }
+        if (inModal) {
+            setTimeout(function() {
+                closeDailyQuestionModal();
+                if (typeof renderDailyQuestionModule === 'function') renderDailyQuestionModule();
+            }, 1200);
+        } else {
+            setTimeout(function() { renderDailyQuestionModule(); }, 1200);
+        }
+    } catch (e) {
+        if (feedback) { feedback.style.display = 'block'; feedback.innerHTML = '提交失败：' + e.message; feedback.className = 'daily-question-feedback wrong'; }
     }
 }
+
+// 暴露到全局
+window.renderDailyQuestionModule = renderDailyQuestionModule;
+window.showDailyQuestionPopup = showDailyQuestionPopup;
+window.checkDailyQuestionStatus = checkDailyQuestionStatus;
 
 // ================================================================
 //   语音朗读
@@ -1051,7 +1313,7 @@ function addSpeakButton(container) {
 // ================================================================
 function initExtras() {
     initNotificationPolling();
-    renderDailyQuestion();
+    checkDailyQuestionStatus();
     renderStudyCalendar('calendarGrid');
     updateStudyStreak();
     initNotePanelObserver();

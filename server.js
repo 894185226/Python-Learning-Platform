@@ -147,9 +147,11 @@ app.use(express.static(__dirname, {
         // 2. 根据文件类型设置 Cache-Control
         const ext = path.extname(filePath).toLowerCase();
 
-        // HTML 入口文件：每次必须验证（内容可能更新）
+        // HTML 入口文件：完全不缓存（强拉最新，确保拿到最新版本号的 JS/CSS 引用）
         if (ext === '.html') {
-            res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
         }
         // 字体和图片：长期缓存（30天，很少变更）
         else if (['.woff2', '.woff', '.ttf', '.eot', '.otf',

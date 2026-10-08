@@ -70,7 +70,7 @@ function rateLimit(req, res, next) {
 
 const loginRateLimitMap = new Map();
 const LOGIN_RATE_LIMIT_WINDOW = 60 * 1000;
-const LOGIN_RATE_LIMIT_MAX = 10;
+const LOGIN_RATE_LIMIT_MAX = 60;
 
 function loginRateLimit(req, res, next) {
     const ip = req.ip || req.connection.remoteAddress || 'unknown';

@@ -117,8 +117,7 @@ app.use(middleware.csrfProtection);
 // 速率限制
 // ===================================================
 app.use('/api', middleware.rateLimit);
-app.use('/api/login', middleware.loginRateLimit);
-app.use('/api/register', middleware.loginRateLimit);
+// 登录/注册的速率限制已在 routes/auth.js 中按路由单独应用，这里不再重复应用（避免重复计数）
 
 // ===================================================
 // API 响应缓存控制（动态数据禁止缓存）

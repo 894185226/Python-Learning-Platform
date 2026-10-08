@@ -1505,16 +1505,25 @@ function handleFileImport() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = function(e) {
-        const text = e.target.result;
-        // 跳过BOM和空行
+        const bytes = new Uint8Array(e.target.result);
+        let text;
+        // 先按 UTF-8 严格解码，失败则按 GBK 解码（中文版 Excel 保存的 CSV 常为 GBK/ANSI 编码）
+        try {
+            text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        } catch (err) {
+            try { text = new TextDecoder('gbk').decode(bytes); }
+            catch (err2) { text = new TextDecoder('utf-8').decode(bytes); }
+        }
+        // 去掉可能存在的 BOM 与空行
+        text = text.replace(/^\uFEFF/, '');
         const lines = text.split('\n').filter(l => l.trim());
         // 跳过标题行（如果第一行包含"姓名"）
         let start = 0;
         if (lines[0] && lines[0].includes('姓名')) start = 1;
-        const data = lines.slice(start).join('\n');
-        document.getElementById('importText').value = data;
+        document.getElementById('importText').value = lines.slice(start).join('\n');
     };
-    reader.readAsText(file, 'UTF-8');
+    reader.onerror = function() { alert('读取文件失败，请重试'); };
+    reader.readAsArrayBuffer(file);
     document.getElementById('csvFileInput').value = '';
 }
 

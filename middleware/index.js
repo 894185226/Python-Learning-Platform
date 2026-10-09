@@ -51,9 +51,11 @@ function csrfProtection(req, res, next) {
 // ===================================================
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60 * 1000;
-const RATE_LIMIT_MAX = 60;
+const RATE_LIMIT_MAX = 600;
 
 function rateLimit(req, res, next) {
+    // 健康检查是前端定时轮询的轻量接口，不计入限流；避免教室多终端轮询耗尽限额
+    if (req.originalUrl === '/api/health') return next();
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
     const now = Date.now();
     const record = rateLimitMap.get(ip);
@@ -70,7 +72,7 @@ function rateLimit(req, res, next) {
 
 const loginRateLimitMap = new Map();
 const LOGIN_RATE_LIMIT_WINDOW = 60 * 1000;
-const LOGIN_RATE_LIMIT_MAX = 60;
+const LOGIN_RATE_LIMIT_MAX = 120;
 
 function loginRateLimit(req, res, next) {
     const ip = req.ip || req.connection.remoteAddress || 'unknown';

@@ -69,8 +69,8 @@ const adminSessions = new Map(); // token -> { username, displayName, expires }
 
 // 登录失败计数器
 const loginFailures = new Map();
-const LOGIN_FAILURE_WINDOW = 15 * 60 * 1000;
-const LOGIN_FAILURE_MAX = 5;
+const LOGIN_FAILURE_WINDOW = 60 * 1000;
+const LOGIN_FAILURE_MAX = 10;
 
 // 从文件加载会话
 function loadSessions() {

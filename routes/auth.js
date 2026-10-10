@@ -203,7 +203,7 @@ module.exports = function authRoutes(app) {
                 failures.resetTime = Date.now() + LOGIN_FAILURE_WINDOW;
             }
             if (failures.count >= LOGIN_FAILURE_MAX) {
-                return res.status(429).json({ error: '登录尝试次数过多，请15分钟后再试' });
+                return res.status(429).json({ error: '密码错误次数过多，请1分钟后再试；如忘记密码请联系老师重置' });
             }
 
             const [rows] = await pool.query(

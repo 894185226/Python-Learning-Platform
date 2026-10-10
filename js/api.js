@@ -69,7 +69,13 @@
                     } else if (res.status === 500) {
                         window.showError('服务器繁忙，请稍后重试', 'server');
                     } else if (res.status === 429) {
-                        window.showError('操作过于频繁，请稍后再试', 'validation');
+                        let msg = '操作过于频繁，请稍后再试';
+                        try {
+                            const body = await res.json();
+                            if (body && body.error) msg = body.error;
+                        } catch (e) { /* 忽略解析失败 */ }
+                        window.showError(msg, 'validation');
+                        throw new Error(msg);
                     }
                     throw new Error('服务器错误 (' + res.status + ')');
                 }

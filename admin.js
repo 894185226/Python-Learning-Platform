@@ -1065,6 +1065,7 @@ async function loadAssignments() {
         el.innerHTML = data.assignments.map(a => {
             const chapterName = CHAPTER_NAMES[a.chapter_id] || a.chapter_id || '-';
             const status = new Date(a.due_date) < new Date() ? '<span class="status-tag graduated">已截止</span>' : '<span class="status-tag active">进行中</span>';
+            const ftLabel = a.file_type === 'image' ? '🖼️ 仅图片' : (a.file_type === 'document' ? '📄 仅文档' : '不限格式');
             return `<div class="notice-item">
                 <div class="notice-header">
                     <span class="notice-title">${esc(a.title)} ${status}</span>
@@ -1072,7 +1073,7 @@ async function loadAssignments() {
                 </div>
                 <div class="notice-body">${esc(a.description || '')}</div>
                 <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
-                    关联章节: ${esc(chapterName)} | 提交: ${a.submission_count || 0}
+                    关联章节: ${esc(chapterName)} | 提交: ${a.submission_count || 0} | 格式: ${ftLabel}
                 </div>
                 <div class="notice-actions">
                     <button class="btn btn-sm btn-info" onclick="viewSubmissions(${a.id})"><i class="fas fa-eye"></i> 查看提交</button>
@@ -1089,10 +1090,11 @@ async function publishAssignment() {
     const description = document.getElementById('assignmentDesc').value.trim();
     const chapterId = document.getElementById('assignmentChapter').value;
     const dueDate = document.getElementById('assignmentDueDate').value;
+    const fileType = document.getElementById('assignmentFileType').value || 'any';
     if (!title) { alert('请输入作业标题'); return; }
     if (!chapterId) { alert('请选择关联章节'); return; }
     try {
-        const body = { title, description, chapterId: chapterId };
+        const body = { title, description, chapterId: chapterId, fileType: fileType };
         if (dueDate) body.dueDate = dueDate;
         const data = await apiFetch(API_BASE + '/assignments', {
             method: 'POST',
@@ -1104,6 +1106,7 @@ async function publishAssignment() {
             document.getElementById('assignmentDesc').value = '';
             document.getElementById('assignmentChapter').value = '';
             document.getElementById('assignmentDueDate').value = '';
+            document.getElementById('assignmentFileType').value = 'any';
             loadAssignments();
         } else alert('发布失败: ' + data.error);
     } catch (e) { alert('发布失败: ' + e.message); }
@@ -1119,6 +1122,7 @@ async function editAssignment(id) {
         document.getElementById('editAssignmentTitle').value = a.title || '';
         document.getElementById('editAssignmentDesc').value = a.description || '';
         document.getElementById('editAssignmentChapter').value = a.chapter_id || '';
+        document.getElementById('editAssignmentFileType').value = a.file_type || 'any';
         if (a.due_date) {
             document.getElementById('editAssignmentDueDate').value = a.due_date.replace(' ', 'T').slice(0, 16);
         }
@@ -1134,9 +1138,10 @@ async function saveAssignmentEdit() {
     const description = document.getElementById('editAssignmentDesc').value.trim();
     const chapterId = document.getElementById('editAssignmentChapter').value;
     const dueDate = document.getElementById('editAssignmentDueDate').value;
+    const fileType = document.getElementById('editAssignmentFileType').value || 'any';
     if (!title) { alert('请输入标题'); return; }
     try {
-        const body = { title, description, chapterId: chapterId };
+        const body = { title, description, chapterId: chapterId, fileType: fileType };
         if (dueDate) body.dueDate = dueDate;
         const data = await apiFetch(API_BASE + '/assignments/' + id, {
             method: 'PUT',

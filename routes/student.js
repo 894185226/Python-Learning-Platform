@@ -811,7 +811,7 @@ module.exports = function(app) {
         try {
             const { username } = req.query;
             const [rows] = await pool.query(
-                `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.created_by, a.created_at
+                `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.file_type, a.created_by, a.created_at
                  FROM assignments a ORDER BY a.created_at DESC`
             );
 
@@ -857,8 +857,29 @@ module.exports = function(app) {
             if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
 
             // 检查作业是否存在
-            const [assignments] = await pool.query('SELECT id FROM assignments WHERE id = ?', [assignmentId]);
+            const [assignments] = await pool.query('SELECT id, file_type FROM assignments WHERE id = ?', [assignmentId]);
             if (assignments.length === 0) return res.json({ success: false, error: '作业不存在' });
+            const fileType = assignments[0].file_type || 'any';
+
+            // 校验文件格式要求（any=不限 / image=仅图片 / document=仅文档）
+            if (fileType === 'image' || fileType === 'document') {
+                const hasFile = typeof fileData === 'string' && fileData.length > 0;
+                if (!hasFile) {
+                    return res.json({ success: false, error: fileType === 'image' ? '本作业要求提交图片文件，请上传图片' : '本作业要求提交文档文件，请上传文档' });
+                }
+                const mimeMatch = fileData.match(/^data:([^;]+);base64,/);
+                const mime = mimeMatch ? mimeMatch[1].toLowerCase() : '';
+                const ext = ((typeof fileName === 'string' ? fileName : '') || '').toLowerCase().split('.').pop();
+                const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+                const DOC_EXTS = ['pdf', 'doc', 'docx', 'txt', 'md', 'zip', 'rar', '7z', 'xls', 'xlsx', 'ppt', 'pptx', 'csv'];
+                if (fileType === 'image') {
+                    if (!mime.startsWith('image/') && !IMAGE_EXTS.includes(ext)) {
+                        return res.json({ success: false, error: '提交文件必须是图片格式（jpg/png/gif/webp/bmp）' });
+                    }
+                } else if (!DOC_EXTS.includes(ext)) {
+                    return res.json({ success: false, error: '提交文件必须是文档格式（pdf/word/txt/zip等）' });
+                }
+            }
 
             // 处理文件附件（支持图片及任意文件，base64 data URL）
             let storedFileName = null, storedFilePath = null, originalName = null;

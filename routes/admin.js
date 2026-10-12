@@ -1073,12 +1073,13 @@ module.exports = function(app) {
     // 布置作业
     app.post('/api/admin/assignments', adminAuth, requireDB, async (req, res) => {
         try {
-            const { title, description, chapterId, dueDate } = req.body;
+            const { title, description, chapterId, dueDate, fileType } = req.body;
             if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
+            const ft = ['any', 'image', 'document'].includes(fileType) ? fileType : 'any';
 
             await pool.query(
-                'INSERT INTO assignments (title, description, chapter_id, due_date, created_by) VALUES (?, ?, ?, ?, ?)',
-                [title.trim(), description || '', chapterId || '', dueDate || null, req.adminUser.username]
+                'INSERT INTO assignments (title, description, chapter_id, due_date, file_type, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+                [title.trim(), description || '', chapterId || '', dueDate || null, ft, req.adminUser.username]
             );
             await logAdminAction(req.adminUser.username, '布置作业', title.trim());
             res.json({ success: true });
@@ -1092,7 +1093,7 @@ module.exports = function(app) {
     app.get('/api/admin/assignments', adminAuth, requireDB, async (req, res) => {
         try {
             const [rows] = await pool.query(
-                `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.created_by, a.created_at,
+                `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.file_type, a.created_by, a.created_at,
                         (SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id = a.id) AS submission_count
                  FROM assignments a ORDER BY a.created_at DESC`
             );
@@ -1109,12 +1110,13 @@ module.exports = function(app) {
             const id = parseInt(req.params.id);
             if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
 
-            const { title, description, chapterId, dueDate } = req.body;
+            const { title, description, chapterId, dueDate, fileType } = req.body;
             if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
+            const ft = ['any', 'image', 'document'].includes(fileType) ? fileType : 'any';
 
             await pool.query(
-                'UPDATE assignments SET title = ?, description = ?, chapter_id = ?, due_date = ? WHERE id = ?',
-                [title.trim(), description || '', chapterId || '', dueDate || null, id]
+                'UPDATE assignments SET title = ?, description = ?, chapter_id = ?, due_date = ?, file_type = ? WHERE id = ?',
+                [title.trim(), description || '', chapterId || '', dueDate || null, ft, id]
             );
             await logAdminAction(req.adminUser.username, '编辑作业', title.trim());
             res.json({ success: true });

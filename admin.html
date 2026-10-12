@@ -362,6 +362,14 @@
                                     <input type="datetime-local" id="assignmentDueDate">
                                 </div>
                             </div>
+                            <div class="notice-form-group">
+                                <label>提交格式要求</label>
+                                <select id="assignmentFileType" class="search-input" style="width:100%;">
+                                    <option value="any">不限格式（可文字，附件任意）</option>
+                                    <option value="image">仅图片（学生必须提交图片）</option>
+                                    <option value="document">仅文档（学生必须提交文档）</option>
+                                </select>
+                            </div>
                             <div class="card-actions">
                                 <button class="btn btn-primary" onclick="publishAssignment()">
                                     <i class="fas fa-paper-plane"></i> 发布作业
@@ -995,6 +1003,14 @@
                         <input type="datetime-local" id="editAssignmentDueDate" class="form-input">
                     </div>
                 </div>
+                <div class="form-group">
+                    <label>提交格式要求</label>
+                    <select id="editAssignmentFileType" class="form-input">
+                        <option value="any">不限格式（可文字，附件任意）</option>
+                        <option value="image">仅图片（学生必须提交图片）</option>
+                        <option value="document">仅文档（学生必须提交文档）</option>
+                    </select>
+                </div>
                 <div class="card-actions" style="justify-content: flex-end;">
                     <button class="btn btn-outline" onclick="closeAssignmentEdit()">取消</button>
                     <button class="btn btn-primary" onclick="saveAssignmentEdit()">保存修改</button>
@@ -1063,6 +1079,6 @@
     </div>
 
     <script src="constants.js"></script>
-    <script src="admin.js?v=20261001-17"></script>
+    <script src="admin.js?v=20261001-18"></script>
 </body>
 </html>

@@ -184,10 +184,14 @@ async function initializeDatabase() {
         description TEXT,
         chapter_id VARCHAR(10) DEFAULT '',
         due_date DATE,
+        file_type VARCHAR(20) DEFAULT 'any',
         created_by VARCHAR(50) NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_due (due_date)
     ) ENGINE=InnoDB COMMENT='作业表'`);
+
+    // 迁移：作业支持指定必须提交的文件格式（any=不限 / image=仅图片 / document=仅文档）
+    try { await pool.execute(`ALTER TABLE assignments ADD COLUMN file_type VARCHAR(20) DEFAULT 'any'`); } catch (e) { /* 已存在则忽略 */ }
 
     await pool.execute(`CREATE TABLE IF NOT EXISTS assignment_submissions (
         id INT AUTO_INCREMENT PRIMARY KEY,

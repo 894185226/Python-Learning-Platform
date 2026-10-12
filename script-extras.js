@@ -774,20 +774,24 @@ async function renderAssignments() {
                 : '⏳ 未提交';
             const chapterName = chapterDisplayName(a.chapter_id) || (a.chapter_id || '-');
             const dueText = a.due_date ? new Date(a.due_date).toLocaleString('zh-CN', { hour12: false }) : '未设置';
+            const ft = a.file_type || 'any';
+            const fileHint = ft === 'image' ? '📌 本作业要求提交图片（必填）：' : (ft === 'document' ? '📌 本作业要求提交文档（必填）：' : '📎 附件（图片或文件，可选）：');
+            const fileAccept = ft === 'image' ? 'image/*' : (ft === 'document' ? '.pdf,.doc,.docx,.txt,.md,.zip,.rar,.7z,.xls,.xlsx,.ppt,.pptx,.csv' : 'image/*,.pdf,.doc,.docx,.txt,.zip,.rar,.ppt,.pptx,.xls,.xlsx');
+            const ftBadge = ft === 'image' ? ' 🖼️仅图片' : (ft === 'document' ? ' 📄仅文档' : '');
             return '<div style="border:1px solid rgba(0,0,0,0.12);border-radius:12px;padding:16px;margin-bottom:16px;">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
                 '<span style="font-weight:700;font-size:16px;">📋 ' + escHtml(a.title || '未命名作业') + ' ' + statusTag + '</span>' +
                 '<span style="font-size:12px;color:var(--text-secondary);">截止: ' + escHtml(dueText) + '</span>' +
                 '</div>' +
                 (a.description ? '<div style="margin-top:10px;color:var(--text-secondary);white-space:pre-wrap;">' + escHtml(a.description) + '</div>' : '') +
-                '<div style="font-size:12px;color:var(--text-secondary);margin-top:10px;">关联章节: ' + escHtml(chapterName) + '　|　' + subText + '</div>' +
+                '<div style="font-size:12px;color:var(--text-secondary);margin-top:10px;">关联章节: ' + escHtml(chapterName) + '　|　' + subText + ftBadge + '</div>' +
                 (sub
                     ? ''
                     : '<div style="margin-top:12px;"><button class="form-submit-btn" onclick="toggleAssignmentForm(' + a.id + ')">📝 交作业</button></div>') +
                 '<div id="assignment-form-' + a.id + '" style="display:none;margin-top:12px;">' +
                 '<textarea id="assignment-content-' + a.id + '" class="form-input" rows="5" placeholder="在这里输入你的作业内容…（可只上传文件不填文字）" maxlength="10000"></textarea>' +
-                '<div style="margin-top:8px;font-size:13px;color:var(--text-secondary);">📎 附件（图片或文件，可选）：</div>' +
-                '<input type="file" id="assignment-file-' + a.id + '" class="form-input" style="margin-top:4px;" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar,.ppt,.pptx,.xls,.xlsx">' +
+                '<div style="margin-top:8px;font-size:13px;color:var(--text-secondary);">' + fileHint + '</div>' +
+                '<input type="file" id="assignment-file-' + a.id + '" class="form-input" style="margin-top:4px;" accept="' + fileAccept + '" data-ft="' + ft + '">' +
                 '<div style="margin-top:8px;"><button class="form-submit-btn" onclick="submitAssignmentForm(' + a.id + ')">提交作业</button> <button class="form-cancel-btn" onclick="toggleAssignmentForm(' + a.id + ')">取消</button></div>' +
                 '</div>' +
                 '</div>';
@@ -818,6 +822,28 @@ async function submitAssignmentForm(id) {
     }
 
     if (!content && !fileData) { alert('请填写作业内容或上传文件'); return; }
+
+    // 客户端预校验文件格式要求
+    const ft = fileInput ? (fileInput.getAttribute('data-ft') || 'any') : 'any';
+    if (ft === 'image' || ft === 'document') {
+        if (!fileData) {
+            alert(ft === 'image' ? '本作业要求提交图片文件，请上传图片' : '本作业要求提交文档文件，请上传文档');
+            return;
+        }
+        const ext = (fileName || '').toLowerCase().split('.').pop();
+        const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+        const DOC_EXTS = ['pdf', 'doc', 'docx', 'txt', 'md', 'zip', 'rar', '7z', 'xls', 'xlsx', 'ppt', 'pptx', 'csv'];
+        if (ft === 'image') {
+            if (!(fileInput.files[0] && fileInput.files[0].type.startsWith('image/')) && !IMAGE_EXTS.includes(ext)) {
+                alert('提交文件必须是图片格式（jpg/png/gif/webp/bmp）');
+                return;
+            }
+        } else if (!DOC_EXTS.includes(ext)) {
+            alert('提交文件必须是文档格式（pdf/word/txt/zip等）');
+            return;
+        }
+    }
+
     try {
         const data = await API.submitAssignment(id, currentUser.username, content, fileData, fileName);
         if (data.success) {

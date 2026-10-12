@@ -400,6 +400,7 @@ function renderStudentTable() {
             <td>${s.last_login ? fmt(s.last_login) : '从未登录'}</td>
             <td>
                 <button class="btn btn-sm btn-info" onclick="event.stopPropagation();resetSinglePassword(${s.id},'${esc(s.display_name)}')" title="重置密码"><i class="fas fa-key"></i></button>
+                ${canResetStudentData() ? `<button class="btn btn-sm btn-warning" onclick="event.stopPropagation();resetSingleUsage(${s.id},'${esc(s.display_name)}')" title="重置使用数据"><i class="fas fa-eraser"></i></button>` : ''}
                 <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteSingle(${s.id},'${esc(s.display_name)}')"><i class="fas fa-trash"></i></button>
             </td>
         </tr>
@@ -469,6 +470,51 @@ async function resetSinglePassword(id, name) {
         if (data.success) { alert(`「${name}」的密码已重置为「${pwd}」`); }
         else alert('重置失败: ' + data.error);
     } catch (e) { alert('重置失败: ' + e.message); }
+}
+
+// ===== 重置学生使用数据 =====
+function canResetStudentData() {
+    const admin = getAdminUser();
+    return !admin || admin.role !== 'sub';
+}
+
+async function resetSingleUsage(id, name) {
+    showConfirm('重置使用数据', `确定要重置学生「${name}」的所有使用数据吗？此操作不可恢复！`, '⚠️', '重置', async function() {
+        try {
+            const data = await apiFetch(API_BASE + '/students/reset-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentIds: [id] })
+            });
+            if (data.success) {
+                alert(`「${name}」的使用数据已重置`);
+                loadStudents(); loadDashboard();
+            } else {
+                alert('重置失败：' + (data.error || '未知错误'));
+            }
+        } catch (e) { alert('重置失败：' + e.message); }
+    });
+}
+
+async function batchResetUsage() {
+    const ids = getSelectedIds();
+    if (ids.length === 0) { alert('请先选择学生'); return; }
+    showConfirm('批量重置使用数据', `确定要重置所选 ${ids.length} 名学生的所有使用数据吗？此操作不可恢复！`, '⚠️', '重置', async function() {
+        try {
+            const data = await apiFetch(API_BASE + '/students/reset-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentIds: ids })
+            });
+            if (data.success) {
+                const r = data.results || {};
+                alert(`重置完成：成功 ${r.success} 人，失败 ${r.failed} 人${(r.errors && r.errors.length) ? '；' + r.errors.slice(0, 5).join('；') : ''}`);
+                loadStudents(); loadDashboard();
+            } else {
+                alert('重置失败：' + (data.error || '未知错误'));
+            }
+        } catch (e) { alert('重置失败：' + e.message); }
+    });
 }
 
 // ===== 批量操作 =====
@@ -2321,5 +2367,10 @@ document.addEventListener('click', function(e) {
 (function init() {
     const admin = checkAuth();
     if (!admin) return;
+    // 子管理员（普通教师）无「学生数据管理」权限，隐藏重置入口
+    if (admin.role === 'sub') {
+        const btn = document.getElementById('batchResetUsageBtn');
+        if (btn) btn.style.display = 'none';
+    }
     switchPage('dashboard');
 })();

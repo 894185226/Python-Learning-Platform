@@ -46,7 +46,7 @@ module.exports = function(app) {
             if (errMsg) return res.json({ success: false, error: errMsg });
 
             const [rows] = await pool.query(
-                'SELECT id, username, display_name, password FROM admins WHERE username = ?',
+                'SELECT id, username, display_name, password, role FROM admins WHERE username = ?',
                 [username.trim()]
             );
 
@@ -63,6 +63,7 @@ module.exports = function(app) {
             adminSessions.set(token, {
                 username: admin.username,
                 displayName: admin.display_name,
+                role: admin.role || 'admin',
                 expires: Date.now() + 24 * 60 * 60 * 1000
             });
             res.json({
@@ -71,7 +72,7 @@ module.exports = function(app) {
                 user: {
                     username: admin.username,
                     displayName: admin.display_name,
-                    role: 'admin'
+                    role: admin.role || 'admin'
                 }
             });
         } catch (err) {
@@ -409,6 +410,96 @@ module.exports = function(app) {
             res.json({ success: true, affected: ids.length });
         } catch (err) {
             log.error('批量操作失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // ---------- 重置学生使用数据 ----------
+    // 清空学生所有"使用数据"（学习进度、成就、日志、作业、错题、笔记、收藏、讨论、截图、每日一题、讨论区状态等），保留账号与身份信息
+    async function resetStudentUsageData(studentId) {
+        const conn = await pool.getConnection();
+        const filePaths = [];
+        try {
+            await conn.beginTransaction();
+
+            // 先收集需删除的截图/作业附件文件路径（事务提交后再清理磁盘文件）
+            const [shots] = await conn.query('SELECT file_path FROM screenshot_submissions WHERE student_id = ?', [studentId]);
+            const [subFiles] = await conn.query('SELECT file_path FROM assignment_submissions WHERE student_id = ?', [studentId]);
+            for (const r of shots) if (r.file_path) filePaths.push(r.file_path);
+            for (const r of subFiles) if (r.file_path) filePaths.push(r.file_path);
+
+            // 按外键依赖顺序清空各使用数据表
+            const tables = [
+                'assignment_submissions',
+                'screenshot_submissions',
+                'daily_question_answers',
+                'discussion_moderation',
+                'discussion_replies',
+                'discussion_posts',
+                'mistake_book',
+                'study_notes',
+                'code_snippets',
+                'notifications',
+                'student_goals',
+                'login_logs',
+                'achievements',
+                'learning_progress'
+            ];
+            for (const t of tables) {
+                await conn.execute(`DELETE FROM ${t} WHERE student_id = ?`, [studentId]);
+            }
+
+            await conn.commit();
+            return filePaths;
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
+        }
+    }
+
+    app.post('/api/admin/students/reset-data', adminAuth, requireDB, async (req, res) => {
+        try {
+            // 权限控制：仅拥有「学生数据管理」权限的管理员（超级/系统管理员）可执行，子管理员（普通教师）无权限
+            if (req.adminUser.role === 'sub') {
+                return res.status(403).json({ success: false, error: '无权限：仅拥有「学生数据管理」权限的管理员可执行此操作' });
+            }
+
+            const { studentIds } = req.body;
+            if (!Array.isArray(studentIds) || studentIds.length === 0) {
+                return res.json({ success: false, error: '请选择要重置的学生' });
+            }
+            const ids = studentIds.map(Number).filter(n => Number.isInteger(n) && n > 0);
+            if (ids.length === 0) {
+                return res.json({ success: false, error: '学生ID无效' });
+            }
+
+            const results = { success: 0, failed: 0, errors: [] };
+            for (const id of ids) {
+                try {
+                    const [sts] = await pool.query('SELECT id FROM students WHERE id = ?', [id]);
+                    if (sts.length === 0) {
+                        results.failed++;
+                        results.errors.push(`学生ID ${id}: 学生不存在`);
+                        continue;
+                    }
+                    const filePaths = await resetStudentUsageData(id);
+                    results.success++;
+                    // 事务成功后清理磁盘文件（best-effort，不影响主流程）
+                    for (const fp of filePaths) {
+                        try { if (fs.existsSync(fp)) fs.unlinkSync(fp); } catch (e) { /* 忽略文件清理失败 */ }
+                    }
+                } catch (e) {
+                    results.failed++;
+                    results.errors.push(`学生ID ${id}: ${e.message}`);
+                }
+            }
+
+            await logAdminAction(req.adminUser.username, '重置学生使用数据', `学生IDs: ${ids.join(',')}（成功${results.success}失败${results.failed}）`);
+            res.json({ success: true, results });
+        } catch (err) {
+            log.error('重置学生使用数据失败', { error: err.message });
             res.json({ success: false, error: '服务器错误' });
         }
     });

@@ -167,16 +167,16 @@
             <section class="page-content" id="page-students">
                 <!-- 筛选栏 -->
                 <div class="filter-bar">
-                    <input type="text" class="search-input" id="studentSearch" placeholder="搜索姓名/用户名..." oninput="renderStudentTable()">
-                    <select class="search-input" id="filterGrade" onchange="renderStudentTable()">
+                    <input type="text" class="search-input" id="studentSearch" placeholder="搜索姓名/用户名..." oninput="onStudentSearch()">
+                    <select class="search-input" id="filterGrade" onchange="loadStudents(1)">
                         <option value="">全部年级</option>
                         <option value="七年级">七年级</option>
                         <option value="八年级">八年级</option>
                     </select>
-                    <select class="search-input" id="filterClass" onchange="renderStudentTable()">
+                    <select class="search-input" id="filterClass" onchange="loadStudents(1)">
                         <option value="">全部班级</option>
                     </select>
-                    <select class="search-input" id="filterStatus" onchange="renderStudentTable()">
+                    <select class="search-input" id="filterStatus" onchange="loadStudents(1)">
                         <option value="">全部状态</option>
                         <option value="active">在读</option>
                         <option value="graduated">已毕业</option>
@@ -1079,6 +1079,6 @@
     </div>
 
     <script src="constants.js"></script>
-    <script src="admin.js?v=20261001-18"></script>
+    <script src="admin.js?v=20261001-19"></script>
 </body>
 </html>

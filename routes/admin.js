@@ -97,7 +97,17 @@ module.exports = function(app) {
             const pageSize = Math.min(100, Math.max(10, Math.trunc(parseInt(req.query.pageSize) || 50)));
             const offset = Math.trunc((page - 1) * pageSize);
 
-            const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM students');
+            // 服务端筛选（年级/班级/状态/关键词）
+            const { grade, class: className, status, keyword } = req.query;
+            const where = [];
+            const params = [];
+            if (grade) { where.push('s.grade = ?'); params.push(String(grade)); }
+            if (className !== undefined && className !== '') { where.push('s.class_num = ?'); params.push(parseInt(className)); }
+            if (status) { where.push('s.status = ?'); params.push(String(status)); }
+            if (keyword) { where.push('(s.display_name LIKE ? OR s.username LIKE ?)'); params.push(`%${keyword}%`, `%${keyword}%`); }
+            const whereClause = where.length ? ' WHERE ' + where.join(' AND ') : '';
+
+            const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM students s${whereClause}`, params);
 
             const [rows] = await pool.query(`
                 SELECT 
@@ -120,9 +130,10 @@ module.exports = function(app) {
                            MAX(login_time) AS last_login
                     FROM login_logs GROUP BY student_id
                 ) ll ON s.id = ll.student_id
+                ${whereClause}
                 ORDER BY s.created_at DESC
                 LIMIT ? OFFSET ?
-            `, [pageSize, offset]);
+            `, [...params, pageSize, offset]);
             res.json({ success: true, students: rows, total, page, pageSize });
         } catch (err) {
             log.error('获取学生列表失败', { error: err.message });

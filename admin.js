@@ -340,7 +340,16 @@ const PAGE_SIZE = 50;
 async function loadStudents(page = 1) {
     try {
         studentPage = page;
-        const data = await apiFetch(API_BASE + '/students?page=' + page + '&pageSize=' + PAGE_SIZE);
+        const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+        const grade = document.getElementById('filterGrade').value;
+        const cls = document.getElementById('filterClass').value;
+        const status = document.getElementById('filterStatus').value;
+        const keyword = document.getElementById('studentSearch').value.trim();
+        if (grade) params.set('grade', grade);
+        if (cls) params.set('class', cls);
+        if (status) params.set('status', status);
+        if (keyword) params.set('keyword', keyword);
+        const data = await apiFetch(API_BASE + '/students?' + params.toString());
         if (!data.success) return;
         allStudents = data.students;
         studentTotal = data.total;
@@ -366,17 +375,14 @@ function renderPagination() {
 }
 
 function getFilteredStudents() {
-    const keyword = document.getElementById('studentSearch').value.toLowerCase();
-    const grade = document.getElementById('filterGrade').value;
-    const cls = document.getElementById('filterClass').value;
-    const status = document.getElementById('filterStatus').value;
-    return allStudents.filter(s => {
-        if (keyword && !s.display_name.toLowerCase().includes(keyword) && !s.username.toLowerCase().includes(keyword)) return false;
-        if (grade && s.grade !== grade) return false;
-        if (cls && s.class_num != cls) return false;
-        if (status && s.status !== status) return false;
-        return true;
-    });
+    // 筛选已在服务端完成，allStudents 即当前页（已按年级/班级/状态/关键词过滤）的数据
+    return allStudents;
+}
+
+let studentSearchTimer = null;
+function onStudentSearch() {
+    clearTimeout(studentSearchTimer);
+    studentSearchTimer = setTimeout(() => loadStudents(1), 300);
 }
 
 function renderStudentTable() {

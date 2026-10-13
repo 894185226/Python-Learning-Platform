@@ -908,6 +908,91 @@
         }
     }
 
+    // ===== 模块递进式解锁机制 =====
+    let _completedModulesCache = null;
+
+    function invalidateModuleProgressCache() { _completedModulesCache = null; }
+    window.invalidateModuleProgressCache = invalidateModuleProgressCache;
+
+    function isModuleUnlocked(chapter, index, completedIds) {
+        if (index <= 0) return true;
+        const prev = chapter.modules[index - 1];
+        return !!prev && completedIds.has(prev.id);
+    }
+
+    async function getCompletedModuleIds() {
+        const set = new Set();
+        const local = (window.getLocalProgress && window.getLocalProgress().modules) || {};
+        Object.keys(local).forEach(function(k) { if (local[k]) set.add(k); });
+        const user = window.getCurrentUser();
+        if (user) {
+            if (!_completedModulesCache) {
+                try {
+                    const p = await window.API.getProgress(user.username);
+                    _completedModulesCache = new Set(Object.keys((p && p.modules) || {}));
+                } catch (e) {
+                    _completedModulesCache = new Set();
+                }
+            }
+            _completedModulesCache.forEach(function(k) { set.add(k); });
+        }
+        return set;
+    }
+
+    function applyModuleNavStates(chapterId, completedIds) {
+        const nav = document.getElementById('chapterModNav-' + chapterId);
+        if (!nav) return;
+        const chapter = CHAPTERS.find(function(c) { return c.id === chapterId; });
+        if (!chapter) return;
+        nav.querySelectorAll('.mod-nav-btn').forEach(function(btn, i) {
+            const mod = chapter.modules[i];
+            if (!mod) return;
+            const completed = completedIds.has(mod.id);
+            const unlocked = isModuleUnlocked(chapter, i, completedIds);
+            const locked = !completed && !unlocked;
+            btn.classList.toggle('mod-complete', completed);
+            btn.classList.toggle('mod-locked', locked);
+            btn.disabled = locked;
+            btn.style.opacity = locked ? '0.45' : '';
+            btn.style.cursor = locked ? 'not-allowed' : '';
+            if (locked) btn.setAttribute('title', '完成前置模块后解锁'); else btn.removeAttribute('title');
+            const badge = btn.querySelector('.mod-nav-badge');
+            if (badge) badge.textContent = completed ? '✅' : (locked ? '🔒' : '');
+        });
+    }
+
+    function renderLockedModule(chapterId, module, index) {
+        const contentArea = document.getElementById('chapterContent-' + chapterId);
+        if (!contentArea) return;
+        const hero = document.getElementById('chapterHero-' + chapterId);
+        if (hero) hero.style.display = 'none';
+        const nav = document.getElementById('chapterModNav-' + chapterId);
+        if (nav) {
+            nav.querySelectorAll('.mod-nav-btn').forEach(function(btn, i) {
+                btn.classList.toggle('active', i === index);
+            });
+        }
+        const chapter = CHAPTERS.find(function(c) { return c.id === chapterId; });
+        const prev = chapter ? chapter.modules[index - 1] : null;
+        const prevName = prev ? (prev.icon + ' ' + prev.title) : '';
+        contentArea.innerHTML = '<div class="ch-module-wrap"><div style="text-align:center;padding:80px 24px;">' +
+            '<div style="font-size:52px;line-height:1;">🔒</div>' +
+            '<h3 style="margin:20px 0 8px;">' + module.icon + ' ' + module.title + ' 尚未解锁</h3>' +
+            '<p style="color:var(--text-secondary);margin:0;">请先完成「' + prevName + '」模块后再学习本模块。</p>' +
+            '</div></div>';
+        contentArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function completeAndAdvance(chapterId, moduleId, curIndex, nextIndex) {
+        // 先同步标记当前模块完成（本地立即生效），再异步同步服务端
+        if (window.saveLocalModule) window.saveLocalModule(moduleId);
+        if (window.markModuleCompleted) window.markModuleCompleted(moduleId);
+        const chapter = CHAPTERS.find(function(c) { return c.id === chapterId; });
+        if (chapter && chapter.modules[nextIndex]) {
+            switchChapterModule(chapterId, chapter.modules[nextIndex].id, nextIndex);
+        }
+    }
+
     function renderChapterContent(chapterId, container) {
         const chapter = CHAPTERS.find(function(c) { return c.id === chapterId; });
         if (!chapter) return;
@@ -919,7 +1004,7 @@
             '<div class="chapter-module-nav" id="chapterModNav-' + chapterId + '">' +
             '<div class="mod-nav-inner">' +
             chapter.modules.map(function(mod, i) {
-                return '<button class="mod-nav-btn" onclick="switchChapterModule(\'' + chapterId + '\', \'' + mod.id + '\', ' + i + ')">' + mod.icon + ' ' + mod.title + '</button>';
+                return '<button class="mod-nav-btn" data-module="' + mod.id + '" onclick="switchChapterModule(\'' + chapterId + '\', \'' + mod.id + '\', ' + i + ')">' + mod.icon + ' <span class="mod-nav-label">' + mod.title + '</span><span class="mod-nav-badge"></span></button>';
             }).join('') +
             '</div></div>' +
             '<div class="chapter-landing">' +
@@ -932,6 +1017,9 @@
                 switchChapterModule(chapterId, chapter.modules[0].id, 0);
             }, 50);
         }
+
+        // 应用模块解锁/锁定/完成状态
+        getCompletedModuleIds().then(function(ids) { applyModuleNavStates(chapterId, ids); });
 
         setTimeout(function() {
             const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -959,6 +1047,19 @@
         const module = chapter.modules.find(function(m) { return m.id === moduleId; });
         if (!module) return;
 
+        // 递进式解锁：前序模块未完成则不允许进入本模块（课堂小测需所有前置完成）
+        getCompletedModuleIds().then(function(completedIds) {
+            if (!isModuleUnlocked(chapter, index, completedIds)) {
+                renderLockedModule(chapterId, module, index);
+                applyModuleNavStates(chapterId, completedIds);
+                return;
+            }
+            renderChapterModuleContent(chapterId, module, index, chapter);
+        });
+    }
+
+    function renderChapterModuleContent(chapterId, module, index, chapter) {
+
         // 进入子模块时隐藏 hero 区域（匹配第2章行为）
         const hero = document.getElementById('chapterHero-' + chapterId);
         if (hero) hero.style.display = 'none';
@@ -980,7 +1081,7 @@
             const checkInterval = setInterval(function() {
                 if (window.chaptersContentLoaded) {
                     clearInterval(checkInterval);
-                    switchChapterModule(chapterId, moduleId, index);
+                    switchChapterModule(chapterId, module.id, index);
                 }
             }, 200);
             setTimeout(function() { clearInterval(checkInterval); }, 10000);
@@ -1010,7 +1111,7 @@
                 '<button class="ch-next-btn ch-next-btn-locked" id="ch-complete-locked-btn" onclick="alert(\'请先完成上面的综合测试哦\')">🔒 完成综合测试后即可进入下一章 →</button>' +
                 '</div>';
         } else {
-            nextBtnHTML = '<div class="ch-next-bar"><button class="ch-next-btn" onclick="switchChapterModule(\'' + chapterId + '\', \'' + chapter.modules[nextIndex].id + '\', ' + nextIndex + ')">下一页：' + chapter.modules[nextIndex].icon + ' ' + chapter.modules[nextIndex].title + ' →</button></div>';
+            nextBtnHTML = '<div class="ch-next-bar"><button class="ch-next-btn" onclick="completeAndAdvance(\'' + chapterId + '\', \'' + module.id + '\', ' + index + ', ' + nextIndex + ')">下一页：' + chapter.modules[nextIndex].icon + ' ' + chapter.modules[nextIndex].title + ' →</button></div>';
         }
         contentArea.insertAdjacentHTML('beforeend', nextBtnHTML);
 
@@ -1028,7 +1129,7 @@
             if (isDark) window.applyThemeToChapterContent(true);
             window.shuffleDebugButtons();
             window.shuffleQuizOptions();
-            if (moduleId.indexOf('_quiz') !== -1 && moduleId !== 'ch2_test') {
+            if (module.id.indexOf('_quiz') !== -1 && module.id !== 'ch2_test') {
                 var retryCount = 0;
                 function tryInitQuiz() {
                     try {
@@ -1049,7 +1150,7 @@
                 }
                 tryInitQuiz();
             }
-            if (moduleId === 'ch1_project') {
+            if (module.id === 'ch1_project') {
                 setTimeout(function() { if (typeof window.loadMyScreenshots === 'function') window.loadMyScreenshots(); }, 150);
             }
             setTimeout(function() { window.initCodeMirrorForPractice(); }, 150);
@@ -1215,6 +1316,10 @@
     window.switchChapter = switchChapter;
     window.renderChapterContent = renderChapterContent;
     window.switchChapterModule = switchChapterModule;
+    window.completeAndAdvance = completeAndAdvance;
+    window.getCompletedModuleIds = getCompletedModuleIds;
+    window.isModuleUnlocked = isModuleUnlocked;
+    window.applyModuleNavStates = applyModuleNavStates;
     window.startChapterLearning = startChapterLearning;
     window.updateSidebarActive = updateSidebarActive;
     window.showSidebarToggle = showSidebarToggle;

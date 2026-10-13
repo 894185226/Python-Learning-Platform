@@ -112,7 +112,13 @@
     function navigateToModule(moduleId) {
         try {
             document.querySelectorAll('.search-suggestions').forEach(function(el) { el.classList.remove('active'); });
-            if (moduleId.indexOf('ch') === 0) {
+            if (window.CH2_MODULE_IDS && window.CH2_MODULE_IDS.indexOf(moduleId) !== -1) {
+                // 第2章子模块：先进入第2章，再通过带解锁门控的 startVariableModule 打开
+                window.switchChapter('ch2');
+                setTimeout(function() {
+                    if (typeof startVariableModule === 'function') startVariableModule(moduleId);
+                }, 100);
+            } else if (moduleId.indexOf('ch') === 0) {
                 window.switchChapter(moduleId);
             } else {
                 window.switchModule(moduleId);

@@ -65,10 +65,12 @@
         if (currentUser) {
             try {
                 await window.API.markModuleCompleted(currentUser.username, moduleId, score);
+                if (window.invalidateModuleProgressCache) window.invalidateModuleProgressCache();
             } catch (e) {
                 window.log.error('保存进度失败，将存入本地:', e.message);
-                saveLocalModule(moduleId);
             }
+            // 本地同步记录（供模块解锁判断即时生效）
+            saveLocalModule(moduleId);
 
             try {
                 const newAch = await checkAndAwardAchievements(currentUser.username);
@@ -83,6 +85,8 @@
             saveLocalModule(moduleId);
             checkLocalAchievements();
         }
+        // 模块完成通知：供递进式解锁导航即时刷新
+        window.dispatchEvent(new CustomEvent('moduleCompleted', { detail: { moduleId: moduleId } }));
     }
 
     function saveLocalModule(moduleId) {

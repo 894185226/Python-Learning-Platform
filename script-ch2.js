@@ -6,6 +6,62 @@
 
 console.log('%c[script-ch2.js] 文件已加载', 'color:#04AA6D;font-weight:bold');
 
+// ===== 第2章模块递进式解锁 =====
+const CH2_MODULE_NAMES = ['ch2_intro','ch2_lab','ch2_lesson','ch2_judge','ch2_practice','ch2_trace','ch2_debug','ch2_extend','ch2_project','ch2_test'];
+const CH2_MODULE_LABELS = {
+    'ch2_intro':'🎬 情境导入','ch2_lab':'🧪 类比实验室','ch2_lesson':'📚 知识讲解','ch2_judge':'⚖️ 命名小法官',
+    'ch2_practice':'💻 实践操作','ch2_trace':'🔍 值追踪挑战','ch2_debug':'🏥 调试诊所','ch2_extend':'🚀 扩展思维',
+    'ch2_project':'🎨 创意项目','ch2_test':'📝 课堂小测'
+};
+
+function ch2IsUnlocked(index, completedIds) {
+    if (index <= 0) return true;
+    return completedIds.has(CH2_MODULE_NAMES[index - 1]);
+}
+
+function applyCH2NavStates(completedIds) {
+    const nav = document.getElementById('chapterModNav-ch2');
+    if (!nav) return;
+    nav.querySelectorAll('.mod-nav-btn').forEach(function(btn, i) {
+        const modId = CH2_MODULE_NAMES[i];
+        if (!modId) return;
+        const completed = completedIds.has(modId);
+        const unlocked = ch2IsUnlocked(i, completedIds);
+        const locked = !completed && !unlocked;
+        btn.disabled = locked;
+        btn.style.opacity = locked ? '0.45' : '';
+        btn.style.cursor = locked ? 'not-allowed' : '';
+        if (locked) btn.setAttribute('title', '完成前置模块后解锁'); else btn.removeAttribute('title');
+        const badge = btn.querySelector('.mod-nav-badge');
+        if (badge) badge.textContent = completed ? '✅' : (locked ? '🔒' : '');
+    });
+}
+
+function renderCH2Locked(moduleId) {
+    const contentArea = document.getElementById('chapterContent-ch2');
+    if (!contentArea) return;
+    const idx = CH2_MODULE_NAMES.indexOf(moduleId);
+    const prevId = idx > 0 ? CH2_MODULE_NAMES[idx - 1] : '';
+    const prevName = prevId ? (CH2_MODULE_LABELS[prevId] || prevId) : '';
+    const curName = CH2_MODULE_LABELS[moduleId] || moduleId;
+    contentArea.innerHTML = '<div class="ch-module-wrap"><div style="text-align:center;padding:80px 24px;">' +
+        '<div style="font-size:52px;line-height:1;">🔒</div>' +
+        '<h3 style="margin:20px 0 8px;">' + curName + ' 尚未解锁</h3>' +
+        '<p style="color:var(--text-secondary);margin:0;">请先完成「' + prevName + '」模块后再学习本模块。</p>' +
+        '</div></div>';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 模块完成时即时刷新第2章导航的解锁状态
+window.addEventListener('moduleCompleted', function(e) {
+    const moduleId = e.detail && e.detail.moduleId;
+    if (moduleId && CH2_MODULE_NAMES.indexOf(moduleId) >= 0) {
+        window.getCompletedModuleIds().then(function(ids) {
+            applyCH2NavStates(ids);
+        });
+    }
+});
+
 // 切换到变量章节(第2章) - 显示变量模块交互内容(内部函数)
 // initialModule: 可选，指定初始打开的子模块，默认 'ch2_intro'
 async function switchToVariableChapterBody(initialModule) {
@@ -52,16 +108,16 @@ async function switchToVariableChapterBody(initialModule) {
     ch2Container.innerHTML = `
         <div class="chapter-module-nav" id="chapterModNav-ch2">
             <div class="mod-nav-inner">
-            <button class="mod-nav-btn" onclick="startVariableModule('ch2_intro')">🎬 情境导入</button>
-            <button class="mod-nav-btn" onclick="startVariableModule('ch2_lab')">🧪 类比实验室</button>
-            <button class="mod-nav-btn" onclick="startVariableModule('ch2_lesson')">📚 知识讲解</button>
-            <button class="mod-nav-btn" onclick="startVariableModule('ch2_judge')">⚖️ 命名小法官</button>
-            <button class="mod-nav-btn" onclick="startVariableModule('ch2_practice')">💻 实践操作</button>
-            <button class="mod-nav-btn" onclick="startVariableModule('ch2_trace')">🔍 值追踪挑战</button>
-            <button class="mod-nav-btn" onclick="startVariableModule('ch2_debug')">🏥 调试诊所</button>
-            <button class="mod-nav-btn" onclick="startVariableModule('ch2_extend')">🚀 扩展思维</button>
-            <button class="mod-nav-btn" onclick="startVariableModule('ch2_project')">🎨 创意项目</button>
-            <button class="mod-nav-btn" onclick="startVariableModule('ch2_test')">📝 课堂小测</button>
+            <button class="mod-nav-btn" data-module="ch2_intro" onclick="startVariableModule('ch2_intro')">🎬 <span class="mod-nav-label">情境导入</span><span class="mod-nav-badge"></span></button>
+            <button class="mod-nav-btn" data-module="ch2_lab" onclick="startVariableModule('ch2_lab')">🧪 <span class="mod-nav-label">类比实验室</span><span class="mod-nav-badge"></span></button>
+            <button class="mod-nav-btn" data-module="ch2_lesson" onclick="startVariableModule('ch2_lesson')">📚 <span class="mod-nav-label">知识讲解</span><span class="mod-nav-badge"></span></button>
+            <button class="mod-nav-btn" data-module="ch2_judge" onclick="startVariableModule('ch2_judge')">⚖️ <span class="mod-nav-label">命名小法官</span><span class="mod-nav-badge"></span></button>
+            <button class="mod-nav-btn" data-module="ch2_practice" onclick="startVariableModule('ch2_practice')">💻 <span class="mod-nav-label">实践操作</span><span class="mod-nav-badge"></span></button>
+            <button class="mod-nav-btn" data-module="ch2_trace" onclick="startVariableModule('ch2_trace')">🔍 <span class="mod-nav-label">值追踪挑战</span><span class="mod-nav-badge"></span></button>
+            <button class="mod-nav-btn" data-module="ch2_debug" onclick="startVariableModule('ch2_debug')">🏥 <span class="mod-nav-label">调试诊所</span><span class="mod-nav-badge"></span></button>
+            <button class="mod-nav-btn" data-module="ch2_extend" onclick="startVariableModule('ch2_extend')">🚀 <span class="mod-nav-label">扩展思维</span><span class="mod-nav-badge"></span></button>
+            <button class="mod-nav-btn" data-module="ch2_project" onclick="startVariableModule('ch2_project')">🎨 <span class="mod-nav-label">创意项目</span><span class="mod-nav-badge"></span></button>
+            <button class="mod-nav-btn" data-module="ch2_test" onclick="startVariableModule('ch2_test')">📝 <span class="mod-nav-label">课堂小测</span><span class="mod-nav-badge"></span></button>
             </div>
         </div>
         <div class="chapter-landing">
@@ -102,7 +158,16 @@ async function switchToVariableChapterBody(initialModule) {
 }
 
 // 启动变量模块的子模块
-function startVariableModule(moduleId) {
+async function startVariableModule(moduleId) {
+    // 递进式解锁检查：未完成前置模块则显示锁定提示
+    const modIndex = CH2_MODULE_NAMES.indexOf(moduleId);
+    const completedIds = await window.getCompletedModuleIds();
+    applyCH2NavStates(completedIds);
+    if (modIndex >= 0 && !ch2IsUnlocked(modIndex, completedIds)) {
+        renderCH2Locked(moduleId);
+        return;
+    }
+
     // 保持第2章容器可见(作为页面头部)
     const ch2Container = document.getElementById('chapter-ch2');
     if (ch2Container) {
@@ -114,22 +179,9 @@ function startVariableModule(moduleId) {
 
     // 更新子模块导航高亮
     const nav = document.getElementById('chapterModNav-ch2');
-    const moduleNames = ['ch2_intro', 'ch2_lab', 'ch2_lesson', 'ch2_judge', 'ch2_practice', 'ch2_trace', 'ch2_debug', 'ch2_extend', 'ch2_project', 'ch2_test'];
-    const CH2_MODULE_LABELS = {
-        'ch2_intro': '🎬 情境导入',
-        'ch2_lab': '🧪 类比实验室',
-        'ch2_lesson': '📚 知识讲解',
-        'ch2_judge': '⚖️ 命名小法官',
-        'ch2_practice': '💻 实践操作',
-        'ch2_trace': '🔍 值追踪挑战',
-        'ch2_debug': '🏥 调试诊所',
-        'ch2_extend': '🚀 扩展思维',
-        'ch2_project': '🎨 创意项目',
-        'ch2_test': '📝 课堂小测'
-    };
     if (nav) {
         nav.querySelectorAll('.mod-nav-btn').forEach((btn, i) => {
-            btn.classList.toggle('active', moduleNames[i] === moduleId);
+            btn.classList.toggle('active', CH2_MODULE_NAMES[i] === moduleId);
         });
     }
 
@@ -140,9 +192,9 @@ function startVariableModule(moduleId) {
     switchModule(moduleId);
 
     // 添加下一页按钮到当前激活的模块底部（情境导入页不显示"下一页"按钮）
-    const currentIndex = moduleNames.indexOf(moduleId);
+    const currentIndex = CH2_MODULE_NAMES.indexOf(moduleId);
     const nextIndex = currentIndex + 1;
-    const isLast = nextIndex >= moduleNames.length;
+    const isLast = nextIndex >= CH2_MODULE_NAMES.length;
 
     if (moduleId !== 'ch2_intro') {
         const activeModule = document.getElementById(moduleId);
@@ -159,8 +211,8 @@ function startVariableModule(moduleId) {
                         </button>
                         <button class="ch-next-btn ch-next-btn-locked" id="ch-complete-locked-btn" onclick="alert('请先完成上面的综合测试哦')">🔒 完成综合测试后即可进入下一章 →</button>
                     ` : `
-                        <button class="ch-next-btn" onclick="startVariableModule('${moduleNames[nextIndex]}')">
-                            下一页：${CH2_MODULE_LABELS[moduleNames[nextIndex]] || moduleNames[nextIndex]} →
+                        <button class="ch-next-btn" onclick="window.saveLocalModule('${moduleId}');window.markModuleCompleted('${moduleId}');startVariableModule('${CH2_MODULE_NAMES[nextIndex]}')">
+                            下一页：${CH2_MODULE_LABELS[CH2_MODULE_NAMES[nextIndex]] || CH2_MODULE_NAMES[nextIndex]} →
                         </button>
                     `}
                 </div>

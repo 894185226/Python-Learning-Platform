@@ -237,7 +237,7 @@ loadSessions();
 loadAdminSessions();
 
 // 定期清理过期会话
-setInterval(() => {
+const sessionCleanupTimer = setInterval(() => {
     const now = Date.now();
     let changed = false;
     for (const [token, data] of sessions) {
@@ -248,17 +248,21 @@ setInterval(() => {
     }
     if (changed) saveSessions();
 }, 60 * 60 * 1000);
+sessionCleanupTimer.unref();
 
 // 每5分钟自动保存会话
-setInterval(() => { saveSessions(); saveAdminSessions(); }, 5 * 60 * 1000);
+const sessionSaveTimer = setInterval(() => { saveSessions(); saveAdminSessions(); }, 5 * 60 * 1000);
+sessionSaveTimer.unref();
 
 // 进程退出时保存会话
 process.on('SIGINT', () => { saveSessions(); saveAdminSessions(); process.exit(); });
 process.on('SIGTERM', () => { saveSessions(); saveAdminSessions(); process.exit(); });
 
 // 每30秒数据库健康检查
-setInterval(dbHealthCheck, 30000);
-setTimeout(dbHealthCheck, 5000);
+const dbHealthTimer = setInterval(dbHealthCheck, 30000);
+dbHealthTimer.unref();
+const dbHealthInitTimer = setTimeout(dbHealthCheck, 5000);
+dbHealthInitTimer.unref();
 
 module.exports = {
     pool,

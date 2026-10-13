@@ -10,8 +10,9 @@ const WINDOW_MS = 60 * 1000;
 class MetricsCollector {
     constructor() {
         this.reset();
-        // 每分钟自动轮转窗口
+        // 每分钟自动轮转窗口（.unref() 避免单测挂起）
         this._interval = setInterval(() => this.rotate(), WINDOW_MS);
+        this._interval.unref();
     }
 
     reset() {
@@ -196,10 +197,11 @@ function requestLogger(req, res, next) {
 }
 
 // ===================================================
-// 定时输出监控摘要
+// 定时输出监控摘要（.unref() 避免单测挂起）
 // ===================================================
-setInterval(() => {
+const summaryTimer = setInterval(() => {
     console.log(metrics.getSummary());
 }, 5 * 60 * 1000); // 每 5 分钟
+summaryTimer.unref();
 
 module.exports = { metrics, requestLogger };

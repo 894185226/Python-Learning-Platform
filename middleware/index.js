@@ -90,7 +90,8 @@ function loginRateLimit(req, res, next) {
 }
 
 // 定期清理过期速率限制记录
-setInterval(() => {
+// .unref()：不阻止事件循环退出，避免单元测试因常驻定时器而挂起
+const rateLimitCleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const [ip, record] of rateLimitMap) {
         if (now - record.start > RATE_LIMIT_WINDOW) rateLimitMap.delete(ip);
@@ -99,6 +100,7 @@ setInterval(() => {
         if (now - record.start > LOGIN_RATE_LIMIT_WINDOW) loginRateLimitMap.delete(ip);
     }
 }, 60000);
+rateLimitCleanupTimer.unref();
 
 // ===================================================
 // 会话认证（学生端）

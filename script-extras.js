@@ -77,6 +77,9 @@ async function renderLeaderboard() {
             const isMe = item.username === currentUser.username;
             const rankStyle = rank <= 3 ? `style="background:${rankColors[rank-1]};color:#000;font-weight:700;border-radius:50%;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;"` : '';
             const rowStyle = isMe ? 'style="background:rgba(4,170,109,0.1);font-weight:600;"' : '';
+            const d = item.dimensions || {};
+            const n = v => (v === null || v === undefined ? 0 : v);
+            const breakdown = '完成率 ' + n(d.taskCompletion) + ' | 知识测评 ' + n(d.assessment) + ' | 作业 ' + n(d.assignment) + ' | 参与 ' + n(d.participation) + ' | 成就 ' + n(d.achievement);
             return `
                 <tr ${rowStyle}>
                     <td>${rank <= 3 ? `<span ${rankStyle}>${rank}</span>` : rank}</td>
@@ -84,7 +87,7 @@ async function renderLeaderboard() {
                     <td>${escHtml(item.grade || '')}${item.class_num ? item.class_num + '班' : ''}</td>
                     <td>${item.chapter_count || 0}</td>
                     <td>${item.achievement_count || 0}</td>
-                    <td>${item.score || 0}</td>
+                    <td title="${escHtml(breakdown)}"><strong>${n(item.score)}</strong></td>
                 </tr>
             `;
         }).join('');

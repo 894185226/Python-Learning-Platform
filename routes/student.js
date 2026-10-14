@@ -114,7 +114,8 @@ module.exports = function(app) {
                     (SELECT COUNT(*) FROM daily_question_answers dq WHERE dq.student_id = s.id) AS daily_answers,
                     (SELECT COUNT(DISTINCT DATE(ll.login_time)) FROM login_logs ll WHERE ll.student_id = s.id) AS login_days,
                     (SELECT COUNT(*) FROM achievements a WHERE a.student_id = s.id) AS achievements,
-                    ((SELECT COUNT(*) FROM study_notes sn WHERE sn.student_id = s.id) + (SELECT COUNT(*) FROM code_snippets cs WHERE cs.student_id = s.id)) AS notes_code
+                    ((SELECT COUNT(*) FROM study_notes sn WHERE sn.student_id = s.id) + (SELECT COUNT(*) FROM code_snippets cs WHERE cs.student_id = s.id)) AS notes_code,
+                    (SELECT COALESCE(SUM(cp.points), 0) FROM class_performance cp WHERE cp.student_id = s.id) AS class_points
                 FROM students s
                 ${whereClause}
             `, params);
@@ -139,7 +140,8 @@ module.exports = function(app) {
                         assessment: round1(dimensions.assessment),
                         assignment: round1(dimensions.assignment),
                         participation: round1(dimensions.participation),
-                        achievement: round1(dimensions.achievement)
+                        achievement: round1(dimensions.achievement),
+                        classPerformance: round1(dimensions.classPerformance)
                     }
                 };
             }).sort((a, b) =>
@@ -203,6 +205,17 @@ module.exports = function(app) {
 
             const studentId = students[0].id;
             const validScore = Math.min(100, Math.max(0, parseInt(score) || 0));
+
+            // 课堂小测（chX_quiz / chX_test）只记录第一次得分：已有完成记录则不再覆盖
+            if (/^ch\d+_(quiz|test)$/.test(moduleId)) {
+                const [existing] = await pool.query(
+                    'SELECT completed FROM learning_progress WHERE student_id = ? AND module_id = ?',
+                    [studentId, moduleId]
+                );
+                if (existing.length > 0 && existing[0].completed) {
+                    return res.json({ success: true });
+                }
+            }
 
             await pool.query(
                 `INSERT INTO learning_progress (student_id, module_id, completed, score, completed_at)
@@ -947,6 +960,7 @@ module.exports = function(app) {
                     status = 'submitted',
                     return_reason = NULL,
                     score = NULL,
+                    is_exemplary = 0,
                     submitted_at = NOW()`,
                 [assignmentId, students[0].id, textContent, storedFileName, storedFilePath, originalName]
             );

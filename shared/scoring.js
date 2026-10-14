@@ -9,11 +9,12 @@ const TOTAL_CHAPTERS = 19;
 
 // 各维度权重（合计 1.0 = 100%）
 const WEIGHTS = {
-    taskCompletion: 0.20, // 学习任务完成率
-    assessment: 0.30,     // 知识测评成绩（课堂小测/阶段测验合并）
-    assignment: 0.25,     // 作业完成质量与得分
-    participation: 0.15,  // 课堂参与度
-    achievement: 0.10     // 学习成就与习惯
+    taskCompletion: 0.20,    // 学习任务完成率
+    assessment: 0.25,        // 知识测评成绩（课堂小测/阶段测验合并）
+    assignment: 0.20,        // 作业完成质量与得分
+    participation: 0.15,     // 课堂参与度（线上讨论/每日一题/登录活跃）
+    achievement: 0.10,       // 学习成就与习惯
+    classPerformance: 0.10   // 课堂表现（教师手动加减分）
 };
 
 // 各维度归一化所用上限（用于把“数量类”指标线性映射到 0-100）
@@ -74,12 +75,16 @@ function computeDimensions(agg) {
         0.60 * ratioPart(agg.achievements, CAPS.achievement) +
         0.40 * ratioPart(agg.notes_code, CAPS.notesCode);
 
+    // 课堂表现：教师手动加减分（正=加分，负=扣分），基准 50 分并收敛到 0-100
+    const classPerformance = clamp(50 + (Number(agg.class_points) || 0));
+
     return {
         taskCompletion: clamp((chapterDone / TOTAL_CHAPTERS) * 100),
         assessment: clamp(assessmentAvg),
         assignment: clamp(assignment),
         participation: clamp(participation),
-        achievement: clamp(achievement)
+        achievement: clamp(achievement),
+        classPerformance
     };
 }
 

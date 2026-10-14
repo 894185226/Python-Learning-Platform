@@ -708,6 +708,9 @@ async function openStudentDetail(id) {
     try {
         const data = await apiFetch(API_BASE + '/student/' + id);
         if (!data.success) { alert('获取详情失败: ' + data.error); return; }
+        const cpData = await apiFetch(API_BASE + '/students/' + id + '/class-points');
+        const cpTotal = (cpData && cpData.success) ? cpData.total : 0;
+        const cpRecords = (cpData && cpData.success && cpData.records) ? cpData.records : [];
         const s = data.student;
         const pct = s.completed_modules ? Math.min((s.completed_modules / TOTAL_MODULES * 100), 100).toFixed(1) : 0;
         document.getElementById('detailTitle').textContent = s.display_name + ' 的详情';
@@ -720,6 +723,8 @@ async function openStudentDetail(id) {
                 <div class="detail-item"><label>状态</label><span class="status-tag ${s.status}">${s.status === 'graduated' ? '已毕业' : '在读'}</span></div>
                 <div class="detail-item"><label>注册时间</label><span>${fmt(s.created_at)}</span></div>
             </div>
+            <h4 style="margin-top:20px;">课堂表现 <span style="color:#7c3aed;">（累计 ${cpTotal >= 0 ? '+' + cpTotal : cpTotal} 分）</span> <button class="btn btn-sm btn-primary" onclick="addClassPoint(${id},'${esc(s.display_name)}')">＋ 加减分</button></h4>
+            <div class="detail-modules" style="margin-top:8px;">${cpRecords.length > 0 ? cpRecords.map(r => `<span class="module-chip" style="background:${r.points > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'};color:${r.points > 0 ? 'var(--success)' : '#ef4444'};">${r.points > 0 ? '+' + r.points : r.points}分 ${esc(r.reason)} <small>${fmt(r.created_at)}</small></span>`).join('') : '<span class="empty-state">暂无记录</span>'}</div>
             <h4 style="margin-top:20px;">学习进度</h4>
             <div class="progress-bar-container">
                 <div class="progress-bar-fill" style="width:${pct}%"></div>
@@ -746,6 +751,32 @@ async function openStudentDetail(id) {
     } catch (e) { alert('获取详情失败: ' + e.message); }
 }
 function closeStudentDetail() { document.getElementById('studentDetailModal').style.display = 'none'; }
+
+async function addClassPoint(id, name) {
+    let pointsStr = '';
+    try { pointsStr = prompt('请输入加减分值（正数=加分，负数=扣分，如 5 或 -3）：', ''); } catch (e) { pointsStr = ''; }
+    if (pointsStr === null) return;
+    const points = parseInt(pointsStr, 10);
+    if (isNaN(points) || points === 0) { alert('请输入非零整数'); return; }
+    let reason = '';
+    try { reason = prompt('请输入加减分原因（必填）：', ''); } catch (e) { reason = ''; }
+    if (reason === null) return;
+    if (!reason.trim()) { alert('原因不能为空'); return; }
+    try {
+        const data = await apiFetch(API_BASE + '/students/' + id + '/class-points', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ points: points, reason: reason.trim() })
+        });
+        if (data.success) {
+            alert(data.message || '操作成功');
+            openStudentDetail(id);
+            loadStudents();
+        } else {
+            alert('操作失败: ' + (data.error || '未知错误'));
+        }
+    } catch (e) { alert('操作失败: ' + e.message); }
+}
 
 // ===== 批量删除 =====
 async function batchDelete() {
@@ -1025,9 +1056,24 @@ async function loadQuizScores() {
 // ===== 作品截图查看 =====
 async function loadScreenshots() {
     const el = document.getElementById('screenshotList');
+    const filterEl = document.getElementById('screenshotChapterFilter');
+    // 填充章节下拉选项（仅初始化一次）
+    if (filterEl && filterEl.options.length <= 1) {
+        const keys = Object.keys(CHAPTER_NAMES || {}).sort(function(a, b) {
+            return (parseInt(String(a).replace(/\D/g, '')) || 0) - (parseInt(String(b).replace(/\D/g, '')) || 0);
+        });
+        keys.forEach(function(k) {
+            const opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = CHAPTER_NAMES[k];
+            filterEl.appendChild(opt);
+        });
+    }
+    const chapterId = filterEl ? filterEl.value : '';
+    const url = API_BASE + '/screenshots' + (chapterId ? '?chapterId=' + encodeURIComponent(chapterId) : '');
     el.innerHTML = '<div class="empty-notices"><i class="fas fa-image"></i><p>加载中...</p></div>';
     try {
-        const data = await apiFetch(API_BASE + '/screenshots');
+        const data = await apiFetch(url);
         if (!data.success || !data.screenshots || data.screenshots.length === 0) {
             el.innerHTML = '<div class="empty-notices"><i class="fas fa-image"></i><p>暂无学生提交的截图</p></div>';
             return;
@@ -1048,7 +1094,10 @@ async function loadScreenshots() {
                 return '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">' +
                     '<a href="' + imgUrl + '" target="_blank"><img src="' + imgUrl + '" alt="截图" loading="lazy" style="width:100%;display:block;min-height:120px;background:#f5f5f5;"></a>' +
                     '<div style="padding:10px 12px;">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;">' +
                     '<div style="font-weight:600;font-size:14px;">' + esc(stuName) + '</div>' +
+                    '<button onclick="deleteScreenshot(' + s.id + ')" title="删除截图" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:15px;padding:2px 6px;">🗑️</button>' +
+                    '</div>' +
                     '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + esc(cls) + ' · ' + esc(chapterLabel) + '</div>' +
                     '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + esc(fmtTime(s.created_at)) + '</div>' +
                     '</div></div>';
@@ -1057,6 +1106,16 @@ async function loadScreenshots() {
         console.error('加载截图失败:', e);
         el.innerHTML = '<div class="empty-notices"><i class="fas fa-exclamation-circle"></i><p>加载截图失败</p></div>';
     }
+}
+
+async function deleteScreenshot(id) {
+    showConfirm('删除截图', '确定要删除该截图吗？此操作不可恢复。', '🗑️', '删除', async function() {
+        try {
+            const data = await apiFetch(API_BASE + '/screenshots/' + id, { method: 'DELETE' });
+            if (data.success) { loadScreenshots(); }
+            else alert('删除失败: ' + (data.error || '未知错误'));
+        } catch (e) { alert('删除失败: ' + e.message); }
+    });
 }
 
 // ===== 作业管理 =====

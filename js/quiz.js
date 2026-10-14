@@ -298,6 +298,22 @@
             drawRadarChart(score, root);
         });
 
+        // 已有得分时显示「复习模式」提示：再次作答不更改已记录得分
+        if (typeof window.checkQuizCompleted === 'function') {
+            window.checkQuizCompleted(chapterId, function(completed) {
+                if (!completed) return;
+                if (root.querySelector('.quiz-review-notice')) return;
+                const box = root.querySelector('#question-container');
+                if (box && box.parentNode) {
+                    const div = document.createElement('div');
+                    div.className = 'quiz-review-notice';
+                    div.style.cssText = 'margin:0 0 16px;padding:12px 16px;border:1px solid #dbeafe;border-radius:8px;background:#eff6ff;color:#1e40af;font-size:14px;line-height:1.6;';
+                    div.innerHTML = '📖 你已完成过本测验，当前为<strong>复习模式</strong>：再次作答<strong>不会更改已记录的得分</strong>，仅供巩固复习使用。';
+                    box.parentNode.insertBefore(div, box);
+                }
+            });
+        }
+
         showQuestion(0);
     }
 

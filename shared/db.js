@@ -270,6 +270,17 @@ async function initializeDatabase() {
         INDEX idx_student_read (student_id, is_read)
     ) ENGINE=InnoDB COMMENT='通知表'`);
 
+    await pool.execute(`CREATE TABLE IF NOT EXISTS class_performance (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NOT NULL,
+        points INT NOT NULL COMMENT '正=加分，负=扣分',
+        reason VARCHAR(255) DEFAULT '',
+        admin_name VARCHAR(50) DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+        INDEX idx_cp_student (student_id)
+    ) ENGINE=InnoDB COMMENT='课堂表现加减分记录表'`);
+
     await pool.execute(`CREATE TABLE IF NOT EXISTS code_snippets (
         id INT AUTO_INCREMENT PRIMARY KEY,
         student_id INT NOT NULL,
@@ -581,7 +592,8 @@ async function autoBackup() {
         'discussion_replies', 'assignments', 'assignment_submissions', 'submission_history',
         'daily_questions', 'chapter_locks', 'notifications',
         'code_snippets', 'mistake_book', 'study_notes', 'student_goals',
-        'discussion_moderation', 'discussion_switches', 'daily_question_answers'
+        'discussion_moderation', 'discussion_switches', 'daily_question_answers',
+        'class_performance'
     ];
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

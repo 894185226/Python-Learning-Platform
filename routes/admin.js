@@ -208,6 +208,50 @@ module.exports = function(app) {
         }
     });
 
+    // ---------- 获取课堂表现加减分记录 ----------
+    app.get('/api/admin/students/:id/class-points', adminAuth, requireDB, async (req, res) => {
+        try {
+            const studentId = parseInt(req.params.id);
+            if (isNaN(studentId)) return res.json({ success: false, error: '无效的学生ID' });
+            const [rows] = await pool.query(
+                'SELECT id, points, reason, admin_name, created_at FROM class_performance WHERE student_id = ? ORDER BY created_at DESC LIMIT 100',
+                [studentId]
+            );
+            const sum = rows.reduce((acc, r) => acc + Number(r.points), 0);
+            res.json({ success: true, records: rows, total: sum });
+        } catch (err) {
+            log.error('获取课堂表现记录失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // ---------- 课堂表现加分/扣分 ----------
+    app.post('/api/admin/students/:id/class-points', adminAuth, requireDB, async (req, res) => {
+        try {
+            const studentId = parseInt(req.params.id);
+            if (isNaN(studentId)) return res.json({ success: false, error: '无效的学生ID' });
+            const points = parseInt(req.body.points, 10);
+            if (isNaN(points) || points === 0 || points < -100 || points > 100) {
+                return res.json({ success: false, error: '分数必须为 -100 到 100 之间的非零整数' });
+            }
+            const reason = (typeof req.body.reason === 'string' ? req.body.reason : '').trim().slice(0, 255);
+            if (!reason) return res.json({ success: false, error: '请填写加减分原因' });
+
+            const [students] = await pool.query('SELECT id, display_name FROM students WHERE id = ?', [studentId]);
+            if (students.length === 0) return res.json({ success: false, error: '学生不存在' });
+
+            await pool.query(
+                'INSERT INTO class_performance (student_id, points, reason, admin_name) VALUES (?, ?, ?, ?)',
+                [studentId, points, reason, req.adminUser.username]
+            );
+            await logAdminAction(req.adminUser.username, '课堂表现加减分', `${students[0].display_name}: ${points > 0 ? '+' : ''}${points}分（${reason}）`);
+            res.json({ success: true, message: `已为「${students[0].display_name}」${points > 0 ? '加分' : '扣分'} ${Math.abs(points)} 分` });
+        } catch (err) {
+            log.error('课堂表现加减分失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
     // ---------- 获取全局统计数据 ----------
     app.get('/api/admin/stats', adminAuth, requireDB, async (req, res) => {
         try {
@@ -451,6 +495,7 @@ module.exports = function(app) {
             // 按外键依赖顺序清空各使用数据表
             const tables = [
                 'submission_history',
+                'class_performance',
                 'assignment_submissions',
                 'screenshot_submissions',
                 'daily_question_answers',
@@ -1238,7 +1283,7 @@ module.exports = function(app) {
             const reason = (typeof req.body.reason === 'string' ? req.body.reason : '').trim().slice(0, 255);
 
             const [result] = await pool.query(
-                'UPDATE assignment_submissions SET status = ?, return_reason = ?, score = NULL WHERE id = ?',
+                'UPDATE assignment_submissions SET status = ?, return_reason = ?, score = NULL, is_exemplary = 0 WHERE id = ?',
                 ['returned', reason || null, submissionId]
             );
             if (result.affectedRows === 0) {
@@ -2028,6 +2073,11 @@ module.exports = function(app) {
                 'UPDATE submission_history SET student_id = ? WHERE student_id = ?', [tgtId, srcId]
             );
 
+            // 合并课堂表现加减分记录
+            await conn.execute(
+                'UPDATE class_performance SET student_id = ? WHERE student_id = ?', [tgtId, srcId]
+            );
+
             // 合并讨论帖和回复
             await conn.execute(
                 'UPDATE discussion_posts SET student_id = ? WHERE student_id = ?', [tgtId, srcId]
@@ -2110,6 +2160,25 @@ module.exports = function(app) {
             res.json({ success: true, screenshots: rows });
         } catch (err) {
             log.error('获取截图列表失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 删除学生作品截图
+    app.delete('/api/admin/screenshots/:id', adminAuth, requireDB, async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
+            const [rows] = await pool.query('SELECT file_path, file_name FROM screenshot_submissions WHERE id = ?', [id]);
+            if (rows.length === 0) return res.json({ success: false, error: '截图不存在' });
+            await pool.query('DELETE FROM screenshot_submissions WHERE id = ?', [id]);
+            if (rows[0].file_path) {
+                try { if (fs.existsSync(rows[0].file_path)) fs.unlinkSync(rows[0].file_path); } catch (e) { /* 忽略文件清理失败 */ }
+            }
+            await logAdminAction(req.adminUser.username, '删除作品截图', `截图ID: ${id}`);
+            res.json({ success: true, message: '已删除该截图' });
+        } catch (err) {
+            log.error('删除截图失败', { error: err.message });
             res.json({ success: false, error: '服务器错误' });
         }
     });

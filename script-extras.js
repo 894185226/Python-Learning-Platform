@@ -79,7 +79,7 @@ async function renderLeaderboard() {
             const rowStyle = isMe ? 'style="background:rgba(4,170,109,0.1);font-weight:600;"' : '';
             const d = item.dimensions || {};
             const n = v => (v === null || v === undefined ? 0 : v);
-            const breakdown = '完成率 ' + n(d.taskCompletion) + ' | 知识测评 ' + n(d.assessment) + ' | 作业 ' + n(d.assignment) + ' | 参与 ' + n(d.participation) + ' | 成就 ' + n(d.achievement);
+            const breakdown = '完成率 ' + n(d.taskCompletion) + ' | 知识测评 ' + n(d.assessment) + ' | 作业 ' + n(d.assignment) + ' | 参与 ' + n(d.participation) + ' | 成就 ' + n(d.achievement) + ' | 课堂表现 ' + n(d.classPerformance);
             return `
                 <tr ${rowStyle}>
                     <td>${rank <= 3 ? `<span ${rankStyle}>${rank}</span>` : rank}</td>

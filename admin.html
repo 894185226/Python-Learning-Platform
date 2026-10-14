@@ -404,7 +404,12 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">查看学生在「创意项目」中提交的程序运行截图，点击图片可放大查看。</p>
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+                            <p style="font-size:13px;color:var(--text-secondary);margin:0;">查看学生在「创意项目」中提交的程序运行截图，点击图片可放大查看。</p>
+                            <select id="screenshotChapterFilter" class="search-input" style="width:auto;margin-left:auto;" onchange="loadScreenshots()">
+                                <option value="">全部章节</option>
+                            </select>
+                        </div>
                         <div id="screenshotList"></div>
                     </div>
                 </div>
@@ -1091,6 +1096,6 @@
     </div>
 
     <script src="constants.js"></script>
-    <script src="admin.js?v=20261014-1"></script>
+    <script src="admin.js?v=20261014-3"></script>
 </body>
 </html>

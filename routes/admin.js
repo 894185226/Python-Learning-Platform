@@ -18,6 +18,15 @@ if (!fs.existsSync(BACKUP_DIR)) {
     fs.mkdirSync(BACKUP_DIR, { recursive: true });
 }
 
+// 向学生发送通知（写入数据库 + WebSocket 实时推送）
+function notifyStudent(studentId, title, content, type) {
+    try {
+        require('../ws').createNotification(studentId, title, content, type);
+    } catch (e) {
+        log.warn('通知发送失败', { error: e.message });
+    }
+}
+
 module.exports = function(app) {
     const {
         pool, adminSessions,
@@ -441,6 +450,7 @@ module.exports = function(app) {
 
             // 按外键依赖顺序清空各使用数据表
             const tables = [
+                'submission_history',
                 'assignment_submissions',
                 'screenshot_submissions',
                 'daily_question_answers',
@@ -1084,13 +1094,14 @@ module.exports = function(app) {
     // 布置作业
     app.post('/api/admin/assignments', adminAuth, requireDB, async (req, res) => {
         try {
-            const { title, description, chapterId, dueDate, fileType } = req.body;
+            const { title, description, chapterId, dueDate, fileType, allowLate } = req.body;
             if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
             const ft = ['any', 'image', 'document'].includes(fileType) ? fileType : 'any';
+            const allowLateVal = allowLate ? 1 : 0;
 
             await pool.query(
-                'INSERT INTO assignments (title, description, chapter_id, due_date, file_type, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-                [title.trim(), description || '', chapterId || '', dueDate || null, ft, req.adminUser.username]
+                'INSERT INTO assignments (title, description, chapter_id, due_date, file_type, allow_late, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [title.trim(), description || '', chapterId || '', dueDate || null, ft, allowLateVal, req.adminUser.username]
             );
             await logAdminAction(req.adminUser.username, '布置作业', title.trim());
             res.json({ success: true });
@@ -1104,7 +1115,7 @@ module.exports = function(app) {
     app.get('/api/admin/assignments', adminAuth, requireDB, async (req, res) => {
         try {
             const [rows] = await pool.query(
-                `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.file_type, a.created_by, a.created_at,
+                `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.file_type, a.allow_late, a.created_by, a.created_at,
                         (SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id = a.id) AS submission_count
                  FROM assignments a ORDER BY a.created_at DESC`
             );
@@ -1121,13 +1132,14 @@ module.exports = function(app) {
             const id = parseInt(req.params.id);
             if (isNaN(id)) return res.json({ success: false, error: '无效的ID' });
 
-            const { title, description, chapterId, dueDate, fileType } = req.body;
+            const { title, description, chapterId, dueDate, fileType, allowLate } = req.body;
             if (!title || !title.trim()) return res.json({ success: false, error: '标题不能为空' });
             const ft = ['any', 'image', 'document'].includes(fileType) ? fileType : 'any';
+            const allowLateVal = allowLate ? 1 : 0;
 
             await pool.query(
-                'UPDATE assignments SET title = ?, description = ?, chapter_id = ?, due_date = ?, file_type = ? WHERE id = ?',
-                [title.trim(), description || '', chapterId || '', dueDate || null, ft, id]
+                'UPDATE assignments SET title = ?, description = ?, chapter_id = ?, due_date = ?, file_type = ?, allow_late = ? WHERE id = ?',
+                [title.trim(), description || '', chapterId || '', dueDate || null, ft, allowLateVal, id]
             );
             await logAdminAction(req.adminUser.username, '编辑作业', title.trim());
             res.json({ success: true });
@@ -1160,8 +1172,9 @@ module.exports = function(app) {
 
             const [rows] = await pool.query(
                 `SELECT ass.id, ass.content, ass.score, ass.submitted_at,
-                        ass.file_name, ass.file_original_name,
-                        s.display_name, s.username, s.grade, s.class_num
+                        ass.file_name, ass.file_original_name, ass.status, ass.return_reason,
+                        ass.feedback, ass.is_exemplary,
+                        s.display_name, s.username, s.grade, s.class_num, s.id AS student_id
                  FROM assignment_submissions ass
                  JOIN students s ON ass.student_id = s.id
                  WHERE ass.assignment_id = ?
@@ -1179,7 +1192,7 @@ module.exports = function(app) {
     app.put('/api/admin/assignments/:assignmentId/submissions/:submissionId/score', adminAuth, requireDB, async (req, res) => {
         try {
             const submissionId = parseInt(req.params.submissionId);
-            const { score } = req.body;
+            const { score, feedback } = req.body;
             if (isNaN(submissionId)) return res.json({ success: false, error: '无效的提交ID' });
             if (score === undefined || score === null) return res.json({ success: false, error: '请提供评分' });
 
@@ -1187,18 +1200,188 @@ module.exports = function(app) {
             if (isNaN(numScore) || numScore < 0 || numScore > 100) {
                 return res.json({ success: false, error: '评分必须在0-100之间' });
             }
+            const feedbackText = (typeof feedback === 'string' ? feedback : '').trim().slice(0, 2000);
 
             const [result] = await pool.query(
-                'UPDATE assignment_submissions SET score = ? WHERE id = ?',
-                [Math.round(numScore * 10) / 10, submissionId]
+                'UPDATE assignment_submissions SET score = ?, feedback = ? WHERE id = ?',
+                [Math.round(numScore * 10) / 10, feedbackText || null, submissionId]
             );
 
             if (result.affectedRows === 0) {
                 return res.json({ success: false, error: '提交记录不存在' });
             }
+
+            // 通知学生已批改
+            try {
+                const [rows] = await pool.query(
+                    `SELECT ass.student_id, a.title FROM assignment_submissions ass
+                     JOIN assignments a ON ass.assignment_id = a.id
+                     WHERE ass.id = ?`, [submissionId]
+                );
+                if (rows.length > 0) {
+                    notifyStudent(rows[0].student_id, '📝 作业已批改', `《${rows[0].title}》得分 ${Math.round(numScore * 10) / 10} 分`, 'assignment');
+                }
+            } catch (e) { log.warn('批改通知失败', { error: e.message }); }
+
             res.json({ success: true, message: '评分成功' });
         } catch (err) {
             log.error('作业评分失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 退回作业（学员可修改后重新提交）
+    app.put('/api/admin/assignments/:assignmentId/submissions/:submissionId/return', adminAuth, requireDB, async (req, res) => {
+        try {
+            const submissionId = parseInt(req.params.submissionId);
+            if (isNaN(submissionId)) return res.json({ success: false, error: '无效的提交ID' });
+            const reason = (typeof req.body.reason === 'string' ? req.body.reason : '').trim().slice(0, 255);
+
+            const [result] = await pool.query(
+                'UPDATE assignment_submissions SET status = ?, return_reason = ?, score = NULL WHERE id = ?',
+                ['returned', reason || null, submissionId]
+            );
+            if (result.affectedRows === 0) {
+                return res.json({ success: false, error: '提交记录不存在' });
+            }
+            await logAdminAction(req.adminUser.username, '退回作业', `提交ID: ${submissionId}${reason ? '（原因：' + reason + '）' : ''}`);
+            // 通知学生作业被退回
+            try {
+                const [rows] = await pool.query(
+                    `SELECT ass.student_id, a.title FROM assignment_submissions ass
+                     JOIN assignments a ON ass.assignment_id = a.id
+                     WHERE ass.id = ?`, [submissionId]
+                );
+                if (rows.length > 0) {
+                    notifyStudent(rows[0].student_id, '↩️ 作业被退回', `《${rows[0].title}》${reason ? '（原因：' + reason + '）' : ''}，请修改后重新提交`, 'assignment');
+                }
+            } catch (e) { log.warn('退回通知失败', { error: e.message }); }
+            res.json({ success: true, message: '已退回，学生可修改后重新提交' });
+        } catch (err) {
+            log.error('退回作业失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 标记/取消优秀作业
+    app.put('/api/admin/assignments/:assignmentId/submissions/:submissionId/exemplary', adminAuth, requireDB, async (req, res) => {
+        try {
+            const submissionId = parseInt(req.params.submissionId);
+            if (isNaN(submissionId)) return res.json({ success: false, error: '无效的提交ID' });
+            const flag = req.body.is_exemplary ? 1 : 0;
+
+            const [result] = await pool.query(
+                'UPDATE assignment_submissions SET is_exemplary = ? WHERE id = ?',
+                [flag, submissionId]
+            );
+            if (result.affectedRows === 0) {
+                return res.json({ success: false, error: '提交记录不存在' });
+            }
+            if (flag) {
+                try {
+                    const [rows] = await pool.query(
+                        `SELECT ass.student_id, a.title FROM assignment_submissions ass
+                         JOIN assignments a ON ass.assignment_id = a.id
+                         WHERE ass.id = ?`, [submissionId]
+                    );
+                    if (rows.length > 0) notifyStudent(rows[0].student_id, '🏆 作业被评为优秀', `《${rows[0].title}》被老师评为优秀作业`, 'assignment');
+                } catch (e) { log.warn('优秀作业通知失败', { error: e.message }); }
+            }
+            res.json({ success: true, message: flag ? '已标记为优秀作业' : '已取消优秀标记' });
+        } catch (err) {
+            log.error('标记优秀作业失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 批量评分
+    app.put('/api/admin/assignments/:assignmentId/submissions/batch-score', adminAuth, requireDB, async (req, res) => {
+        try {
+            const { scores } = req.body;
+            if (!Array.isArray(scores) || scores.length === 0) return res.json({ success: false, error: '请提供评分数据' });
+            let updated = 0;
+            for (const item of scores) {
+                const sid = parseInt(item.submissionId);
+                const numScore = parseFloat(item.score);
+                if (isNaN(sid) || isNaN(numScore) || numScore < 0 || numScore > 100) continue;
+                const [r] = await pool.query('UPDATE assignment_submissions SET score = ? WHERE id = ?', [Math.round(numScore * 10) / 10, sid]);
+                updated += r.affectedRows;
+            }
+            res.json({ success: true, message: `已批量评分 ${updated} 份` });
+        } catch (err) {
+            log.error('批量评分失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 导出作业成绩（CSV）
+    app.get('/api/admin/assignments/:id/export', adminAuth, requireDB, async (req, res) => {
+        try {
+            const assignmentId = parseInt(req.params.id);
+            if (isNaN(assignmentId)) return res.json({ success: false, error: '无效的ID' });
+
+            const [asg] = await pool.query('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
+            const [rows] = await pool.query(
+                `SELECT s.display_name, s.username, s.grade, s.class_num, ass.score, ass.submitted_at
+                 FROM assignment_submissions ass JOIN students s ON ass.student_id = s.id
+                 WHERE ass.assignment_id = ? ORDER BY s.grade, s.class_num, s.display_name`,
+                [assignmentId]
+            );
+            const escCsv = v => { v = (v === null || v === undefined) ? '' : String(v); return '"' + v.replace(/"/g, '""') + '"'; };
+            const header = ['姓名', '用户名', '年级', '班级', '得分', '提交时间'].map(escCsv).join(',');
+            const lines = rows.map(r => [r.display_name, r.username, r.grade, r.class_num, r.score === null ? '未批改' : r.score, r.submitted_at ? new Date(r.submitted_at).toLocaleString('zh-CN', { hour12: false }) : ''].map(escCsv).join(','));
+            const csv = '\uFEFF' + [header, ...lines].join('\r\n');
+            const filename = encodeURIComponent((asg[0] ? asg[0].title : '作业') + '成绩.csv');
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`);
+            res.send(csv);
+        } catch (err) {
+            log.error('导出作业成绩失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 催交：向未提交学生发送通知
+    app.post('/api/admin/assignments/:id/remind', adminAuth, requireDB, async (req, res) => {
+        try {
+            const assignmentId = parseInt(req.params.id);
+            if (isNaN(assignmentId)) return res.json({ success: false, error: '无效的ID' });
+
+            const [asg] = await pool.query('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
+            if (asg.length === 0) return res.json({ success: false, error: '作业不存在' });
+            const title = asg[0].title;
+
+            const [missing] = await pool.query(
+                `SELECT s.id FROM students s
+                 WHERE s.status = 'active' AND s.id NOT IN
+                     (SELECT student_id FROM assignment_submissions WHERE assignment_id = ?)`,
+                [assignmentId]
+            );
+            let count = 0;
+            for (const m of missing) {
+                notifyStudent(m.id, '⏰ 作业催交提醒', `《${title}》尚未提交，请尽快完成并提交作业`, 'assignment');
+                count++;
+            }
+            await logAdminAction(req.adminUser.username, '催交作业', `《${title}》提醒 ${count} 名学生`);
+            res.json({ success: true, message: `已向 ${count} 名学生发送催交通知` });
+        } catch (err) {
+            log.error('催交提醒失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 提交历史
+    app.get('/api/admin/assignments/:assignmentId/submissions/:submissionId/history', adminAuth, requireDB, async (req, res) => {
+        try {
+            const submissionId = parseInt(req.params.submissionId);
+            if (isNaN(submissionId)) return res.json({ success: false, error: '无效的提交ID' });
+            const [rows] = await pool.query(
+                'SELECT content, file_original_name, created_at FROM submission_history WHERE submission_id = ? ORDER BY created_at DESC',
+                [submissionId]
+            );
+            res.json({ success: true, history: rows });
+        } catch (err) {
+            log.error('获取提交历史失败', { error: err.message });
             res.json({ success: false, error: '服务器错误' });
         }
     });
@@ -1839,6 +2022,11 @@ module.exports = function(app) {
                     [sub.assignment_id, tgtId, sub.content, sub.score, sub.submitted_at]
                 );
             }
+
+            // 合并提交历史
+            await conn.execute(
+                'UPDATE submission_history SET student_id = ? WHERE student_id = ?', [tgtId, srcId]
+            );
 
             // 合并讨论帖和回复
             await conn.execute(

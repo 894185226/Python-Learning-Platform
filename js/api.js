@@ -298,6 +298,14 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
+        },
+
+        async withdrawAssignment(id) {
+            return await this._fetch(window.API_BASE + '/assignments/' + id + '/submission', { method: 'DELETE' });
+        },
+
+        async getExemplary() {
+            return await this._fetch(window.API_BASE + '/assignments/exemplary');
         }
     };
 

@@ -1079,7 +1079,7 @@ async function loadAssignments() {
                 </div>
                 <div class="notice-body">${esc(a.description || '')}</div>
                 <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
-                    关联章节: ${esc(chapterName)} | 提交: ${a.submission_count || 0} | 格式: ${ftLabel}
+                    关联章节: ${esc(chapterName)} | 提交: ${a.submission_count || 0} | 格式: ${ftLabel}${a.allow_late ? ' | 可补交' : ''}
                 </div>
                 <div class="notice-actions">
                     <button class="btn btn-sm btn-info" onclick="viewSubmissions(${a.id})"><i class="fas fa-eye"></i> 查看提交</button>
@@ -1099,8 +1099,9 @@ async function publishAssignment() {
     const fileType = document.getElementById('assignmentFileType').value || 'any';
     if (!title) { alert('请输入作业标题'); return; }
     if (!chapterId) { alert('请选择关联章节'); return; }
+    const allowLate = document.getElementById('assignmentAllowLate')?.checked ? 1 : 0;
     try {
-        const body = { title, description, chapterId: chapterId, fileType: fileType };
+        const body = { title, description, chapterId: chapterId, fileType: fileType, allowLate: allowLate };
         if (dueDate) body.dueDate = dueDate;
         const data = await apiFetch(API_BASE + '/assignments', {
             method: 'POST',
@@ -1113,6 +1114,7 @@ async function publishAssignment() {
             document.getElementById('assignmentChapter').value = '';
             document.getElementById('assignmentDueDate').value = '';
             document.getElementById('assignmentFileType').value = 'any';
+            document.getElementById('assignmentAllowLate').checked = false;
             loadAssignments();
         } else alert('发布失败: ' + data.error);
     } catch (e) { alert('发布失败: ' + e.message); }
@@ -1129,6 +1131,7 @@ async function editAssignment(id) {
         document.getElementById('editAssignmentDesc').value = a.description || '';
         document.getElementById('editAssignmentChapter').value = a.chapter_id || '';
         document.getElementById('editAssignmentFileType').value = a.file_type || 'any';
+        document.getElementById('editAssignmentAllowLate').checked = !!a.allow_late;
         if (a.due_date) {
             document.getElementById('editAssignmentDueDate').value = a.due_date.replace(' ', 'T').slice(0, 16);
         }
@@ -1145,9 +1148,10 @@ async function saveAssignmentEdit() {
     const chapterId = document.getElementById('editAssignmentChapter').value;
     const dueDate = document.getElementById('editAssignmentDueDate').value;
     const fileType = document.getElementById('editAssignmentFileType').value || 'any';
+    const allowLate = document.getElementById('editAssignmentAllowLate')?.checked ? 1 : 0;
     if (!title) { alert('请输入标题'); return; }
     try {
-        const body = { title, description, chapterId: chapterId, fileType: fileType };
+        const body = { title, description, chapterId: chapterId, fileType: fileType, allowLate: allowLate };
         if (dueDate) body.dueDate = dueDate;
         const data = await apiFetch(API_BASE + '/assignments/' + id, {
             method: 'PUT',
@@ -1179,15 +1183,29 @@ async function viewSubmissions(id) {
         else if (!data.submissions || data.submissions.length === 0) {
             body.innerHTML = '<div class="empty-state">暂无提交记录</div>';
         } else {
-            body.innerHTML = `<table class="data-table" style="width:100%;">
-                <thead><tr><th>学生</th><th>提交状态</th><th>内容</th><th>评分</th><th>提交时间</th></tr></thead>
-                <tbody>${data.submissions.map(s => `<tr>
-                    <td>${esc(s.display_name || s.student_name || '')}</td>
-                    <td><span class="status-tag active">已提交</span></td>
-                    <td style="max-width:200px;white-space:normal;">${esc(s.content || '-')}${s.file_name ? `<br><a href="/uploads/${encodeURIComponent(s.file_name)}" target="_blank" style="color:#04AA6D;">📎 ${esc(s.file_original_name || '附件')}</a>` : ''}</td>
-                    <td><input type="number" id="score_${s.id}" value="${s.score !== null && s.score !== undefined ? s.score : ''}" min="0" max="100" step="0.5" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;" placeholder="0-100"><button onclick="saveScore(${id},${s.id})" style="margin-left:4px;background:#04AA6D;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;">保存</button></td>
-                    <td>${fmt(s.submitted_at)}</td>
-                </tr>`).join('')}</tbody>
+            const toolbar = `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                <button class="btn btn-sm btn-primary" onclick="batchScore(${id})"><i class="fas fa-tasks"></i> 批量评分</button>
+                <button class="btn btn-sm btn-info" onclick="remindAssignment(${id})"><i class="fas fa-bell"></i> 催交未提交</button>
+                <a class="btn btn-sm btn-info" href="${API_BASE}/assignments/${id}/export" target="_blank"><i class="fas fa-download"></i> 导出成绩</a>
+            </div>`;
+            body.innerHTML = toolbar + `<table class="data-table" style="width:100%;">
+                <thead><tr><th>学生</th><th>状态</th><th>内容</th><th>评分/评语</th><th>提交时间</th></tr></thead>
+                <tbody>${data.submissions.map(s => {
+                    const returned = s.status === 'returned';
+                    const exemplary = !!s.is_exemplary;
+                    const imgExt = /\.(jpg|jpeg|png|gif|webp|bmp)$/i;
+                    const isImg = s.file_original_name && imgExt.test(s.file_original_name);
+                    const statusTag = returned
+                        ? '<span class="status-tag" style="background:#f59e0b;color:#fff;">已退回</span>'
+                        : '<span class="status-tag active">已提交</span>';
+                    return `<tr>
+                    <td>${esc(s.display_name || '')}${exemplary ? '<br><span style="color:#f59e0b;">🏆 优秀</span>' : ''}</td>
+                    <td>${statusTag}<br><div style="margin-top:4px;display:flex;flex-direction:column;gap:4px;">${!returned ? `<button onclick="returnSubmission(${id},${s.id})" style="background:#f59e0b;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">退回</button>` : ''}<button onclick="toggleExemplary(${id},${s.id},${exemplary ? 0 : 1})" style="background:#7c3aed;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">${exemplary ? '取消评优' : '评为优秀'}</button></div></td>
+                    <td style="max-width:220px;white-space:normal;">${esc(s.content || '-')}${isImg ? `<br><img src="/uploads/${encodeURIComponent(s.file_name)}" style="max-width:120px;max-height:120px;border-radius:6px;margin-top:4px;cursor:pointer;" onclick="window.open('/uploads/${encodeURIComponent(s.file_name)}')">` : (s.file_name ? `<br><a href="/uploads/${encodeURIComponent(s.file_name)}" target="_blank" style="color:#04AA6D;">📎 ${esc(s.file_original_name || '附件')}</a>` : '')}${returned && s.return_reason ? `<br><span style="color:#f59e0b;">↩ 原因：${esc(s.return_reason)}</span>` : ''}${s.feedback ? `<br><span style="color:#04AA6D;">💬 评语：${esc(s.feedback)}</span>` : ''}</td>
+                    <td style="min-width:170px;"><input type="number" id="score_${s.id}" value="${s.score !== null && s.score !== undefined ? s.score : ''}" min="0" max="100" step="0.5" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;" placeholder="分"><textarea id="feedback_${s.id}" rows="2" placeholder="评语（可选）" style="width:150px;padding:4px;border:1px solid #ddd;border-radius:4px;margin-top:4px;">${esc(s.feedback || '')}</textarea><button onclick="saveScore(${id},${s.id})" style="margin-top:4px;background:#04AA6D;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;">保存评分</button></td>
+                    <td>${fmt(s.submitted_at)}<br><button onclick="viewHistory(${s.id})" style="margin-top:4px;background:#6b7280;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">历史</button></td>
+                </tr>`;
+                }).join('')}</tbody>
             </table>`;
         }
         document.getElementById('submissionsModal').style.display = 'flex';
@@ -1203,19 +1221,95 @@ async function saveScore(assignmentId, submissionId) {
         alert('请输入0-100之间的分数');
         return;
     }
+    const feedbackEl = document.getElementById('feedback_' + submissionId);
+    const feedback = feedbackEl ? feedbackEl.value.trim() : '';
     try {
         const data = await apiFetch(API_BASE + '/assignments/' + assignmentId + '/submissions/' + submissionId + '/score', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ score: Math.round(score * 10) / 10 })
+            body: JSON.stringify({ score: Math.round(score * 10) / 10, feedback: feedback })
         });
         if (data.success) {
             input.style.borderColor = '#04AA6D';
             setTimeout(function() { input.style.borderColor = '#ddd'; }, 2000);
+            viewSubmissions(assignmentId);
         } else {
             alert('评分失败: ' + (data.error || '未知错误'));
         }
     } catch (e) { alert('评分失败: ' + e.message); }
+}
+
+async function returnSubmission(assignmentId, submissionId) {
+    let reason = '';
+    try { reason = prompt('请输入退回原因（可留空）：', ''); } catch (e) { reason = ''; }
+    if (reason === null) return; // 用户取消
+    if (!confirm('确认退回该作业吗？学生将看到退回原因并可修改后重新提交。')) return;
+    try {
+        const data = await apiFetch(API_BASE + '/assignments/' + assignmentId + '/submissions/' + submissionId + '/return', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason || '' })
+        });
+        if (data.success) {
+            alert('✅ 已退回该作业');
+            viewSubmissions(assignmentId);
+        } else {
+            alert('退回失败: ' + (data.error || '未知错误'));
+        }
+    } catch (e) { alert('退回失败: ' + e.message); }
+}
+
+async function toggleExemplary(assignmentId, submissionId, flag) {
+    try {
+        const data = await apiFetch(API_BASE + '/assignments/' + assignmentId + '/submissions/' + submissionId + '/exemplary', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_exemplary: flag ? 1 : 0 })
+        });
+        if (data.success) viewSubmissions(assignmentId);
+        else alert('操作失败: ' + (data.error || '未知错误'));
+    } catch (e) { alert('操作失败: ' + e.message); }
+}
+
+async function batchScore(assignmentId) {
+    const rows = document.querySelectorAll('#submissionsBody input[id^="score_"]');
+    if (rows.length === 0) { alert('没有可评分的提交'); return; }
+    const scores = [];
+    rows.forEach(function(input) {
+        const id = parseInt(input.id.replace('score_', ''));
+        const v = parseFloat(input.value);
+        if (!isNaN(v) && v >= 0 && v <= 100) scores.push({ submissionId: id, score: Math.round(v * 10) / 10 });
+    });
+    if (scores.length === 0) { alert('请至少填写一个有效分数(0-100)'); return; }
+    try {
+        const data = await apiFetch(API_BASE + '/assignments/' + assignmentId + '/submissions/batch-score', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scores: scores })
+        });
+        if (data.success) { alert(data.message || '批量评分成功'); viewSubmissions(assignmentId); }
+        else alert('批量评分失败: ' + (data.error || '未知错误'));
+    } catch (e) { alert('批量评分失败: ' + e.message); }
+}
+
+async function remindAssignment(assignmentId) {
+    if (!confirm('确认向所有未提交的学生发送催交通知吗？')) return;
+    try {
+        const data = await apiFetch(API_BASE + '/assignments/' + assignmentId + '/remind', { method: 'POST' });
+        if (data.success) alert(data.message || '已发送催交通知');
+        else alert('催交失败: ' + (data.error || '未知错误'));
+    } catch (e) { alert('催交失败: ' + e.message); }
+}
+
+async function viewHistory(submissionId) {
+    try {
+        const data = await apiFetch(API_BASE + '/assignments/0/submissions/' + submissionId + '/history');
+        if (!data.success) { alert('获取历史失败: ' + (data.error || '未知错误')); return; }
+        const list = (data.history || []).map(function(h, i) {
+            return '第 ' + (data.history.length - i) + ' 次 · ' + fmt(h.created_at) + (h.file_original_name ? ' · 📎 ' + h.file_original_name : '') + '\n' + (h.content || '(仅文件)');
+        }).join('\n\n');
+        alert(list || '暂无历史');
+    } catch (e) { alert('获取历史失败: ' + e.message); }
 }
 
 // ===== 活跃度监控 =====

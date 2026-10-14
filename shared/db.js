@@ -192,6 +192,8 @@ async function initializeDatabase() {
 
     // 迁移：作业支持指定必须提交的文件格式（any=不限 / image=仅图片 / document=仅文档）
     try { await pool.execute(`ALTER TABLE assignments ADD COLUMN file_type VARCHAR(20) DEFAULT 'any'`); } catch (e) { /* 已存在则忽略 */ }
+    // 迁移：允许逾期补交（0=不允许，1=允许）
+    try { await pool.execute(`ALTER TABLE assignments ADD COLUMN allow_late TINYINT(1) DEFAULT 0`); } catch (e) { /* 已存在则忽略 */ }
 
     await pool.execute(`CREATE TABLE IF NOT EXISTS assignment_submissions (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -217,6 +219,25 @@ async function initializeDatabase() {
     try { await pool.execute(`ALTER TABLE assignment_submissions ADD COLUMN file_name VARCHAR(255) DEFAULT NULL`); } catch (e) { /* 已存在则忽略 */ }
     try { await pool.execute(`ALTER TABLE assignment_submissions ADD COLUMN file_path VARCHAR(512) DEFAULT NULL`); } catch (e) { /* 已存在则忽略 */ }
     try { await pool.execute(`ALTER TABLE assignment_submissions ADD COLUMN file_original_name VARCHAR(255) DEFAULT NULL`); } catch (e) { /* 已存在则忽略 */ }
+    // 迁移：作业退回（教师退回让学员修改后重新提交）
+    try { await pool.execute(`ALTER TABLE assignment_submissions ADD COLUMN status VARCHAR(20) DEFAULT 'submitted'`); } catch (e) { /* 已存在则忽略 */ }
+    try { await pool.execute(`ALTER TABLE assignment_submissions ADD COLUMN return_reason VARCHAR(255) DEFAULT NULL`); } catch (e) { /* 已存在则忽略 */ }
+    // 迁移：批改评语 + 优秀作业标记
+    try { await pool.execute(`ALTER TABLE assignment_submissions ADD COLUMN feedback TEXT`); } catch (e) { /* 已存在则忽略 */ }
+    try { await pool.execute(`ALTER TABLE assignment_submissions ADD COLUMN is_exemplary TINYINT(1) DEFAULT 0`); } catch (e) { /* 已存在则忽略 */ }
+
+    await pool.execute(`CREATE TABLE IF NOT EXISTS submission_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        submission_id INT NOT NULL,
+        assignment_id INT NOT NULL,
+        student_id INT NOT NULL,
+        content TEXT,
+        file_name VARCHAR(255) DEFAULT NULL,
+        file_original_name VARCHAR(255) DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_submission (submission_id),
+        INDEX idx_assignment_student (assignment_id, student_id)
+    ) ENGINE=InnoDB COMMENT='作业提交历史表'`);
 
     await pool.execute(`CREATE TABLE IF NOT EXISTS daily_questions (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -557,7 +578,7 @@ async function autoBackup() {
     const tables = [
         'students', 'learning_progress', 'achievements', 'login_logs',
         'admins', 'admin_logs', 'notices', 'discussion_posts',
-        'discussion_replies', 'assignments', 'assignment_submissions',
+        'discussion_replies', 'assignments', 'assignment_submissions', 'submission_history',
         'daily_questions', 'chapter_locks', 'notifications',
         'code_snippets', 'mistake_book', 'study_notes', 'student_goals',
         'discussion_moderation', 'discussion_switches', 'daily_question_answers'

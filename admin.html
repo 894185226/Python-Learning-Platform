@@ -370,6 +370,12 @@
                                     <option value="document">仅文档（学生必须提交文档）</option>
                                 </select>
                             </div>
+                            <div class="notice-form-group" style="margin-top:12px;">
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                    <input type="checkbox" id="assignmentAllowLate" style="width:16px;height:16px;">
+                                    允许逾期补交（截止后学生仍可提交）
+                                </label>
+                            </div>
                             <div class="card-actions">
                                 <button class="btn btn-primary" onclick="publishAssignment()">
                                     <i class="fas fa-paper-plane"></i> 发布作业
@@ -1011,6 +1017,12 @@
                         <option value="document">仅文档（学生必须提交文档）</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="editAssignmentAllowLate" style="width:16px;height:16px;">
+                        允许逾期补交（截止后学生仍可提交）
+                    </label>
+                </div>
                 <div class="card-actions" style="justify-content: flex-end;">
                     <button class="btn btn-outline" onclick="closeAssignmentEdit()">取消</button>
                     <button class="btn btn-primary" onclick="saveAssignmentEdit()">保存修改</button>
@@ -1079,6 +1091,6 @@
     </div>
 
     <script src="constants.js"></script>
-    <script src="admin.js?v=20261001-19"></script>
+    <script src="admin.js?v=20261014-1"></script>
 </body>
 </html>

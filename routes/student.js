@@ -825,7 +825,7 @@ module.exports = function(app) {
         try {
             const { username } = req.query;
             const [rows] = await pool.query(
-                `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.file_type, a.created_by, a.created_at
+                `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.file_type, a.allow_late, a.created_by, a.created_at
                  FROM assignments a ORDER BY a.created_at DESC`
             );
 
@@ -835,12 +835,12 @@ module.exports = function(app) {
                 if (students.length > 0) {
                     const studentId = students[0].id;
                     const [submissions] = await pool.query(
-                        'SELECT assignment_id, score, submitted_at FROM assignment_submissions WHERE student_id = ?',
+                        'SELECT assignment_id, score, submitted_at, status, return_reason, feedback, is_exemplary FROM assignment_submissions WHERE student_id = ?',
                         [studentId]
                     );
                     const subMap = {};
                     submissions.forEach(s => {
-                        subMap[s.assignment_id] = { score: s.score, submittedAt: s.submitted_at };
+                        subMap[s.assignment_id] = { score: s.score, submittedAt: s.submitted_at, status: s.status, returnReason: s.return_reason, feedback: s.feedback, isExemplary: s.is_exemplary };
                     });
                     rows.forEach(r => {
                         r.submission = subMap[r.id] || null;
@@ -871,9 +871,27 @@ module.exports = function(app) {
             if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
 
             // 检查作业是否存在
-            const [assignments] = await pool.query('SELECT id, file_type FROM assignments WHERE id = ?', [assignmentId]);
+            const [assignments] = await pool.query('SELECT id, file_type, due_date, allow_late FROM assignments WHERE id = ?', [assignmentId]);
             if (assignments.length === 0) return res.json({ success: false, error: '作业不存在' });
             const fileType = assignments[0].file_type || 'any';
+
+            // 已有提交记录（用于逾期判断、退回后重新提交与防止覆盖分数）
+            const [existing] = await pool.query('SELECT id, status, score FROM assignment_submissions WHERE assignment_id = ? AND student_id = ?', [assignmentId, students[0].id]);
+
+            // 逾期拦截：仅拦截首次提交；退回后修改或已提交过的补充提交不受截止限制
+            const dueDate = assignments[0].due_date;
+            if (dueDate && !assignments[0].allow_late && existing.length === 0) {
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const due = new Date(dueDate); due.setHours(0, 0, 0, 0);
+                if (today > due) {
+                    return res.json({ success: false, error: '该作业已截止，老师未开启补交，无法提交' });
+                }
+            }
+
+            // 已批改且未被退回的提交不允许直接重交（防止覆盖分数）
+            if (existing.length > 0 && existing[0].status !== 'returned' && existing[0].score !== null) {
+                return res.json({ success: false, error: '作业已批改，如需修改请联系老师退回' });
+            }
 
             // 校验文件格式要求（any=不限 / image=仅图片 / document=仅文档）
             if (fileType === 'image' || fileType === 'document') {
@@ -926,12 +944,74 @@ module.exports = function(app) {
                     file_name = COALESCE(VALUES(file_name), file_name),
                     file_path = COALESCE(VALUES(file_path), file_path),
                     file_original_name = COALESCE(VALUES(file_original_name), file_original_name),
+                    status = 'submitted',
+                    return_reason = NULL,
+                    score = NULL,
                     submitted_at = NOW()`,
                 [assignmentId, students[0].id, textContent, storedFileName, storedFilePath, originalName]
             );
+
+            // 记录提交历史（便于教师追溯修改）
+            try {
+                const [sub] = await pool.query('SELECT id FROM assignment_submissions WHERE assignment_id = ? AND student_id = ?', [assignmentId, students[0].id]);
+                if (sub.length > 0) {
+                    await pool.query(
+                        'INSERT INTO submission_history (submission_id, assignment_id, student_id, content, file_name, file_original_name) VALUES (?, ?, ?, ?, ?, ?)',
+                        [sub[0].id, assignmentId, students[0].id, textContent || null, storedFileName, originalName]
+                    );
+                }
+            } catch (e) { log.warn('记录提交历史失败', { error: e.message }); }
+
             res.json({ success: true });
         } catch (err) {
             log.error('提交作业失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 撤回未批改的作业（恢复为未提交状态）
+    app.delete('/api/assignments/:id/submission', requireDB, sessionAuth, async (req, res) => {
+        try {
+            const assignmentId = parseInt(req.params.id);
+            if (isNaN(assignmentId)) return res.json({ success: false, error: '无效的作业ID' });
+            const username = req.sessionUser.username;
+            const [students] = await pool.query('SELECT id FROM students WHERE username = ?', [username]);
+            if (students.length === 0) return res.json({ success: false, error: '用户不存在' });
+
+            const [subs] = await pool.query('SELECT id, score, file_path FROM assignment_submissions WHERE assignment_id = ? AND student_id = ?', [assignmentId, students[0].id]);
+            if (subs.length === 0) return res.json({ success: false, error: '尚未提交作业' });
+            if (subs[0].score !== null && subs[0].score !== undefined) {
+                return res.json({ success: false, error: '作业已被批改，无法自行撤回，请联系老师退回' });
+            }
+            await pool.query('DELETE FROM assignment_submissions WHERE id = ?', [subs[0].id]);
+            if (subs[0].file_path) { try { if (fs.existsSync(subs[0].file_path)) fs.unlinkSync(subs[0].file_path); } catch (e) { /* 忽略 */ } }
+            res.json({ success: true, message: '已撤回，作业恢复为未提交状态' });
+        } catch (err) {
+            log.error('撤回作业失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // 获取本班优秀作业展示
+    app.get('/api/assignments/exemplary', requireDB, sessionAuth, async (req, res) => {
+        try {
+            const username = req.sessionUser.username;
+            const [students] = await pool.query('SELECT grade, class_num FROM students WHERE username = ?', [username]);
+            if (students.length === 0) return res.json({ success: true, exemplary: [] });
+            const { grade, class_num } = students[0];
+            const [rows] = await pool.query(
+                `SELECT a.title AS assignment_title, ass.content, ass.file_name, ass.file_original_name, ass.score,
+                        s.display_name, s.grade, s.class_num
+                 FROM assignment_submissions ass
+                 JOIN assignments a ON ass.assignment_id = a.id
+                 JOIN students s ON ass.student_id = s.id
+                 WHERE ass.is_exemplary = 1 AND s.grade = ? AND s.class_num = ?
+                 ORDER BY ass.submitted_at DESC LIMIT 30`,
+                [grade, class_num]
+            );
+            res.json({ success: true, exemplary: rows });
+        } catch (err) {
+            log.error('获取优秀作业失败', { error: err.message });
             res.json({ success: false, error: '服务器错误' });
         }
     });

@@ -766,15 +766,22 @@ async function renderAssignments() {
             container.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-secondary);">📭 暂无作业，老师布置后会显示在这里。</div>';
             return;
         }
-        container.innerHTML = data.assignments.map(function (a) {
+        container.innerHTML = '<div id="assignment-exemplary"></div>' + data.assignments.map(function (a) {
             const overdue = a.due_date && new Date(a.due_date) < new Date();
             const statusTag = overdue
                 ? '<span style="display:inline-block;padding:2px 10px;border-radius:12px;background:#666;color:#fff;font-size:12px;">已截止</span>'
                 : '<span style="display:inline-block;padding:2px 10px;border-radius:12px;background:#04AA6D;color:#fff;font-size:12px;">进行中</span>';
             const sub = a.submission;
+            const returned = sub && sub.status === 'returned';
+            const graded = sub && sub.score !== null && sub.score !== undefined;
+            const exemplary = sub && sub.isExemplary;
             const subText = sub
-                ? (sub.score !== null && sub.score !== undefined ? ('✅ 已提交（得分 ' + sub.score + '）') : '✅ 已提交，待批改')
+                ? (returned
+                    ? ('👀 已退回' + (sub.returnReason ? '（原因：' + sub.returnReason + '）' : '') + '，请修改后重新提交')
+                    : (graded ? ('✅ 已提交（得分 ' + sub.score + '）') : '✅ 已提交，待批改') + (exemplary ? ' 🏆 优秀' : ''))
                 : '⏳ 未提交';
+            const feedbackText = sub && sub.feedback ? '<div style="margin-top:6px;color:#04AA6D;font-size:13px;">💬 老师评语：' + escHtml(sub.feedback) + '</div>' : '';
+            const lateText = a.allow_late ? '<span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:10px;background:#fff7ed;color:#ea580c;font-size:11px;">可补交</span>' : '';
             const chapterName = chapterDisplayName(a.chapter_id) || (a.chapter_id || '-');
             const dueText = a.due_date ? new Date(a.due_date).toLocaleString('zh-CN', { hour12: false }) : '未设置';
             const ft = a.file_type || 'any';
@@ -783,14 +790,18 @@ async function renderAssignments() {
             const ftBadge = ft === 'image' ? ' 🖼️仅图片' : (ft === 'document' ? ' 📄仅文档' : '');
             return '<div style="border:1px solid rgba(0,0,0,0.12);border-radius:12px;padding:16px;margin-bottom:16px;">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
-                '<span style="font-weight:700;font-size:16px;">📋 ' + escHtml(a.title || '未命名作业') + ' ' + statusTag + '</span>' +
+                '<span style="font-weight:700;font-size:16px;">📋 ' + escHtml(a.title || '未命名作业') + ' ' + statusTag + lateText + '</span>' +
                 '<span style="font-size:12px;color:var(--text-secondary);">截止: ' + escHtml(dueText) + '</span>' +
                 '</div>' +
                 (a.description ? '<div style="margin-top:10px;color:var(--text-secondary);white-space:pre-wrap;">' + escHtml(a.description) + '</div>' : '') +
                 '<div style="font-size:12px;color:var(--text-secondary);margin-top:10px;">关联章节: ' + escHtml(chapterName) + '　|　' + subText + ftBadge + '</div>' +
-                (sub
-                    ? ''
-                    : '<div style="margin-top:12px;"><button class="form-submit-btn" onclick="toggleAssignmentForm(' + a.id + ')">📝 交作业</button></div>') +
+                feedbackText +
+                ((!sub || returned)
+                    ? '<div style="margin-top:12px;"><button class="form-submit-btn" onclick="toggleAssignmentForm(' + a.id + ')">📝 ' + (returned ? '修改并重新提交' : '交作业') + '</button></div>'
+                    : '') +
+                ((sub && !graded && !returned)
+                    ? '<div style="margin-top:8px;"><button class="form-cancel-btn" onclick="withdrawAssignment(' + a.id + ')">↩️ 撤回作业（重新提交）</button></div>'
+                    : '') +
                 '<div id="assignment-form-' + a.id + '" style="display:none;margin-top:12px;">' +
                 '<textarea id="assignment-content-' + a.id + '" class="form-input" rows="5" placeholder="在这里输入你的作业内容…（可只上传文件不填文字）" maxlength="10000"></textarea>' +
                 '<div style="margin-top:8px;font-size:13px;color:var(--text-secondary);">' + fileHint + '</div>' +
@@ -799,6 +810,7 @@ async function renderAssignments() {
                 '</div>' +
                 '</div>';
         }).join('');
+        loadExemplaryShowcase();
     } catch (e) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);">⚠️ 加载失败: ' + escHtml(e.message || '请重试') + '</div>';
     }
@@ -807,6 +819,41 @@ async function renderAssignments() {
 function toggleAssignmentForm(id) {
     const f = document.getElementById('assignment-form-' + id);
     if (f) f.style.display = (f.style.display === 'none' || f.style.display === '') ? 'block' : 'none';
+}
+
+async function withdrawAssignment(id) {
+    if (!confirm('确认撤回该作业吗？撤回后可重新提交。')) return;
+    try {
+        const data = await API.withdrawAssignment(id);
+        if (data.success) {
+            alert('✅ 已撤回，可重新提交');
+            renderAssignments();
+        } else {
+            alert('撤回失败: ' + (data.error || '请重试'));
+        }
+    } catch (e) { alert('撤回失败: ' + e.message); }
+}
+
+function isImageName(name) {
+    return /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(name || '');
+}
+
+async function loadExemplaryShowcase() {
+    const box = document.getElementById('assignment-exemplary');
+    if (!box) return;
+    try {
+        const data = await API.getExemplary();
+        if (!data.success || !data.exemplary || data.exemplary.length === 0) { box.innerHTML = ''; return; }
+        box.innerHTML = '<div style="border:1px solid rgba(245,158,11,0.4);border-radius:12px;padding:16px;background:rgba(245,158,11,0.06);margin-bottom:16px;">' +
+            '<div style="font-weight:700;font-size:15px;margin-bottom:12px;">🏆 本班优秀作业展示</div>' +
+            data.exemplary.map(function(e) {
+                return '<div style="padding:10px;border-left:3px solid #f59e0b;margin-bottom:10px;background:#fff;border-radius:8px;">' +
+                    '<div style="font-size:13px;font-weight:600;">' + escHtml(e.assignment_title || '作业') + ' — ' + escHtml(e.display_name || '') + (e.score !== null && e.score !== undefined ? '（' + e.score + '分）' : '') + '</div>' +
+                    '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;white-space:pre-wrap;">' + escHtml(e.content || '') + '</div>' +
+                    (isImageName(e.file_original_name) && e.file_name ? '<img src="/uploads/' + encodeURIComponent(e.file_name) + '" style="max-width:140px;max-height:140px;border-radius:6px;margin-top:6px;cursor:pointer;" onclick="window.open(\'/uploads/' + encodeURIComponent(e.file_name) + '\')">' : (e.file_name ? '<div style="margin-top:6px;"><a href="/uploads/' + encodeURIComponent(e.file_name) + '" target="_blank" style="color:#04AA6D;">📎 ' + escHtml(e.file_original_name || '附件') + '</a></div>' : '')) +
+                    '</div>';
+            }).join('') + '</div>';
+    } catch (e) { /* 静默处理 */ }
 }
 
 async function submitAssignmentForm(id) {

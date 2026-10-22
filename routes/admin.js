@@ -4,6 +4,7 @@
 // ===================================================
 
 const shared = require('../shared');
+const { computeScore } = require('../shared/scoring');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -292,6 +293,72 @@ module.exports = function(app) {
             });
         } catch (err) {
             log.error('获取统计数据失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // ---------- 排行榜（学情） ----------
+    app.get('/api/admin/leaderboard', adminAuth, requireDB, async (req, res) => {
+        try {
+            const grade = (req.query.grade || '').toString().trim();
+            const classNum = parseInt(req.query.classNum, 10);
+
+            const conditions = ["s.status = 'active'"];
+            const params = [];
+            if (grade) { conditions.push('s.grade = ?'); params.push(grade); }
+            if (!isNaN(classNum)) { conditions.push('s.class_num = ?'); params.push(classNum); }
+            const whereClause = 'WHERE ' + conditions.join(' AND ');
+
+            const [rows] = await pool.query(`
+                SELECT
+                    s.id, s.username, s.display_name, s.grade, s.class_num,
+                    (SELECT COUNT(*) FROM learning_progress lp WHERE lp.student_id = s.id AND lp.completed = 1 AND lp.module_id LIKE 'chapter_%') AS chapter_done,
+                    (SELECT COALESCE(AVG(lp.score), 0) FROM learning_progress lp WHERE lp.student_id = s.id AND lp.completed = 1 AND (lp.module_id LIKE 'ch%_quiz' OR lp.module_id LIKE 'ch%_test')) AS assessment_avg,
+                    (SELECT COALESCE(SUM(ass.score), 0) FROM assignment_submissions ass WHERE ass.student_id = s.id AND ass.score IS NOT NULL) AS assign_graded_sum,
+                    (SELECT COUNT(*) FROM assignment_submissions ass WHERE ass.student_id = s.id AND ass.score IS NULL) AS assign_ungraded,
+                    (SELECT COUNT(*) FROM discussion_posts dp WHERE dp.student_id = s.id) AS posts,
+                    (SELECT COUNT(*) FROM discussion_replies dr WHERE dr.student_id = s.id) AS replies,
+                    (SELECT COUNT(*) FROM daily_question_answers dq WHERE dq.student_id = s.id) AS daily_answers,
+                    (SELECT COUNT(DISTINCT DATE(ll.login_time)) FROM login_logs ll WHERE ll.student_id = s.id) AS login_days,
+                    (SELECT COUNT(*) FROM achievements a WHERE a.student_id = s.id) AS achievements,
+                    ((SELECT COUNT(*) FROM study_notes sn WHERE sn.student_id = s.id) + (SELECT COUNT(*) FROM code_snippets cs WHERE cs.student_id = s.id)) AS notes_code,
+                    (SELECT COALESCE(SUM(cp.points), 0) FROM class_performance cp WHERE cp.student_id = s.id) AS class_points
+                FROM students s
+                ${whereClause}
+            `, params);
+
+            const [[{ totalAssignments }]] = await pool.query('SELECT COUNT(*) AS totalAssignments FROM assignments');
+
+            const leaderboard = rows.map(r => {
+                const { dimensions, total } = computeScore({ ...r, totalAssignments });
+                const round1 = v => Math.round(Number(v) * 10) / 10;
+                return {
+                    username: r.username,
+                    display_name: r.display_name,
+                    grade: r.grade,
+                    class_num: r.class_num,
+                    chapter_count: Number(r.chapter_done),
+                    achievement_count: Number(r.achievements),
+                    score: total,
+                    dimensions: {
+                        taskCompletion: round1(dimensions.taskCompletion),
+                        assessment: round1(dimensions.assessment),
+                        assignment: round1(dimensions.assignment),
+                        participation: round1(dimensions.participation),
+                        achievement: round1(dimensions.achievement),
+                        classPerformance: round1(dimensions.classPerformance)
+                    }
+                };
+            }).sort((a, b) =>
+                (b.score - a.score) ||
+                (b.dimensions.assessment - a.dimensions.assessment) ||
+                (b.dimensions.assignment - a.dimensions.assignment) ||
+                (b.chapter_count - a.chapter_count)
+            ).slice(0, 50);
+
+            res.json({ success: true, leaderboard });
+        } catch (err) {
+            log.error('获取排行榜失败', { error: err.message });
             res.json({ success: false, error: '服务器错误' });
         }
     });

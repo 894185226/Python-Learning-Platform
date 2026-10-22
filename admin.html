@@ -55,6 +55,9 @@
                 <a href="javascript:void(0)" class="nav-item" data-page="class-stats">
                     <i class="fas fa-chart-pie"></i> <span>班级统计</span>
                 </a>
+                <a href="javascript:void(0)" class="nav-item" data-page="leaderboard">
+                    <i class="fas fa-trophy"></i> <span>排行榜</span>
+                </a>
                 <a href="javascript:void(0)" class="nav-item" data-page="notices">
                     <i class="fas fa-bullhorn"></i> <span>公告管理</span>
                 </a>
@@ -267,6 +270,45 @@
                             </thead>
                             <tbody id="classStatsBody">
                                 <tr><td colspan="7" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            <section class="page-content" id="page-leaderboard">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-trophy"></i> 学生综合排行榜</h3>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <select id="lbGrade" class="search-input" style="width:auto;" onchange="loadAdminLeaderboard()">
+                                <option value="">全部年级</option>
+                                <option value="七年级">七年级</option>
+                                <option value="八年级">八年级</option>
+                                <option value="九年级">九年级</option>
+                            </select>
+                            <select id="lbClass" class="search-input" style="width:auto;" onchange="loadAdminLeaderboard()">
+                                <option value="">全部班级</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table" id="adminLeaderboardTable">
+                            <thead>
+                                <tr>
+                                    <th>排名</th>
+                                    <th>学生</th>
+                                    <th>班级</th>
+                                    <th>综合得分</th>
+                                    <th>任务 20%</th>
+                                    <th>测评 25%</th>
+                                    <th>作业 20%</th>
+                                    <th>参与 15%</th>
+                                    <th>成就 10%</th>
+                                    <th>表现 10%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminLeaderboardBody">
+                                <tr><td colspan="10" class="empty-state">加载中...</td></tr>
                             </tbody>
                         </table>
                     </div>

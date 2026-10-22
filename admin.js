@@ -188,7 +188,7 @@ let currentAdminPage = '';
 
 // 有效的管理后台页面列表
 const VALID_ADMIN_PAGES = ['dashboard', 'students', 'import', 'class-stats',
-    'notices', 'assignments', 'screenshots', 'activity', 'daily-questions',
+    'leaderboard', 'notices', 'assignments', 'screenshots', 'activity', 'daily-questions',
     'discussions', 'chapter-locks', 'registration', 'settings'];
 
 // ===== 页面导航 =====
@@ -203,7 +203,7 @@ function switchPage(name) {
     document.querySelectorAll('.page-content').forEach(p => p.classList.toggle('active', p.id === 'page-' + name));
     const titles = {
         'dashboard': '数据概览', 'students': '学生管理', 'import': '批量导入',
-        'class-stats': '班级统计', 'notices': '公告管理', 'assignments': '作业管理',
+        'class-stats': '班级统计', 'leaderboard': '排行榜', 'notices': '公告管理', 'assignments': '作业管理',
         'screenshots': '作品截图', 'activity': '活跃度监控', 'daily-questions': '每日一题',
         'discussions': '讨论区管理', 'chapter-locks': '章节锁定', 'registration': '注册管理', 'settings': '系统设置'
     };
@@ -211,6 +211,7 @@ function switchPage(name) {
     if (name === 'dashboard') loadDashboard();
     if (name === 'students') loadStudents();
     if (name === 'class-stats') loadClassStats();
+    if (name === 'leaderboard') loadAdminLeaderboard();
     if (name === 'notices') loadNotices();
     if (name === 'assignments') loadAssignments();
     if (name === 'screenshots') loadScreenshots();
@@ -700,6 +701,51 @@ async function loadClassStats() {
                 </td>
             </tr>
         `;}).join('');
+    } catch (e) { console.error(e); }
+}
+
+// ===== 排行榜（学情） =====
+async function loadAdminLeaderboard() {
+    const gradeEl = document.getElementById('lbGrade');
+    const classEl = document.getElementById('lbClass');
+    // 初始化班级下拉
+    if (classEl && classEl.options.length <= 1) {
+        for (let i = 1; i <= 20; i++) {
+            const o = document.createElement('option'); o.value = i; o.textContent = i + '班'; classEl.appendChild(o);
+        }
+    }
+    const grade = gradeEl ? gradeEl.value : '';
+    const cls = classEl ? classEl.value : '';
+    const params = new URLSearchParams();
+    if (grade) params.set('grade', grade);
+    if (cls) params.set('classNum', cls);
+    const qs = params.toString();
+    const body = document.getElementById('adminLeaderboardBody');
+    try {
+        const data = await apiFetch(API_BASE + '/leaderboard' + (qs ? '?' + qs : ''));
+        if (!data.success) return;
+        const list = data.leaderboard || [];
+        if (list.length === 0) {
+            body.innerHTML = '<tr><td colspan="10" class="empty-state">暂无数据</td></tr>';
+            return;
+        }
+        body.innerHTML = list.map((s, i) => {
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+            const d = s.dimensions || {};
+            const v = x => (x !== undefined && x !== null) ? x : '-';
+            return `<tr>
+                <td>${medal}</td>
+                <td><strong>${esc(s.display_name || '')}</strong></td>
+                <td>${esc((s.grade || '') + (s.class_num ? s.class_num + '班' : ''))}</td>
+                <td style="color:#04AA6D;font-weight:700;">${v(s.score)}</td>
+                <td>${v(d.taskCompletion)}</td>
+                <td>${v(d.assessment)}</td>
+                <td>${v(d.assignment)}</td>
+                <td>${v(d.participation)}</td>
+                <td>${v(d.achievement)}</td>
+                <td>${v(d.classPerformance)}</td>
+            </tr>`;
+        }).join('');
     } catch (e) { console.error(e); }
 }
 

@@ -1235,41 +1235,128 @@ async function deleteAssignment(id) {
     });
 }
 
+let currentAssignmentId = null;
+
 async function viewSubmissions(id) {
-    try {
-        const data = await apiFetch(API_BASE + '/assignments/' + id + '/submissions');
-        const body = document.getElementById('submissionsBody');
-        if (!data.success) { body.innerHTML = '<div class="empty-state">加载失败</div>'; }
-        else if (!data.submissions || data.submissions.length === 0) {
-            body.innerHTML = '<div class="empty-state">暂无提交记录</div>';
-        } else {
-            const toolbar = `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-                <button class="btn btn-sm btn-primary" onclick="batchScore(${id})"><i class="fas fa-tasks"></i> 批量评分</button>
-                <button class="btn btn-sm btn-info" onclick="remindAssignment(${id})"><i class="fas fa-bell"></i> 催交未提交</button>
-                <a class="btn btn-sm btn-info" href="${API_BASE}/assignments/${id}/export" target="_blank"><i class="fas fa-download"></i> 导出成绩</a>
-            </div>`;
-            body.innerHTML = toolbar + `<table class="data-table" style="width:100%;">
-                <thead><tr><th>学生</th><th>状态</th><th>内容</th><th>评分/评语</th><th>提交时间</th></tr></thead>
-                <tbody>${data.submissions.map(s => {
-                    const returned = s.status === 'returned';
-                    const exemplary = !!s.is_exemplary;
-                    const imgExt = /\.(jpg|jpeg|png|gif|webp|bmp)$/i;
-                    const isImg = s.file_original_name && imgExt.test(s.file_original_name);
-                    const statusTag = returned
-                        ? '<span class="status-tag" style="background:#f59e0b;color:#fff;">已退回</span>'
-                        : '<span class="status-tag active">已提交</span>';
-                    return `<tr>
-                    <td>${esc(s.display_name || '')}<br><span style="font-size:12px;color:#888;">${esc((s.grade || '') + (s.class_num ? s.class_num + '班' : ''))}</span>${exemplary ? '<br><span style="color:#f59e0b;">🏆 优秀</span>' : ''}</td>
-                    <td>${statusTag}<br><div style="margin-top:4px;display:flex;flex-direction:column;gap:4px;">${!returned ? `<button onclick="returnSubmission(${id},${s.id})" style="background:#f59e0b;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">退回</button>` : ''}<button onclick="toggleExemplary(${id},${s.id},${exemplary ? 0 : 1})" style="background:#7c3aed;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">${exemplary ? '取消评优' : '评为优秀'}</button></div></td>
-                    <td style="max-width:220px;white-space:normal;">${esc(s.content || '-')}${isImg ? `<br><img src="/uploads/${encodeURIComponent(s.file_name)}" style="max-width:120px;max-height:120px;border-radius:6px;margin-top:4px;cursor:pointer;" onclick="window.open('/uploads/${encodeURIComponent(s.file_name)}')">` : (s.file_name ? `<br><a href="/uploads/${encodeURIComponent(s.file_name)}" target="_blank" style="color:#04AA6D;">📎 ${esc(s.file_original_name || '附件')}</a>` : '')}${returned && s.return_reason ? `<br><span style="color:#f59e0b;">↩ 原因：${esc(s.return_reason)}</span>` : ''}${s.feedback ? `<br><span style="color:#04AA6D;">💬 评语：${esc(s.feedback)}</span>` : ''}</td>
-                    <td style="min-width:170px;"><input type="number" id="score_${s.id}" value="${s.score !== null && s.score !== undefined ? s.score : ''}" min="0" max="100" step="0.5" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;" placeholder="分"><textarea id="feedback_${s.id}" rows="2" placeholder="评语（可选）" style="width:150px;padding:4px;border:1px solid #ddd;border-radius:4px;margin-top:4px;">${esc(s.feedback || '')}</textarea><button onclick="saveScore(${id},${s.id})" style="margin-top:4px;background:#04AA6D;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;">保存评分</button></td>
-                    <td>${fmt(s.submitted_at)}<br><button onclick="viewHistory(${s.id})" style="margin-top:4px;background:#6b7280;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">历史</button></td>
-                </tr>`;
-                }).join('')}</tbody>
-            </table>`;
+    currentAssignmentId = id;
+    const body = document.getElementById('submissionsBody');
+    // 静态框架（工具栏 + 筛选 + 表格区），筛选变化时不重建框架，避免清空选择
+    body.innerHTML = `<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+        <span style="font-size:13px;color:#64748b;font-weight:600;white-space:nowrap;">班级筛选</span>
+        <select id="submissionFilterGrade" class="search-input" style="width:auto;padding:6px 10px;border-radius:6px;" onchange="filterSubmissions()">
+            <option value="">全部年级</option>
+            <option value="七年级">七年级</option>
+            <option value="八年级">八年级</option>
+            <option value="九年级">九年级</option>
+        </select>
+        <select id="submissionFilterClass" class="search-input" style="width:auto;padding:6px 10px;border-radius:6px;" onchange="filterSubmissions()">
+            <option value="">全部班级</option>
+        </select>
+        <span id="submissionStats" style="font-size:12px;color:#64748b;"></span>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-sm btn-primary" onclick="batchScore(${id})" style="padding:6px 12px;"><i class="fas fa-tasks"></i> 批量评分</button>
+            <button class="btn btn-sm btn-info" onclick="remindAssignment(${id})" style="padding:6px 12px;"><i class="fas fa-bell"></i> 催交未提交</button>
+            <a class="btn btn-sm btn-info" href="${API_BASE}/assignments/${id}/export" target="_blank" style="padding:6px 12px;"><i class="fas fa-download"></i> 导出成绩</a>
+        </div>
+    </div>
+    <div id="submissionsTableArea"></div>`;
+    const classSel = document.getElementById('submissionFilterClass');
+    if (classSel && classSel.options.length <= 1) {
+        for (let i = 1; i <= 20; i++) {
+            const o = document.createElement('option'); o.value = i; o.textContent = i + '班'; classSel.appendChild(o);
         }
-        document.getElementById('submissionsModal').style.display = 'flex';
-    } catch (e) { alert('获取提交详情失败: ' + e.message); }
+    }
+    document.getElementById('submissionsModal').style.display = 'flex';
+    loadSubmissionsTable();
+}
+
+async function filterSubmissions() {
+    loadSubmissionsTable();
+}
+
+async function loadSubmissionsTable() {
+    if (!currentAssignmentId) return;
+    const area = document.getElementById('submissionsTableArea');
+    if (!area) return;
+    area.innerHTML = '<div class="empty-state">加载中...</div>';
+    const grade = document.getElementById('submissionFilterGrade').value;
+    const cls = document.getElementById('submissionFilterClass').value;
+    const params = new URLSearchParams();
+    if (grade) params.set('grade', grade);
+    if (cls) params.set('classNum', cls);
+    const qs = params.toString();
+    try {
+        const data = await apiFetch(API_BASE + '/assignments/' + currentAssignmentId + '/submissions' + (qs ? '?' + qs : ''));
+        if (!data.success) { area.innerHTML = '<div class="empty-state">加载失败</div>'; return; }
+        if (data.mode === 'roster') {
+            renderRosterTable(area, data.roster);
+        } else {
+            renderSubmissionsTable(area, data.submissions);
+        }
+    } catch (e) { area.innerHTML = '<div class="empty-state">加载失败</div>'; }
+}
+
+function renderSubmissionsTable(area, submissions) {
+    const id = currentAssignmentId;
+    if (!submissions || submissions.length === 0) { area.innerHTML = '<div class="empty-state">暂无提交记录</div>'; return; }
+    area.innerHTML = `<table class="data-table" style="width:100%;">
+        <thead><tr><th>学生</th><th>状态</th><th>内容</th><th>评分/评语</th><th>提交时间</th></tr></thead>
+        <tbody>${submissions.map(s => {
+            const returned = s.status === 'returned';
+            const exemplary = !!s.is_exemplary;
+            const imgExt = /\.(jpg|jpeg|png|gif|webp|bmp)$/i;
+            const isImg = s.file_original_name && imgExt.test(s.file_original_name);
+            const statusTag = returned
+                ? '<span class="status-tag" style="background:#f59e0b;color:#fff;">已退回</span>'
+                : '<span class="status-tag active">已提交</span>';
+            return `<tr>
+            <td>${esc(s.display_name || '')}<br><span style="font-size:12px;color:#888;">${esc((s.grade || '') + (s.class_num ? s.class_num + '班' : ''))}</span>${exemplary ? '<br><span style="color:#f59e0b;">🏆 优秀</span>' : ''}</td>
+            <td>${statusTag}<br><div style="margin-top:4px;display:flex;flex-direction:column;gap:4px;">${!returned ? `<button onclick="returnSubmission(${id},${s.id})" style="background:#f59e0b;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">退回</button>` : ''}<button onclick="toggleExemplary(${id},${s.id},${exemplary ? 0 : 1})" style="background:#7c3aed;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">${exemplary ? '取消评优' : '评为优秀'}</button></div></td>
+            <td style="max-width:220px;white-space:normal;">${esc(s.content || '-')}${isImg ? `<br><img src="/uploads/${encodeURIComponent(s.file_name)}" style="max-width:120px;max-height:120px;border-radius:6px;margin-top:4px;cursor:pointer;" onclick="window.open('/uploads/${encodeURIComponent(s.file_name)}')">` : (s.file_name ? `<br><a href="/uploads/${encodeURIComponent(s.file_name)}" target="_blank" style="color:#04AA6D;">📎 ${esc(s.file_original_name || '附件')}</a>` : '')}${returned && s.return_reason ? `<br><span style="color:#f59e0b;">↩ 原因：${esc(s.return_reason)}</span>` : ''}${s.feedback ? `<br><span style="color:#04AA6D;">💬 评语：${esc(s.feedback)}</span>` : ''}</td>
+            <td style="min-width:190px;vertical-align:top;">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#64748b;">
+                        <span style="flex-shrink:0;">分数</span>
+                        <input type="number" id="score_${s.id}" value="${s.score !== null && s.score !== undefined ? s.score : ''}" min="0" max="100" step="0.5" style="width:90px;padding:5px 8px;border:1px solid #ddd;border-radius:6px;" placeholder="0-100">
+                    </label>
+                    <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#64748b;">
+                        <span>评语</span>
+                        <textarea id="feedback_${s.id}" rows="2" placeholder="评语（可选）" style="width:100%;max-width:190px;padding:6px 8px;border:1px solid #ddd;border-radius:6px;resize:vertical;font-size:13px;box-sizing:border-box;">${esc(s.feedback || '')}</textarea>
+                    </label>
+                    <button onclick="saveScore(${id},${s.id})" style="align-self:flex-start;background:#04AA6D;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;">保存评分</button>
+                </div>
+            </td>
+            <td>${fmt(s.submitted_at)}<br><button onclick="viewHistory(${s.id})" style="margin-top:4px;background:#6b7280;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">历史</button></td>
+        </tr>`;
+        }).join('')}</tbody>
+    </table>`;
+}
+
+function renderRosterTable(area, roster) {
+    if (!roster || roster.length === 0) { area.innerHTML = '<div class="empty-state">该班级暂无在读学生</div>'; return; }
+    const submitted = roster.filter(r => r.submission_id).length;
+    const statsEl = document.getElementById('submissionStats');
+    if (statsEl) statsEl.textContent = `已提交 ${submitted}/${roster.length} 人，未提交 ${roster.length - submitted} 人`;
+    area.innerHTML = `<table class="data-table" style="width:100%;">
+        <thead><tr><th>学生</th><th>班级</th><th>完成状态</th><th>得分</th><th>提交时间</th></tr></thead>
+        <tbody>${roster.map(r => {
+            const hasSub = !!r.submission_id;
+            const returned = hasSub && r.status === 'returned';
+            const graded = hasSub && r.score !== null && r.score !== undefined;
+            let statusTag;
+            if (!hasSub) statusTag = '<span class="status-tag" style="background:#cbd5e1;color:#475569;">未提交</span>';
+            else if (returned) statusTag = '<span class="status-tag" style="background:#f59e0b;color:#fff;">已退回</span>';
+            else if (graded) statusTag = '<span class="status-tag active">已批改</span>';
+            else statusTag = '<span class="status-tag" style="background:#93c5fd;color:#1e40af;">已提交</span>';
+            return `<tr>
+            <td>${esc(r.display_name || '')}</td>
+            <td>${esc((r.grade || '') + (r.class_num ? r.class_num + '班' : ''))}</td>
+            <td>${statusTag}</td>
+            <td>${hasSub && graded ? r.score : '-'}</td>
+            <td>${hasSub && r.submitted_at ? fmt(r.submitted_at) : '-'}</td>
+        </tr>`;
+        }).join('')}</tbody>
+    </table>`;
 }
 
 function closeSubmissions() { document.getElementById('submissionsModal').style.display = 'none'; }
@@ -1292,7 +1379,7 @@ async function saveScore(assignmentId, submissionId) {
         if (data.success) {
             input.style.borderColor = '#04AA6D';
             setTimeout(function() { input.style.borderColor = '#ddd'; }, 2000);
-            viewSubmissions(assignmentId);
+            loadSubmissionsTable();
         } else {
             alert('评分失败: ' + (data.error || '未知错误'));
         }
@@ -1312,7 +1399,7 @@ async function returnSubmission(assignmentId, submissionId) {
         });
         if (data.success) {
             alert('✅ 已退回该作业');
-            viewSubmissions(assignmentId);
+            loadSubmissionsTable();
         } else {
             alert('退回失败: ' + (data.error || '未知错误'));
         }
@@ -1326,7 +1413,7 @@ async function toggleExemplary(assignmentId, submissionId, flag) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_exemplary: flag ? 1 : 0 })
         });
-        if (data.success) viewSubmissions(assignmentId);
+        if (data.success) loadSubmissionsTable();
         else alert('操作失败: ' + (data.error || '未知错误'));
     } catch (e) { alert('操作失败: ' + e.message); }
 }
@@ -1347,7 +1434,7 @@ async function batchScore(assignmentId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ scores: scores })
         });
-        if (data.success) { alert(data.message || '批量评分成功'); viewSubmissions(assignmentId); }
+        if (data.success) { alert(data.message || '批量评分成功'); loadSubmissionsTable(); }
         else alert('批量评分失败: ' + (data.error || '未知错误'));
     } catch (e) { alert('批量评分失败: ' + e.message); }
 }

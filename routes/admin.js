@@ -1215,6 +1215,25 @@ module.exports = function(app) {
             const assignmentId = parseInt(req.params.id);
             if (isNaN(assignmentId)) return res.json({ success: false, error: '无效的ID' });
 
+            const grade = (req.query.grade || '').toString().trim();
+            const classNum = parseInt(req.query.classNum, 10);
+
+            // 按班级查看整班完成情况：返回该班全部活跃学生（含未提交者）
+            if (grade && !isNaN(classNum)) {
+                const [rows] = await pool.query(
+                    `SELECT s.id AS student_id, s.display_name, s.username, s.grade, s.class_num,
+                            ass.id AS submission_id, ass.score, ass.submitted_at, ass.status,
+                            ass.return_reason, ass.feedback, ass.is_exemplary,
+                            ass.file_name, ass.file_original_name
+                     FROM students s
+                     LEFT JOIN assignment_submissions ass ON ass.student_id = s.id AND ass.assignment_id = ?
+                     WHERE s.status = 'active' AND s.grade = ? AND s.class_num = ?
+                     ORDER BY s.class_num, s.display_name`,
+                    [assignmentId, grade, classNum]
+                );
+                return res.json({ success: true, roster: rows, mode: 'roster' });
+            }
+
             const [rows] = await pool.query(
                 `SELECT ass.id, ass.content, ass.score, ass.submitted_at,
                         ass.file_name, ass.file_original_name, ass.status, ass.return_reason,
@@ -1226,7 +1245,7 @@ module.exports = function(app) {
                  ORDER BY ass.submitted_at DESC`,
                 [assignmentId]
             );
-            res.json({ success: true, submissions: rows });
+            res.json({ success: true, submissions: rows, mode: 'submissions' });
         } catch (err) {
             log.error('获取提交情况失败', { error: err.message });
             res.json({ success: false, error: '服务器错误' });

@@ -66,7 +66,7 @@
 
 ### 手动启动
 
-1. 安装 Node.js 16+ 和 MySQL 5.7+
+1. 安装 Node.js 24 LTS 和 MySQL 5.7+
 2. `npm install`
 3. `node server.js`
 4. 浏览器访问 `http://localhost:3000`

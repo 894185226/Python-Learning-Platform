@@ -44,7 +44,7 @@ Then visit:
 
 For manual setup:
 
-1. Install Node.js 16+ and MySQL 5.7+
+1. Install Node.js 24 LTS and MySQL 5.7+
 2. `npm install`
 3. `node server.js`
 

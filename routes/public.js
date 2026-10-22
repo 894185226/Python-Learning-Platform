@@ -4,6 +4,7 @@
 const shared = require('../shared');
 const { metrics } = require('../shared/monitor');
 const { requireDB } = require('../middleware');
+const { wsClients } = require('../ws');
 
 module.exports = function (app) {
     // ---------- 数据库状态检查（前端可定期检查此接口） ----------
@@ -30,7 +31,7 @@ module.exports = function (app) {
             database: { status: 'unknown' },
             pool: { total: 0, idle: 0, waiting: 0 },
             sessions: shared.sessions.size,
-            wsClients: typeof wsClients !== 'undefined' ? wsClients.size : 0,
+            wsClients: wsClients.size,
             requests: {
                 currentMinute: metrics.current.requestCount,
                 errorRate: metrics.current.requestCount > 0

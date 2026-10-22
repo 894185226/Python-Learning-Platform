@@ -172,8 +172,8 @@ const CHAPTER_NAMES = {
     'ch19': '第19章 各种各样的数'
 };
 
-// 全部模块总数
-const TOTAL_MODULES = 171;
+// 全部模块总数（自动从白名单派生，避免新增模块后与 VALID_MODULES 不同步）
+const TOTAL_MODULES = VALID_MODULES.length;
 
 // 导出（Node.js 环境）
 if (typeof module !== 'undefined' && module.exports) {

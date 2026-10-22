@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
 
 // 加载被测模块
 const middleware = require('../middleware');
+const shared = require('../shared');
 
 // ===================================================
 // validatePassword
@@ -111,5 +112,147 @@ describe('generateCSRFToken()', () => {
         const t1 = middleware.generateCSRFToken();
         const t2 = middleware.generateCSRFToken();
         assert.notStrictEqual(t1, t2);
+    });
+});
+
+// ===================================================
+// sessionAuth（学生会话鉴权）
+// ===================================================
+function mockRes() {
+    const res = {};
+    res.statusCode = 200;
+    res.body = null;
+    res.status = function (code) { this.statusCode = code; return this; };
+    res.json = function (payload) { this.body = payload; return this; };
+    return res;
+}
+
+describe('sessionAuth()', () => {
+    beforeEach(() => { shared.sessions.clear(); });
+
+    it('缺少 token 应返回 401', () => {
+        const req = { headers: {}, body: {} };
+        const res = mockRes();
+        middleware.sessionAuth(req, res, () => assert.fail('不应进入 next'));
+        assert.strictEqual(res.statusCode, 401);
+    });
+
+    it('无效 token 应返回 401', () => {
+        const req = { headers: { 'x-session-token': 'bad-token' }, body: {} };
+        const res = mockRes();
+        middleware.sessionAuth(req, res, () => assert.fail('不应进入 next'));
+        assert.strictEqual(res.statusCode, 401);
+    });
+
+    it('过期会话应返回 401', () => {
+        shared.sessions.set('expired-token', {
+            username: 'u', studentId: 1,
+            createdAt: Date.now() - shared.SESSION_EXPIRE_MS - 1000
+        });
+        const req = { headers: { 'x-session-token': 'expired-token' }, body: {} };
+        const res = mockRes();
+        middleware.sessionAuth(req, res, () => assert.fail('不应进入 next'));
+        assert.strictEqual(res.statusCode, 401);
+    });
+
+    it('有效会话应放行并注入 sessionUser', () => {
+        shared.sessions.set('valid-token', { username: 'u', studentId: 1, createdAt: Date.now() });
+        const req = { headers: { 'x-session-token': 'valid-token' }, body: {} };
+        let called = false;
+        middleware.sessionAuth(req, mockRes(), () => { called = true; });
+        assert.strictEqual(called, true);
+        assert.strictEqual(req.sessionUser.username, 'u');
+        assert.strictEqual(req.sessionToken, 'valid-token');
+    });
+});
+
+// ===================================================
+// adminAuth（管理员会话鉴权）
+// ===================================================
+describe('adminAuth()', () => {
+    beforeEach(() => { shared.adminSessions.clear(); });
+
+    it('缺少 token 应返回 401', () => {
+        const req = { headers: {} };
+        const res = mockRes();
+        middleware.adminAuth(req, res, () => assert.fail('不应进入 next'));
+        assert.strictEqual(res.statusCode, 401);
+    });
+
+    it('过期管理员会话应返回 401', () => {
+        shared.adminSessions.set('expired-admin', { username: 'admin', expires: Date.now() - 1000 });
+        const req = { headers: { 'x-admin-token': 'expired-admin' } };
+        const res = mockRes();
+        middleware.adminAuth(req, res, () => assert.fail('不应进入 next'));
+        assert.strictEqual(res.statusCode, 401);
+    });
+
+    it('有效管理员会话应放行并注入 adminUser', () => {
+        shared.adminSessions.set('valid-admin', { username: 'admin', displayName: '管理员', expires: Date.now() + 60000 });
+        const req = { headers: { 'x-admin-token': 'valid-admin' } };
+        let called = false;
+        middleware.adminAuth(req, mockRes(), () => { called = true; });
+        assert.strictEqual(called, true);
+        assert.strictEqual(req.adminUser.username, 'admin');
+    });
+});
+
+// ===================================================
+// csrfProtection（CSRF 防护）
+// ===================================================
+describe('csrfProtection()', () => {
+    beforeEach(() => { shared.sessions.clear(); });
+
+    it('GET 请求应跳过校验', () => {
+        const req = { method: 'GET', path: '/api/progress/u', headers: {}, body: {} };
+        let called = false;
+        middleware.csrfProtection(req, mockRes(), () => { called = true; });
+        assert.strictEqual(called, true);
+    });
+
+    it('豁免路径（登录）应跳过校验', () => {
+        const req = { method: 'POST', path: '/api/login', headers: {}, body: {} };
+        let called = false;
+        middleware.csrfProtection(req, mockRes(), () => { called = true; });
+        assert.strictEqual(called, true);
+    });
+
+    it('写操作缺少 CSRF token 应返回 403', () => {
+        const req = { method: 'POST', path: '/api/progress/mark', headers: {}, body: {} };
+        const res = mockRes();
+        middleware.csrfProtection(req, res, () => assert.fail('不应进入 next'));
+        assert.strictEqual(res.statusCode, 403);
+    });
+
+    it('会话不存在时应返回 403', () => {
+        const req = {
+            method: 'POST', path: '/api/progress/mark',
+            headers: { 'x-session-token': 'ghost', 'x-csrf-token': 'abc' }, body: {}
+        };
+        const res = mockRes();
+        middleware.csrfProtection(req, res, () => assert.fail('不应进入 next'));
+        assert.strictEqual(res.statusCode, 403);
+    });
+
+    it('CSRF token 不匹配应返回 403', () => {
+        shared.sessions.set('s-token', { username: 'u', studentId: 1, csrfToken: 'real-csrf', createdAt: Date.now() });
+        const req = {
+            method: 'POST', path: '/api/progress/mark',
+            headers: { 'x-session-token': 's-token', 'x-csrf-token': 'fake-csrf' }, body: {}
+        };
+        const res = mockRes();
+        middleware.csrfProtection(req, res, () => assert.fail('不应进入 next'));
+        assert.strictEqual(res.statusCode, 403);
+    });
+
+    it('CSRF token 匹配应放行', () => {
+        shared.sessions.set('s-token', { username: 'u', studentId: 1, csrfToken: 'real-csrf', createdAt: Date.now() });
+        const req = {
+            method: 'POST', path: '/api/progress/mark',
+            headers: { 'x-session-token': 's-token', 'x-csrf-token': 'real-csrf' }, body: {}
+        };
+        let called = false;
+        middleware.csrfProtection(req, mockRes(), () => { called = true; });
+        assert.strictEqual(called, true);
     });
 });

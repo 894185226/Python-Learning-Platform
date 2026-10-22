@@ -712,7 +712,8 @@ async function openStudentDetail(id) {
         const cpTotal = (cpData && cpData.success) ? cpData.total : 0;
         const cpRecords = (cpData && cpData.success && cpData.records) ? cpData.records : [];
         const s = data.student;
-        const pct = s.completed_modules ? Math.min((s.completed_modules / TOTAL_MODULES * 100), 100).toFixed(1) : 0;
+        const completedModules = (data.modules && Array.isArray(data.modules)) ? data.modules.length : 0;
+        const pct = completedModules ? Math.min((completedModules / TOTAL_MODULES * 100), 100).toFixed(1) : 0;
         document.getElementById('detailTitle').textContent = s.display_name + ' 的详情';
         document.getElementById('detailBody').innerHTML = `
             <div class="detail-grid">
@@ -728,7 +729,7 @@ async function openStudentDetail(id) {
             <h4 style="margin-top:20px;">学习进度</h4>
             <div class="progress-bar-container">
                 <div class="progress-bar-fill" style="width:${pct}%"></div>
-                <span class="progress-bar-text">${pct}% (${s.completed_modules || 0}/${TOTAL_MODULES})</span>
+                <span class="progress-bar-text">${pct}% (${completedModules}/${TOTAL_MODULES})</span>
             </div>
             <div class="detail-modules" style="margin-top:10px;">${data.modules.length > 0 ? data.modules.map(m => `<span class="module-chip">${MODULE_NAMES[m.module_id] || m.module_id} <small>${fmt(m.completed_at)}</small></span>`).join('') : '<span class="empty-state">暂无</span>'}</div>
             <h4 style="margin-top:20px;">成就列表</h4>
@@ -1258,7 +1259,7 @@ async function viewSubmissions(id) {
                         ? '<span class="status-tag" style="background:#f59e0b;color:#fff;">已退回</span>'
                         : '<span class="status-tag active">已提交</span>';
                     return `<tr>
-                    <td>${esc(s.display_name || '')}${exemplary ? '<br><span style="color:#f59e0b;">🏆 优秀</span>' : ''}</td>
+                    <td>${esc(s.display_name || '')}<br><span style="font-size:12px;color:#888;">${esc((s.grade || '') + (s.class_num ? s.class_num + '班' : ''))}</span>${exemplary ? '<br><span style="color:#f59e0b;">🏆 优秀</span>' : ''}</td>
                     <td>${statusTag}<br><div style="margin-top:4px;display:flex;flex-direction:column;gap:4px;">${!returned ? `<button onclick="returnSubmission(${id},${s.id})" style="background:#f59e0b;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">退回</button>` : ''}<button onclick="toggleExemplary(${id},${s.id},${exemplary ? 0 : 1})" style="background:#7c3aed;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">${exemplary ? '取消评优' : '评为优秀'}</button></div></td>
                     <td style="max-width:220px;white-space:normal;">${esc(s.content || '-')}${isImg ? `<br><img src="/uploads/${encodeURIComponent(s.file_name)}" style="max-width:120px;max-height:120px;border-radius:6px;margin-top:4px;cursor:pointer;" onclick="window.open('/uploads/${encodeURIComponent(s.file_name)}')">` : (s.file_name ? `<br><a href="/uploads/${encodeURIComponent(s.file_name)}" target="_blank" style="color:#04AA6D;">📎 ${esc(s.file_original_name || '附件')}</a>` : '')}${returned && s.return_reason ? `<br><span style="color:#f59e0b;">↩ 原因：${esc(s.return_reason)}</span>` : ''}${s.feedback ? `<br><span style="color:#04AA6D;">💬 评语：${esc(s.feedback)}</span>` : ''}</td>
                     <td style="min-width:170px;"><input type="number" id="score_${s.id}" value="${s.score !== null && s.score !== undefined ? s.score : ''}" min="0" max="100" step="0.5" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;" placeholder="分"><textarea id="feedback_${s.id}" rows="2" placeholder="评语（可选）" style="width:150px;padding:4px;border:1px solid #ddd;border-radius:4px;margin-top:4px;">${esc(s.feedback || '')}</textarea><button onclick="saveScore(${id},${s.id})" style="margin-top:4px;background:#04AA6D;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;">保存评分</button></td>

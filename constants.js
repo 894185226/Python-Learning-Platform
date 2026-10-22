@@ -11,7 +11,7 @@ const VALID_MODULES = [
     'chapter_ch1','chapter_ch2','chapter_ch3','chapter_ch4','chapter_ch5','chapter_ch6','chapter_ch7','chapter_ch8','chapter_ch9','chapter_ch10',
     'chapter_ch11','chapter_ch12','chapter_ch13','chapter_ch14','chapter_ch15','chapter_ch16','chapter_ch17','chapter_ch18','chapter_ch19',
     // 第1章 认识Python
-    'ch1_intro','ch1_knowledge','ch1_lab','ch1_practice','ch1_debug','ch1_quiz',
+    'ch1_intro','ch1_knowledge','ch1_lab','ch1_practice','ch1_debug','ch1_extend','ch1_project','ch1_quiz',
     // 第3章 变量类型
     'ch3_intro','ch3_knowledge','ch3_lab','ch3_practice','ch3_debug','ch3_extend','ch3_project','ch3_quiz',
     // 第4章 条件判断
@@ -72,7 +72,7 @@ const MODULE_NAMES = {
     'chapter_ch19': '第19章完成',
     // 第1章 认识Python
     'ch1_intro': 'Ch1-情境导入', 'ch1_knowledge': 'Ch1-知识讲解', 'ch1_lab': 'Ch1-类比实验室',
-    'ch1_practice': 'Ch1-实践操作', 'ch1_debug': 'Ch1-错误调试', 'ch1_quiz': 'Ch1-综合测试',
+    'ch1_practice': 'Ch1-实践操作', 'ch1_debug': 'Ch1-错误调试', 'ch1_extend': 'Ch1-拓展延伸', 'ch1_project': 'Ch1-创意项目', 'ch1_quiz': 'Ch1-综合测试',
     // 第3章 变量类型
     'ch3_intro': 'Ch3-情境导入', 'ch3_knowledge': 'Ch3-知识讲解', 'ch3_lab': 'Ch3-类比实验室',
     'ch3_practice': 'Ch3-实践操作', 'ch3_debug': 'Ch3-错误调试', 'ch3_extend': 'Ch3-拓展延伸',

@@ -961,6 +961,15 @@
         });
     }
 
+    // 模块完成时实时刷新当前章节的解锁状态（无需刷新页面即可解锁下一模块）
+    window.addEventListener('moduleCompleted', function(e) {
+        const moduleId = e.detail && e.detail.moduleId;
+        if (!moduleId || !currentChapter) return;
+        getCompletedModuleIds().then(function(ids) {
+            applyModuleNavStates(currentChapter, ids);
+        });
+    });
+
     function renderLockedModule(chapterId, module, index) {
         const contentArea = document.getElementById('chapterContent-' + chapterId);
         if (!contentArea) return;

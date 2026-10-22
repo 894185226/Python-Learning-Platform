@@ -130,6 +130,22 @@ app.use('/api', (req, res, next) => {
 });
 
 // ===================================================
+// 安全加固：禁止通过静态服务暴露敏感文件/目录
+// ===================================================
+const BLOCKED_STATIC_DIRS = ['/backups', '/node_modules', '/routes', '/shared', '/middleware', '/ws', '/tests', '/.git'];
+const BLOCKED_STATIC_FILES = ['/.env', '/server.js', '/database.sql', '/package.json', '/package-lock.json', '/.gitignore', '/insert_test_data.js', '/verify_apis.js'];
+app.use((req, res, next) => {
+    const p = req.path || '';
+    if (BLOCKED_STATIC_DIRS.some(dir => p === dir || p.startsWith(dir + '/'))) {
+        return res.status(404).end();
+    }
+    if (BLOCKED_STATIC_FILES.includes(p)) {
+        return res.status(404).end();
+    }
+    next();
+});
+
+// ===================================================
 // 静态文件服务（含缓存策略 + ETag）
 // ===================================================
 app.use(express.static(__dirname, {

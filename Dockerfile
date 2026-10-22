@@ -1,10 +1,10 @@
 # ===================================================
 # Python 基础学习平台 - Docker 镜像
-# 技术栈：Node.js 20 + MySQL 8
+# 技术栈：Node.js 24 (LTS) + MySQL 8
 # ===================================================
 
 # ---- 构建阶段 ----
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # ---- 运行阶段 ----
-FROM node:20-alpine
+FROM node:24-alpine
 
 # 创建非 root 用户
 RUN addgroup -g 1001 -S nodejs && \

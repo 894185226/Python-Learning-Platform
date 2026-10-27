@@ -56,3 +56,6 @@ uploads/
 
 # 临时垃圾文件
 start
+
+# Trae HTML 分享产生的临时目录
+.trae-html-share-packages/

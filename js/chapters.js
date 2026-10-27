@@ -955,6 +955,7 @@
             btn.disabled = locked;
             btn.style.opacity = locked ? '0.45' : '';
             btn.style.cursor = locked ? 'not-allowed' : '';
+            btn.removeAttribute('data-original-style');
             if (locked) btn.setAttribute('title', '完成前置模块后解锁'); else btn.removeAttribute('title');
             const badge = btn.querySelector('.mod-nav-badge');
             if (badge) badge.textContent = completed ? '✅' : (locked ? '🔒' : '');

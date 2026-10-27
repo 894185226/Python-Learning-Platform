@@ -48,6 +48,12 @@
                     window.API._sessionToken = '';
                     window.API._csrfToken = null;
                     window.disconnectWebSocket();
+                    // 清除本地学习进度，避免下一个账号串号（问题2修复）
+                    try {
+                        localStorage.removeItem('pv_local_progress');
+                        localStorage.removeItem('pv_local_achievements');
+                        localStorage.removeItem('pv_chapter_progress');
+                    } catch (e) { /* 忽略 */ }
                     updateLoginUI();
                     window.showToast('已退出登录', 'info');
                     location.reload();

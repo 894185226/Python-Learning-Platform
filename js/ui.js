@@ -312,7 +312,7 @@
 
         const allStyled = main.querySelectorAll('[style]');
         allStyled.forEach(function(el) {
-            if (el.closest('.w3-top') || el.closest('.w3-sidebar') || el.closest('nav') || el.closest('.w3-dropdown-content')) return;
+            if (el.classList.contains('mod-nav-btn') || el.closest('.w3-top') || el.closest('.w3-sidebar') || el.closest('nav') || el.closest('.w3-dropdown-content')) return;
 
             const currentStyle = el.getAttribute('style') || '';
 

@@ -1875,3 +1875,57 @@ input:focus + .toggle-slider {
         align-items: flex-start;
     }
 }
+
+/* ===== 图片查看器（作业提交图片放大/翻转/缩放） ===== */
+.image-viewer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.88);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+}
+.image-viewer-toolbar {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    background: rgba(255, 255, 255, 0.12);
+    padding: 8px 12px;
+    border-radius: 8px;
+    z-index: 10002;
+}
+.image-viewer-toolbar button {
+    min-width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+}
+.image-viewer-toolbar button:hover {
+    background: rgba(255, 255, 255, 0.32);
+}
+.image-viewer-stage {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.image-viewer-stage img {
+    max-width: 90%;
+    max-height: 90%;
+    transition: transform 0.2s ease;
+    cursor: grab;
+    user-select: none;
+}

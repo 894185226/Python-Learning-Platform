@@ -1345,9 +1345,15 @@ async function loadSubmissionsTable() {
 function renderSubmissionsTable(area, submissions) {
     const id = currentAssignmentId;
     if (!submissions || submissions.length === 0) { area.innerHTML = '<div class="empty-state">暂无提交记录</div>'; return; }
+    // 未处理（未评分）的学生排在前面，方便教师优先审阅
+    const sorted = submissions.slice().sort((a, b) => {
+        const aUn = a.score === null || a.score === undefined;
+        const bUn = b.score === null || b.score === undefined;
+        return aUn === bUn ? 0 : (aUn ? -1 : 1);
+    });
     area.innerHTML = `<table class="data-table" style="width:100%;">
         <thead><tr><th>学生</th><th>状态</th><th>内容</th><th>评分/评语</th><th>提交时间</th></tr></thead>
-        <tbody>${submissions.map(s => {
+        <tbody>${sorted.map(s => {
             const returned = s.status === 'returned';
             const exemplary = !!s.is_exemplary;
             const imgExt = /\.(jpg|jpeg|png|gif|webp|bmp)$/i;
@@ -1358,7 +1364,7 @@ function renderSubmissionsTable(area, submissions) {
             return `<tr>
             <td>${esc(s.display_name || '')}<br><span style="font-size:12px;color:#888;">${esc((s.grade || '') + (s.class_num ? s.class_num + '班' : ''))}</span>${exemplary ? '<br><span style="color:#f59e0b;">🏆 优秀</span>' : ''}</td>
             <td>${statusTag}<br><div style="margin-top:4px;display:flex;flex-direction:column;gap:4px;">${!returned ? `<button onclick="returnSubmission(${id},${s.id})" style="background:#f59e0b;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">退回</button>` : ''}<button onclick="toggleExemplary(${id},${s.id},${exemplary ? 0 : 1})" style="background:#7c3aed;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">${exemplary ? '取消评优' : '评为优秀'}</button></div></td>
-            <td style="max-width:220px;white-space:normal;">${esc(s.content || '-')}${isImg ? `<br><img src="/uploads/${encodeURIComponent(s.file_name)}" style="max-width:120px;max-height:120px;border-radius:6px;margin-top:4px;cursor:pointer;" onclick="window.open('/uploads/${encodeURIComponent(s.file_name)}')">` : (s.file_name ? `<br><a href="/uploads/${encodeURIComponent(s.file_name)}" target="_blank" style="color:#04AA6D;">📎 ${esc(s.file_original_name || '附件')}</a>` : '')}${returned && s.return_reason ? `<br><span style="color:#f59e0b;">↩ 原因：${esc(s.return_reason)}</span>` : ''}${s.feedback ? `<br><span style="color:#04AA6D;">💬 评语：${esc(s.feedback)}</span>` : ''}</td>
+            <td style="max-width:220px;white-space:normal;">${esc(s.content || '-')}${isImg ? `<br><img src="/uploads/${encodeURIComponent(s.file_name)}" style="max-width:120px;max-height:120px;border-radius:6px;margin-top:4px;cursor:pointer;" onclick="openImageViewer('/uploads/${encodeURIComponent(s.file_name)}')">` : (s.file_name ? `<br><a href="/uploads/${encodeURIComponent(s.file_name)}" target="_blank" style="color:#04AA6D;">📎 ${esc(s.file_original_name || '附件')}</a>` : '')}${returned && s.return_reason ? `<br><span style="color:#f59e0b;">↩ 原因：${esc(s.return_reason)}</span>` : ''}${s.feedback ? `<br><span style="color:#04AA6D;">💬 评语：${esc(s.feedback)}</span>` : ''}</td>
             <td style="min-width:190px;vertical-align:top;">
                 <div style="display:flex;flex-direction:column;gap:8px;">
                     <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#64748b;">
@@ -1376,6 +1382,52 @@ function renderSubmissionsTable(area, submissions) {
         </tr>`;
         }).join('')}</tbody>
     </table>`;
+}
+
+// ===== 图片查看器（提交图片放大/翻转/缩放） =====
+let imageViewerState = { scale: 1, rotate: 0, flipX: false, flipY: false };
+
+function applyImageViewerTransform() {
+    const img = document.getElementById('imageViewerImg');
+    if (!img) return;
+    const s = imageViewerState;
+    img.style.transform = 'scale(' + s.scale + ') rotate(' + s.rotate + 'deg) scaleX(' + (s.flipX ? -1 : 1) + ') scaleY(' + (s.flipY ? -1 : 1) + ')';
+}
+
+function openImageViewer(src) {
+    const overlay = document.getElementById('imageViewerOverlay');
+    const img = document.getElementById('imageViewerImg');
+    if (!overlay || !img) return;
+    imageViewerState = { scale: 1, rotate: 0, flipX: false, flipY: false };
+    img.src = src;
+    applyImageViewerTransform();
+    overlay.style.display = 'flex';
+}
+
+function closeImageViewer() {
+    const overlay = document.getElementById('imageViewerOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function zoomImageViewer(factor) {
+    imageViewerState.scale = Math.min(5, Math.max(0.1, imageViewerState.scale * factor));
+    applyImageViewerTransform();
+}
+
+function rotateImageViewer(deg) {
+    imageViewerState.rotate = (imageViewerState.rotate + deg) % 360;
+    applyImageViewerTransform();
+}
+
+function flipImageViewer(axis) {
+    if (axis === 'h') imageViewerState.flipX = !imageViewerState.flipX;
+    else imageViewerState.flipY = !imageViewerState.flipY;
+    applyImageViewerTransform();
+}
+
+function resetImageViewer() {
+    imageViewerState = { scale: 1, rotate: 0, flipX: false, flipY: false };
+    applyImageViewerTransform();
 }
 
 function renderRosterTable(area, roster) {

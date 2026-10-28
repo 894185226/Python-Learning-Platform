@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理后台 - Python 变量学习平台</title>
     <link rel="stylesheet" href="lib/all.min.css" onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css'">
-    <link rel="stylesheet" href="admin.css?v=20261027-1">
+    <link rel="stylesheet" href="admin.css?v=20261029-1">
 </head>
 <body>
     <!-- 管理员登录表单（未登录时显示） -->
@@ -1138,6 +1138,21 @@
     </div>
 
     <script src="constants.js?v=20261027-1"></script>
-    <script src="admin.js?v=20261027-1"></script>
+    <script src="admin.js?v=20261029-2"></script>
+    <!-- 图片查看器（作业提交图片放大/翻转/缩放） -->
+    <div class="image-viewer-overlay" id="imageViewerOverlay" style="display:none;" onclick="if(event.target===this)closeImageViewer()">
+        <div class="image-viewer-toolbar">
+            <button title="放大" onclick="zoomImageViewer(1.2)">＋</button>
+            <button title="缩小" onclick="zoomImageViewer(0.8)">－</button>
+            <button title="旋转 90°" onclick="rotateImageViewer(90)">↻</button>
+            <button title="水平翻转" onclick="flipImageViewer('h')">⇋</button>
+            <button title="垂直翻转" onclick="flipImageViewer('v')">⇵</button>
+            <button title="重置" onclick="resetImageViewer()">⟲</button>
+            <button title="关闭" onclick="closeImageViewer()">✕</button>
+        </div>
+        <div class="image-viewer-stage">
+            <img id="imageViewerImg" src="" alt="提交图片">
+        </div>
+    </div>
 </body>
 </html>

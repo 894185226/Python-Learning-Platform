@@ -1176,12 +1176,13 @@ async function loadAssignments() {
         }
         el.innerHTML = data.assignments.map(a => {
             const chapterName = CHAPTER_NAMES[a.chapter_id] || a.chapter_id || '-';
-            const status = new Date(a.due_date) < new Date() ? '<span class="status-tag graduated">已截止</span>' : '<span class="status-tag active">进行中</span>';
+            const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+            const status = (a.due_date && a.due_date < todayStr) ? '<span class="status-tag graduated">已截止</span>' : '<span class="status-tag active">进行中</span>';
             const ftLabel = a.file_type === 'image' ? '🖼️ 仅图片' : (a.file_type === 'document' ? '📄 仅文档' : '不限格式');
             return `<div class="notice-item">
                 <div class="notice-header">
                     <span class="notice-title">${esc(a.title)} ${status}</span>
-                    <span class="notice-time">截止: ${fmt(a.due_date)}</span>
+                    <span class="notice-time">截止: ${a.due_date ? a.due_date : '未设置'}</span>
                 </div>
                 <div class="notice-body">${esc(a.description || '')}</div>
                 <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
@@ -1239,7 +1240,7 @@ async function editAssignment(id) {
         document.getElementById('editAssignmentFileType').value = a.file_type || 'any';
         document.getElementById('editAssignmentAllowLate').checked = !!a.allow_late;
         if (a.due_date) {
-            document.getElementById('editAssignmentDueDate').value = a.due_date.replace(' ', 'T').slice(0, 16);
+            document.getElementById('editAssignmentDueDate').value = a.due_date || '';
         }
         document.getElementById('assignmentEditModal').style.display = 'flex';
     } catch (e) { alert('获取作业信息失败: ' + e.message); }

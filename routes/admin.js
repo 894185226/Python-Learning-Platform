@@ -641,7 +641,7 @@ module.exports = function(app) {
     // 管理端获取公告
     app.get('/api/admin/notices', adminAuth, requireDB, async (req, res) => {
         try {
-            const [rows] = await pool.query('SELECT id, title, content, publish_at, expire_at, created_at, updated_at FROM notices ORDER BY created_at DESC');
+            const [rows] = await pool.query("SELECT id, title, content, DATE_FORMAT(publish_at, '%Y-%m-%dT%H:%i') AS publish_at, DATE_FORMAT(expire_at, '%Y-%m-%dT%H:%i') AS expire_at, created_at, updated_at FROM notices ORDER BY created_at DESC");
             res.json({ success: true, notices: rows });
         } catch (err) {
             log.error('获取公告失败', { error: err.message });
@@ -1227,7 +1227,7 @@ module.exports = function(app) {
     app.get('/api/admin/assignments', adminAuth, requireDB, async (req, res) => {
         try {
             const [rows] = await pool.query(
-                `SELECT a.id, a.title, a.description, a.chapter_id, a.due_date, a.file_type, a.allow_late, a.created_by, a.created_at,
+                `SELECT a.id, a.title, a.description, a.chapter_id, DATE_FORMAT(a.due_date, '%Y-%m-%d') AS due_date, a.file_type, a.allow_late, a.created_by, a.created_at,
                         (SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id = a.id) AS submission_count
                  FROM assignments a ORDER BY a.created_at DESC`
             );

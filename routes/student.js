@@ -181,6 +181,94 @@ module.exports = function(app) {
         }
     });
 
+    // ---------- 班级综合排行 ----------
+    // 计分方式：班级综合得分 = 班内所有在读学生「六维综合得分」的平均分（与学生榜同一评分引擎）
+    // 采用平均分而非总分，避免班级人数多少造成不公平；同分时依次比较平均知识测评、平均作业得分、平均任务完成率
+    app.get('/api/leaderboard/class-ranking', requireDB, sessionAuth, async (req, res) => {
+        try {
+            const grade = (req.query.grade || '').toString().trim();
+            const conditions = ["s.status = 'active'", 's.class_num > 0'];
+            const params = [];
+            if (grade) {
+                conditions.push('s.grade = ?');
+                params.push(grade);
+            }
+            const whereClause = 'WHERE ' + conditions.join(' AND ');
+
+            const [rows] = await pool.query(`
+                SELECT
+                    s.id, s.username, s.display_name, s.grade, s.class_num,
+                    (SELECT COUNT(*) FROM learning_progress lp WHERE lp.student_id = s.id AND lp.completed = 1 AND lp.module_id LIKE 'chapter_%') AS chapter_done,
+                    (SELECT COALESCE(AVG(lp.score), 0) FROM learning_progress lp WHERE lp.student_id = s.id AND lp.completed = 1 AND (lp.module_id LIKE 'ch%_quiz' OR lp.module_id LIKE 'ch%_test')) AS assessment_avg,
+                    (SELECT COALESCE(SUM(ass.score), 0) FROM assignment_submissions ass WHERE ass.student_id = s.id AND ass.score IS NOT NULL) AS assign_graded_sum,
+                    (SELECT COUNT(*) FROM assignment_submissions ass WHERE ass.student_id = s.id AND ass.score IS NULL) AS assign_ungraded,
+                    (SELECT COUNT(*) FROM discussion_posts dp WHERE dp.student_id = s.id) AS posts,
+                    (SELECT COUNT(*) FROM discussion_replies dr WHERE dr.student_id = s.id) AS replies,
+                    (SELECT COUNT(*) FROM daily_question_answers dq WHERE dq.student_id = s.id) AS daily_answers,
+                    (SELECT COUNT(DISTINCT DATE(ll.login_time)) FROM login_logs ll WHERE ll.student_id = s.id) AS login_days,
+                    (SELECT COUNT(*) FROM achievements a WHERE a.student_id = s.id) AS achievements,
+                    ((SELECT COUNT(*) FROM study_notes sn WHERE sn.student_id = s.id) + (SELECT COUNT(*) FROM code_snippets cs WHERE cs.student_id = s.id)) AS notes_code,
+                    (SELECT COALESCE(SUM(cp.points), 0) FROM class_performance cp WHERE cp.student_id = s.id) AS class_points
+                FROM students s
+                ${whereClause}
+            `, params);
+
+            const [[{ totalAssignments }]] = await pool.query('SELECT COUNT(*) AS totalAssignments FROM assignments');
+
+            // 按「年级 + 班级」聚合学生综合得分
+            const classMap = new Map();
+            rows.forEach(r => {
+                const { dimensions, total } = computeScore({ ...r, totalAssignments });
+                const key = r.grade + '|' + r.class_num;
+                if (!classMap.has(key)) {
+                    classMap.set(key, {
+                        grade: r.grade,
+                        class_num: Number(r.class_num),
+                        count: 0,
+                        scoreSum: 0,
+                        taskSum: 0,
+                        assessmentSum: 0,
+                        assignmentSum: 0,
+                        topStudent: '',
+                        topScore: -1
+                    });
+                }
+                const cls = classMap.get(key);
+                cls.count += 1;
+                cls.scoreSum += total;
+                cls.taskSum += dimensions.taskCompletion;
+                cls.assessmentSum += dimensions.assessment;
+                cls.assignmentSum += dimensions.assignment;
+                if (total > cls.topScore) {
+                    cls.topScore = total;
+                    cls.topStudent = r.display_name || r.username;
+                }
+            });
+
+            const round1 = v => Math.round(Number(v) * 10) / 10;
+            const ranking = Array.from(classMap.values()).map(c => ({
+                grade: c.grade,
+                class_num: c.class_num,
+                student_count: c.count,
+                score: round1(c.scoreSum / c.count),
+                avg_task: round1(c.taskSum / c.count),
+                avg_assessment: round1(c.assessmentSum / c.count),
+                avg_assignment: round1(c.assignmentSum / c.count),
+                top_student: c.topStudent
+            })).sort((a, b) =>
+                (b.score - a.score) ||
+                (b.avg_assessment - a.avg_assessment) ||
+                (b.avg_assignment - a.avg_assignment) ||
+                (b.avg_task - a.avg_task)
+            );
+
+            res.json({ success: true, ranking });
+        } catch (err) {
+            log.error('获取班级排行榜失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
     // ---------- 标记模块完成 ----------
     app.post('/api/progress/mark', requireDB, sessionAuth, async (req, res) => {
         try {

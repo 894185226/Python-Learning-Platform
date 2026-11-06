@@ -1164,6 +1164,35 @@ z = x + y</pre>
                 <div class="leaderboard-login-hint" id="leaderboardLoginHint" style="display:none">
                     <p>🔒 请先<a href="javascript:void(0)" onclick="openLoginModal()">登录</a>后查看排行榜</p>
                 </div>
+
+                <!-- 班级综合排行 -->
+                <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border-light);">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
+                        <h3 style="margin:0;font-size:20px;color:var(--text-primary);">🏆 班级综合排行</h3>
+                        <span style="font-size:12px;color:var(--text-secondary);">按年级筛选 · 班级间友好竞赛</span>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-secondary);line-height:1.8;margin:0 0 14px;">
+                        计分方式：班级综合得分 = 班内所有在读学生「六维综合得分」的平均分（0–100 分）。采用平均分而非总分，避免班级人数不同造成不公平；同分时依次比较平均知识测评、平均作业得分、平均任务完成率。
+                    </p>
+                    <div class="leaderboard-table-wrap">
+                        <table class="leaderboard-table" id="classRankTable">
+                            <thead>
+                                <tr>
+                                    <th>排名</th><th>班级</th><th>人数</th><th>综合得分</th><th>知识测评</th><th>任务完成率</th>
+                                </tr>
+                            </thead>
+                            <tbody id="classRankBody">
+                                <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">加载中…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="leaderboard-empty" id="classRankEmpty" style="display:none">
+                        <p>🏫 暂无班级排行数据</p>
+                    </div>
+                    <div class="leaderboard-login-hint" id="classRankLoginHint" style="display:none">
+                        <p>🔒 请先<a href="javascript:void(0)" onclick="openLoginModal()">登录</a>后查看班级排行</p>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -1436,7 +1465,7 @@ z = x + y</pre>
     <!-- 模块化 script.js 拆分为 12 个独立模块 -->
     <script src="js/utils.js?v=20260930-1" defer></script>
     <script src="js/ui.js?v=20261027-1" defer></script>
-    <script src="js/api.js?v=20261014-1" defer></script>
+    <script src="js/api.js?v=20261106-1" defer></script>
     <script src="js/auth.js?v=20261027-1" defer></script>
     <script src="js/router.js?v=20261001-3" defer></script>
     <script src="js/chapters.js?v=20261027-1" defer></script>
@@ -1447,6 +1476,6 @@ z = x + y</pre>
     <script src="js/search.js?v=20261013-1" defer></script>
     <script src="script.js" defer></script>
     <script src="script-ch2.js?v=20261027-1" defer></script>
-    <script src="script-extras.js?v=20261014-2" defer></script>
+    <script src="script-extras.js?v=20261106-3" defer></script>
 </body>
 </html>

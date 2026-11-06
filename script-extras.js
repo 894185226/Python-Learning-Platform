@@ -36,6 +36,7 @@ async function onLeaderboardGradeChange() {
 }
 
 async function renderLeaderboard() {
+    renderClassLeaderboard();
     const currentUser = getCurrentUser();
     const body = document.getElementById('leaderboardBody');
     const empty = document.getElementById('leaderboardEmpty');
@@ -94,6 +95,64 @@ async function renderLeaderboard() {
     } catch (e) {
         if (table) table.style.display = 'none';
         if (empty) { empty.style.display = 'block'; empty.innerHTML = '<p>⚠️ 加载排行榜失败，请稍后重试</p>'; }
+    }
+}
+
+// ================================================================
+//   新功能模块 - 班级综合排行
+//   计分方式：班内所有在读学生「六维综合得分」的平均分（与学生榜同一评分引擎）
+// ================================================================
+async function renderClassLeaderboard() {
+    const body = document.getElementById('classRankBody');
+    if (!body) return;
+    const table = document.getElementById('classRankTable');
+    const empty = document.getElementById('classRankEmpty');
+    const loginHint = document.getElementById('classRankLoginHint');
+    const currentUser = getCurrentUser();
+
+    if (!currentUser) {
+        if (table) table.style.display = 'none';
+        if (empty) empty.style.display = 'none';
+        if (loginHint) loginHint.style.display = 'block';
+        return;
+    }
+    if (loginHint) loginHint.style.display = 'none';
+
+    const grade = document.getElementById('lbGradeFilter')?.value || '';
+    try {
+        const data = await API.getClassLeaderboard(grade);
+        if (!data.success || !data.ranking || data.ranking.length === 0) {
+            if (table) table.style.display = 'none';
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+        if (table) table.style.display = '';
+        if (empty) empty.style.display = 'none';
+
+        const rankColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+        body.innerHTML = data.ranking.map((c, i) => {
+            const rank = i + 1;
+            const isMine = String(c.grade) === String(currentUser.grade) &&
+                String(c.class_num) === String(currentUser.classNum);
+            const rankStyle = rank <= 3
+                ? `style="background:${rankColors[rank - 1]};color:#1f2937;font-weight:700;border-radius:50%;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;"`
+                : '';
+            const rowStyle = isMine ? 'style="background:rgba(4,170,109,0.1);font-weight:600;"' : '';
+            const tip = `平均作业得分 ${c.avg_assignment} · 班内最高分：${c.top_student}（${c.score} 分）`;
+            return `
+                <tr ${rowStyle}>
+                    <td>${rank <= 3 ? `<span ${rankStyle}>${rank}</span>` : rank}</td>
+                    <td>${escHtml(c.grade || '')}${escHtml(String(c.class_num))}班${isMine ? ' <span style="color:#04AA6D;font-size:12px;">(我的班级)</span>' : ''}</td>
+                    <td>${c.student_count} 人</td>
+                    <td title="${escHtml(tip)}"><strong>${c.score}</strong></td>
+                    <td>${c.avg_assessment}</td>
+                    <td>${c.avg_task}%</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        if (table) table.style.display = 'none';
+        if (empty) { empty.style.display = 'block'; empty.innerHTML = '<p>⚠️ 加载班级排行失败，请稍后重试</p>'; }
     }
 }
 
@@ -750,6 +809,77 @@ const DISCUSSION_CHAPTER_OPTIONS = [
 // ================================================================
 //   新功能模块 - 作业
 // ================================================================
+// 截图保存教程：展开状态在重新渲染后保持不变
+let screenshotGuideOpen = false;
+
+function toggleScreenshotGuide() {
+    screenshotGuideOpen = !screenshotGuideOpen;
+    const body = document.getElementById('screenshotGuideBody');
+    const arrow = document.getElementById('screenshotGuideArrow');
+    if (body) body.style.display = screenshotGuideOpen ? 'block' : 'none';
+    if (arrow) arrow.textContent = screenshotGuideOpen ? '收起 ▲' : '展开 ▼';
+}
+
+function screenshotGuideHTML() {
+    // 键盘按键使用站点已有的 .kbd 样式（亮色/暗色主题均已适配）
+    const kbd = function (key) {
+        return '<kbd class="kbd">' + key + '</kbd>';
+    };
+    const li = function (text) {
+        return '<li style="margin-bottom:6px;">' + text + '</li>';
+    };
+    const methodCard = function (title, desc, items) {
+        return '<div style="background:var(--w3-white);border:1px solid var(--border-light);border-radius:10px;padding:14px 16px;margin-bottom:12px;">' +
+            '<div style="font-weight:700;color:#04AA6D;font-size:15px;margin-bottom:4px;">' + title + '</div>' +
+            (desc ? '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">' + desc + '</div>' : '') +
+            '<ol style="margin:0;padding-left:22px;line-height:1.9;font-size:14px;color:var(--text-primary);">' + items + '</ol>' +
+            '</div>';
+    };
+
+    const method1 = methodCard(
+        '方法一：用「画图」保存截图（推荐，Win10 / Win11 都适用）',
+        '画图是 Windows 自带的程序，不用安装任何软件。',
+        li('先把要截图的画面显示在屏幕上，例如 Python 代码和运行结果。') +
+        li('同时按下 ' + kbd('Win') + ' + ' + kbd('Shift') + ' + ' + kbd('S') + '，屏幕会变暗，顶部出现截图工具栏。') +
+        li('按住鼠标左键框选要截取的区域，松开鼠标后，截图已自动复制到剪贴板（右下角会出现预览）。') +
+        li('点击屏幕左下角的「开始」按钮（Windows 图标），输入「画图」，点击打开「画图」程序。') +
+        li('在画图窗口中按 ' + kbd('Ctrl') + ' + ' + kbd('V') + ' 粘贴，截图就会出现在白色画布上。') +
+        li('点击左上角「文件」→「另存为」→「PNG 图片」。') +
+        li('在弹出的窗口中，左侧选择「桌面」，文件名填写「班级+姓名+作业名」（例如：七年级1班-张三-第1章作业），点击「保存」。') +
+        li('回到本页面，点「交作业」→ 在「附件」处点击「选择文件」→ 选中桌面上刚保存的截图 → 点击「提交作业」。')
+    );
+
+    const method2 = methodCard(
+        '方法二：用「画图 3D」保存截图（Windows 10）',
+        '如果你的电脑是 Windows 11，可能找不到「画图 3D」，请使用方法一。',
+        li('同样先按 ' + kbd('Win') + ' + ' + kbd('Shift') + ' + ' + kbd('S') + ' 框选并截取画面，截图会复制到剪贴板。') +
+        li('点击「开始」按钮，输入「画图 3D」并打开程序。') +
+        li('点击「新建」，在空白画布上按 ' + kbd('Ctrl') + ' + ' + kbd('V') + ' 粘贴截图。') +
+        li('点击左上角「菜单」→「另存为」→「PNG 图片」。') +
+        li('选择「桌面」，文件名填写「班级+姓名+作业名」，点击「保存」。') +
+        li('回到作业页面，在「附件」中选择这张图片，然后点击「提交作业」。')
+    );
+
+    const tips = '<div style="background:rgba(4,170,109,0.08);border-left:4px solid #04AA6D;border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.9;color:var(--text-primary);">' +
+        '<div style="font-weight:700;color:#04AA6D;margin-bottom:4px;">💡 小贴士</div>' +
+        '<div>① 想截整个屏幕：按 ' + kbd('Win') + ' + ' + kbd('PrtScn') + '，系统会自动保存到「此电脑 → 图片 → 屏幕截图」，可直接上传该图片，无需再用画图保存。</div>' +
+        '<div>② 截图里要同时包含「代码」和「运行结果」，字迹清晰，否则老师无法批改。</div>' +
+        '<div>③ 保存格式建议选 PNG，比 JPG 更清晰；保存后找不到文件，请到「桌面」查看。</div>' +
+        '<div>④ 如果粘贴到画图后是空白，说明截图没有成功，请重新按 ' + kbd('Win') + ' + ' + kbd('Shift') + ' + ' + kbd('S') + ' 再截一次。</div>' +
+        '</div>';
+
+    return '<div style="border:1px solid rgba(4,170,109,0.35);border-radius:12px;background:rgba(4,170,109,0.05);margin-bottom:16px;overflow:hidden;">' +
+        '<button type="button" onclick="toggleScreenshotGuide()" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;background:none;border:none;cursor:pointer;font-size:15px;font-weight:700;color:#04AA6D;text-align:left;font-family:inherit;">' +
+        '<span>📸 不会把截图保存成图片？点这里查看详细操作步骤</span>' +
+        '<span id="screenshotGuideArrow" style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">' + (screenshotGuideOpen ? '收起 ▲' : '展开 ▼') + '</span>' +
+        '</button>' +
+        '<div id="screenshotGuideBody" style="display:' + (screenshotGuideOpen ? 'block' : 'none') + ';padding:0 16px 16px;">' +
+        '<div style="font-size:13px;color:var(--text-secondary);line-height:1.8;margin-bottom:12px;">提交作业时如果要求上传截图，请先把画面截取下来并保存成图片文件（PNG / JPG），再通过下方作业的「附件」上传。下面以 Windows 自带的「画图」和「画图 3D」为例：</div>' +
+        method1 + method2 + tips +
+        '</div>' +
+        '</div>';
+}
+
 async function renderAssignments() {
     const currentUser = getCurrentUser();
     const container = document.getElementById('assignmentsContent');
@@ -766,7 +896,7 @@ async function renderAssignments() {
             container.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-secondary);">📭 暂无作业，老师布置后会显示在这里。</div>';
             return;
         }
-        container.innerHTML = '<div id="assignment-exemplary"></div>' + data.assignments.map(function (a) {
+        container.innerHTML = screenshotGuideHTML() + '<div id="assignment-exemplary"></div>' + data.assignments.map(function (a) {
             const overdue = a.due_date && new Date(a.due_date) < new Date();
             const statusTag = overdue
                 ? '<span style="display:inline-block;padding:2px 10px;border-radius:12px;background:#666;color:#fff;font-size:12px;">已截止</span>'

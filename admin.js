@@ -1379,22 +1379,37 @@ async function loadSubmissionsTable() {
 function renderSubmissionsTable(area, submissions) {
     const id = currentAssignmentId;
     if (!submissions || submissions.length === 0) { area.innerHTML = '<div class="empty-state">暂无提交记录</div>'; return; }
-    // 未处理（未评分）的学生排在前面，方便教师优先审阅
-    const sorted = submissions.slice().sort((a, b) => {
-        const aUn = a.score === null || a.score === undefined;
-        const bUn = b.score === null || b.score === undefined;
-        return aUn === bUn ? 0 : (aUn ? -1 : 1);
+    // 同一学生只保留最新一次提交：退回后重新提交的记录只在「历史」中查看，详情内不重复展示
+    const latestMap = new Map();
+    submissions.forEach(s => {
+        const key = s.student_id !== undefined && s.student_id !== null ? s.student_id : s.id;
+        const prev = latestMap.get(key);
+        if (!prev) { latestMap.set(key, s); return; }
+        const t = Date.parse(s.submitted_at) || 0;
+        const prevT = Date.parse(prev.submitted_at) || 0;
+        if (t > prevT || (t === prevT && s.id > prev.id)) latestMap.set(key, s);
     });
+    const latest = Array.from(latestMap.values());
+    // 排序：未批改 → 退回修改 → 已批改，方便教师按处理优先级审阅
+    const priority = s => {
+        if (s.status === 'returned') return 1;
+        if (s.score === null || s.score === undefined) return 0;
+        return 2;
+    };
+    const sorted = latest.sort((a, b) => priority(a) - priority(b));
     area.innerHTML = `<table class="data-table" style="width:100%;">
         <thead><tr><th>学生</th><th>状态</th><th>内容</th><th>评分/评语</th><th>提交时间</th></tr></thead>
         <tbody>${sorted.map(s => {
             const returned = s.status === 'returned';
             const exemplary = !!s.is_exemplary;
+            const graded = !returned && s.score !== null && s.score !== undefined;
             const imgExt = /\.(jpg|jpeg|png|gif|webp|bmp)$/i;
             const isImg = s.file_original_name && imgExt.test(s.file_original_name);
             const statusTag = returned
                 ? '<span class="status-tag" style="background:#f59e0b;color:#fff;">已退回</span>'
-                : '<span class="status-tag active">已提交</span>';
+                : (graded
+                    ? '<span class="status-tag active">已批改</span>'
+                    : '<span class="status-tag" style="background:#93c5fd;color:#1e40af;">已提交</span>');
             return `<tr>
             <td>${esc(s.display_name || '')}<br><span style="font-size:12px;color:#888;">${esc((s.grade || '') + (s.class_num ? s.class_num + '班' : ''))}</span>${exemplary ? '<br><span style="color:#f59e0b;">🏆 优秀</span>' : ''}</td>
             <td>${statusTag}<br><div style="margin-top:4px;display:flex;flex-direction:column;gap:4px;">${!returned ? `<button onclick="returnSubmission(${id},${s.id})" style="background:#f59e0b;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">退回</button>` : ''}<button onclick="toggleExemplary(${id},${s.id},${exemplary ? 0 : 1})" style="background:#7c3aed;color:#fff;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:12px;">${exemplary ? '取消评优' : '评为优秀'}</button></div></td>
@@ -1466,9 +1481,12 @@ function resetImageViewer() {
 
 function renderRosterTable(area, roster) {
     if (!roster || roster.length === 0) { area.innerHTML = '<div class="empty-state">该班级暂无在读学生</div>'; return; }
-    const submitted = roster.filter(r => r.submission_id).length;
+    const returnedCount = roster.filter(r => r.submission_id && r.status === 'returned').length;
+    // 已退回的作业不计入「已提交」，单独统计，避免教师误以为学生已完成
+    const submitted = roster.filter(r => r.submission_id && r.status !== 'returned').length;
+    const notSubmitted = roster.length - submitted - returnedCount;
     const statsEl = document.getElementById('submissionStats');
-    if (statsEl) statsEl.textContent = `已提交 ${submitted}/${roster.length} 人，未提交 ${roster.length - submitted} 人`;
+    if (statsEl) statsEl.textContent = `已提交 ${submitted}/${roster.length} 人，未提交 ${notSubmitted} 人` + (returnedCount ? `，已退回 ${returnedCount} 人` : '');
     area.innerHTML = `<table class="data-table" style="width:100%;">
         <thead><tr><th>学生</th><th>班级</th><th>完成状态</th><th>得分</th><th>提交时间</th></tr></thead>
         <tbody>${roster.map(r => {

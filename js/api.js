@@ -215,6 +215,11 @@
             if (grade) url += 'grade=' + encodeURIComponent(grade);
             return await this._fetch(url);
         },
+        async getClassLeaderboard(grade) {
+            let url = window.API_BASE + '/leaderboard/class-ranking?';
+            if (grade) url += 'grade=' + encodeURIComponent(grade);
+            return await this._fetch(url);
+        },
         async getChapterLocks(grade, classNum) {
             let url = window.API_BASE + '/chapter-locks?';
             if (grade) url += 'grade=' + encodeURIComponent(grade) + '&';

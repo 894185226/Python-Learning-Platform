@@ -311,9 +311,10 @@ async function loadDashboard() {
         const chartEl = document.getElementById('moduleChart');
         if (stats.moduleStats && stats.moduleStats.length > 0) {
             const total = stats.totalStudents || 1;
-            chartEl.innerHTML = stats.moduleStats.map(m => {
+            const sortedStats = stats.moduleStats.slice().sort((a, b) => moduleSortKey(a.module_id) - moduleSortKey(b.module_id));
+            chartEl.innerHTML = sortedStats.map(m => {
                 const pct = Math.min((m.count / total * 100), 100).toFixed(0);
-                return `<div class="chart-bar-row"><span class="chart-label">${MODULE_NAMES[m.module_id] || m.module_id}</span><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct}%">${m.count}</div></div></div>`;
+                return `<div class="chart-bar-row"><span class="chart-label">${moduleDisplayName(m.module_id)}</span><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct}%">${m.count}</div></div></div>`;
             }).join('');
         } else chartEl.innerHTML = '<div class="empty-state">暂无数据</div>';
 
@@ -777,7 +778,7 @@ async function openStudentDetail(id) {
                 <div class="progress-bar-fill" style="width:${pct}%"></div>
                 <span class="progress-bar-text">${pct}% (${completedModules}/${TOTAL_MODULES})</span>
             </div>
-            <div class="detail-modules" style="margin-top:10px;">${data.modules.length > 0 ? data.modules.map(m => `<span class="module-chip">${MODULE_NAMES[m.module_id] || m.module_id} <small>${fmt(m.completed_at)}</small></span>`).join('') : '<span class="empty-state">暂无</span>'}</div>
+            <div class="detail-modules" style="margin-top:10px;">${data.modules.length > 0 ? data.modules.map(m => `<span class="module-chip">${moduleDisplayName(m.module_id)} <small>${fmt(m.completed_at)}</small></span>`).join('') : '<span class="empty-state">暂无</span>'}</div>
             <h4 style="margin-top:20px;">成就列表</h4>
             <div class="detail-modules">${data.achievements.length > 0 ? data.achievements.map(a => `<span class="module-chip achievement">${ACHIEVEMENT_NAMES[a.achievement_id] || a.achievement_id} <small>${fmt(a.earned_at)}</small></span>`).join('') : '<span class="empty-state">暂无</span>'}</div>
             <h4 style="margin-top:20px;">测验成绩</h4>
@@ -1065,6 +1066,38 @@ async function loadChapterCompletion() {
             </div>`;
         }).join('');
     } catch (e) { console.error('加载章节完成率失败:', e); }
+}
+
+// 将模块 ID 转成易读名称（组合章节名 + 模块类型名），供统计图表/详情展示
+function moduleDisplayName(moduleId) {
+    if (!moduleId) return moduleId;
+    if (moduleId.indexOf('chapter_') === 0) {
+        const ch = moduleId.replace('chapter_', '');
+        return (CHAPTER_NAMES[ch] || ch) + ' 完成';
+    }
+    const m = /^(ch\d+)_(.*)$/.exec(moduleId);
+    if (m) {
+        const chName = CHAPTER_NAMES[m[1]] || m[1];
+        const raw = MODULE_NAMES[moduleId] || m[2];
+        const short = raw.replace(/^Ch\d+-/, '');
+        return chName + ' · ' + short;
+    }
+    return MODULE_NAMES[moduleId] || moduleId;
+}
+
+// 模块排序权重：按章节号 + 章节内模块类型，让统计图表按课程顺序展示
+function moduleSortKey(moduleId) {
+    const typeOrder = { intro: 1, knowledge: 2, lesson: 3, lab: 4, judge: 5, practice: 6, trace: 7, debug: 8, extend: 9, project: 10, quiz: 11, test: 11 };
+    if (moduleId && moduleId.indexOf('chapter_') === 0) {
+        const ch = parseInt(moduleId.replace('chapter_ch', ''), 10);
+        return (isNaN(ch) ? 0 : ch) * 100 + 12;
+    }
+    const m = /^ch(\d+)_(.+)$/.exec(moduleId || '');
+    if (m) {
+        const ch = parseInt(m[1], 10);
+        return (isNaN(ch) ? 0 : ch) * 100 + (typeOrder[m[2]] || 99);
+    }
+    return 99999;
 }
 
 // 将测验模块ID（如 ch1_quiz / ch2_test）映射为「第X章 章名 · 综合测试」

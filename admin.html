@@ -313,6 +313,31 @@
                         </table>
                     </div>
                 </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-school"></i> 班级综合排行</h3>
+                        <span style="font-size:12px;color:#888;">综合得分 = 班内学生平均分 · 仅受年级筛选影响</span>
+                    </div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table" id="adminClassRankingTable">
+                            <thead>
+                                <tr>
+                                    <th>排名</th>
+                                    <th>班级</th>
+                                    <th>人数</th>
+                                    <th>综合得分</th>
+                                    <th>平均测评</th>
+                                    <th>平均作业</th>
+                                    <th>任务完成率</th>
+                                    <th>班内最高</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminClassRankingBody">
+                                <tr><td colspan="8" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
             <section class="page-content" id="page-notices">
                 <div class="notices-container">
@@ -1138,7 +1163,7 @@
     </div>
 
     <script src="constants.js?v=20261027-1"></script>
-    <script src="admin.js?v=20261106-4"></script>
+    <script src="admin.js?v=20261106-5"></script>
     <!-- 图片查看器（作业提交图片放大/翻转/缩放） -->
     <div class="image-viewer-overlay" id="imageViewerOverlay" style="display:none;" onclick="if(event.target===this)closeImageViewer()">
         <div class="image-viewer-toolbar">

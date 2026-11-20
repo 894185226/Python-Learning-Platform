@@ -107,6 +107,65 @@ function computeScore(agg) {
     return { dimensions, total: computeTotal(dimensions) };
 }
 
+/**
+ * 按「年级 + 班级」聚合学生综合得分，生成班级综合排行。
+ * 班级综合得分 = 班内所有在读学生综合得分的平均分（避免班级人数不同造成不公平）。
+ * 同分时依次比较平均知识测评、平均作业得分、平均任务完成率。
+ * 学生端与管理后台复用本函数，保证班级排行口径一致。
+ *
+ * @param {Array} rows 学生维度聚合数据数组（字段与排行榜路由查询一致）
+ * @param {number} totalAssignments 全站作业总数
+ * @returns {Array<Object>} 排序后的班级排行（score 降序）
+ */
+function computeClassRanking(rows, totalAssignments) {
+    const round1 = v => Math.round(Number(v) * 10) / 10;
+    const classMap = new Map();
+
+    (rows || []).forEach(r => {
+        const { dimensions, total } = computeScore({ ...r, totalAssignments });
+        const key = r.grade + '|' + r.class_num;
+        if (!classMap.has(key)) {
+            classMap.set(key, {
+                grade: r.grade,
+                class_num: Number(r.class_num),
+                student_count: 0,
+                scoreSum: 0,
+                taskSum: 0,
+                assessmentSum: 0,
+                assignmentSum: 0,
+                topStudent: '',
+                topScore: -1
+            });
+        }
+        const cls = classMap.get(key);
+        cls.student_count += 1;
+        cls.scoreSum += total;
+        cls.taskSum += dimensions.taskCompletion;
+        cls.assessmentSum += dimensions.assessment;
+        cls.assignmentSum += dimensions.assignment;
+        if (total > cls.topScore) {
+            cls.topScore = total;
+            cls.topStudent = r.display_name || r.username;
+        }
+    });
+
+    return Array.from(classMap.values()).map(c => ({
+        grade: c.grade,
+        class_num: c.class_num,
+        student_count: c.student_count,
+        score: round1(c.scoreSum / c.student_count),
+        avg_task: round1(c.taskSum / c.student_count),
+        avg_assessment: round1(c.assessmentSum / c.student_count),
+        avg_assignment: round1(c.assignmentSum / c.student_count),
+        top_student: c.topStudent
+    })).sort((a, b) =>
+        (b.score - a.score) ||
+        (b.avg_assessment - a.avg_assessment) ||
+        (b.avg_assignment - a.avg_assignment) ||
+        (b.avg_task - a.avg_task)
+    );
+}
+
 module.exports = {
     TOTAL_CHAPTERS,
     WEIGHTS,
@@ -117,5 +176,6 @@ module.exports = {
     ratioPart,
     computeDimensions,
     computeTotal,
-    computeScore
+    computeScore,
+    computeClassRanking
 };

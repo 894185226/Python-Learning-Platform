@@ -6,7 +6,7 @@ const shared = require('../shared');
 const { requireDB, sessionAuth } = require('../middleware');
 const { VALID_MODULES, VALID_ACHIEVEMENTS } = require('../constants');
 const { createLogger } = require('../shared/logger');
-const { computeScore } = require('../shared/scoring');
+const { computeScore, computeClassRanking } = require('../shared/scoring');
 const path = require('path');
 const fs = require('fs');
 const log = createLogger('student');
@@ -215,52 +215,7 @@ module.exports = function(app) {
 
             const [[{ totalAssignments }]] = await pool.query('SELECT COUNT(*) AS totalAssignments FROM assignments');
 
-            // 按「年级 + 班级」聚合学生综合得分
-            const classMap = new Map();
-            rows.forEach(r => {
-                const { dimensions, total } = computeScore({ ...r, totalAssignments });
-                const key = r.grade + '|' + r.class_num;
-                if (!classMap.has(key)) {
-                    classMap.set(key, {
-                        grade: r.grade,
-                        class_num: Number(r.class_num),
-                        count: 0,
-                        scoreSum: 0,
-                        taskSum: 0,
-                        assessmentSum: 0,
-                        assignmentSum: 0,
-                        topStudent: '',
-                        topScore: -1
-                    });
-                }
-                const cls = classMap.get(key);
-                cls.count += 1;
-                cls.scoreSum += total;
-                cls.taskSum += dimensions.taskCompletion;
-                cls.assessmentSum += dimensions.assessment;
-                cls.assignmentSum += dimensions.assignment;
-                if (total > cls.topScore) {
-                    cls.topScore = total;
-                    cls.topStudent = r.display_name || r.username;
-                }
-            });
-
-            const round1 = v => Math.round(Number(v) * 10) / 10;
-            const ranking = Array.from(classMap.values()).map(c => ({
-                grade: c.grade,
-                class_num: c.class_num,
-                student_count: c.count,
-                score: round1(c.scoreSum / c.count),
-                avg_task: round1(c.taskSum / c.count),
-                avg_assessment: round1(c.assessmentSum / c.count),
-                avg_assignment: round1(c.assignmentSum / c.count),
-                top_student: c.topStudent
-            })).sort((a, b) =>
-                (b.score - a.score) ||
-                (b.avg_assessment - a.avg_assessment) ||
-                (b.avg_assignment - a.avg_assignment) ||
-                (b.avg_task - a.avg_task)
-            );
+            const ranking = computeClassRanking(rows, totalAssignments);
 
             res.json({ success: true, ranking });
         } catch (err) {

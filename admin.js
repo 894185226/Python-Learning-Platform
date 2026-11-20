@@ -748,6 +748,38 @@ async function loadAdminLeaderboard() {
             </tr>`;
         }).join('');
     } catch (e) { console.error(e); }
+    loadAdminClassRanking();
+}
+
+// ===== 班级综合排行榜 =====
+async function loadAdminClassRanking() {
+    const gradeEl = document.getElementById('lbGrade');
+    const grade = gradeEl ? gradeEl.value : '';
+    const body = document.getElementById('adminClassRankingBody');
+    if (!body) return;
+    try {
+        const qs = grade ? '?grade=' + encodeURIComponent(grade) : '';
+        const data = await apiFetch(API_BASE + '/leaderboard/class-ranking' + qs);
+        if (!data.success) return;
+        const list = data.ranking || [];
+        if (list.length === 0) {
+            body.innerHTML = '<tr><td colspan="8" class="empty-state">暂无数据</td></tr>';
+            return;
+        }
+        body.innerHTML = list.map((c, i) => {
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+            return `<tr>
+                <td>${medal}</td>
+                <td><strong>${esc(c.grade || '')}${esc(String(c.class_num))}班</strong></td>
+                <td>${c.student_count} 人</td>
+                <td style="color:#04AA6D;font-weight:700;">${c.score}</td>
+                <td>${c.avg_assessment}</td>
+                <td>${c.avg_assignment}</td>
+                <td>${c.avg_task}%</td>
+                <td>${esc(c.top_student || '-')}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) { console.error(e); }
 }
 
 // ===== 学生详情弹窗 =====

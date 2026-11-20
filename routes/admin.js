@@ -4,7 +4,7 @@
 // ===================================================
 
 const shared = require('../shared');
-const { computeScore } = require('../shared/scoring');
+const { computeScore, computeClassRanking } = require('../shared/scoring');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -359,6 +359,44 @@ module.exports = function(app) {
             res.json({ success: true, leaderboard });
         } catch (err) {
             log.error('获取排行榜失败', { error: err.message });
+            res.json({ success: false, error: '服务器错误' });
+        }
+    });
+
+    // ---------- 班级综合排行榜 ----------
+    // 班级综合得分 = 班内所有在读学生综合得分的平均分（复用 computeClassRanking，与学生端口径一致）
+    app.get('/api/admin/leaderboard/class-ranking', adminAuth, requireDB, async (req, res) => {
+        try {
+            const grade = (req.query.grade || '').toString().trim();
+            const conditions = ["s.status = 'active'", 's.class_num > 0'];
+            const params = [];
+            if (grade) { conditions.push('s.grade = ?'); params.push(grade); }
+            const whereClause = 'WHERE ' + conditions.join(' AND ');
+
+            const [rows] = await pool.query(`
+                SELECT
+                    s.id, s.username, s.display_name, s.grade, s.class_num,
+                    (SELECT COUNT(*) FROM learning_progress lp WHERE lp.student_id = s.id AND lp.completed = 1 AND lp.module_id LIKE 'chapter_%') AS chapter_done,
+                    (SELECT COALESCE(AVG(lp.score), 0) FROM learning_progress lp WHERE lp.student_id = s.id AND lp.completed = 1 AND (lp.module_id LIKE 'ch%_quiz' OR lp.module_id LIKE 'ch%_test')) AS assessment_avg,
+                    (SELECT COALESCE(SUM(ass.score), 0) FROM assignment_submissions ass WHERE ass.student_id = s.id AND ass.score IS NOT NULL) AS assign_graded_sum,
+                    (SELECT COUNT(*) FROM assignment_submissions ass WHERE ass.student_id = s.id AND ass.score IS NULL) AS assign_ungraded,
+                    (SELECT COUNT(*) FROM discussion_posts dp WHERE dp.student_id = s.id) AS posts,
+                    (SELECT COUNT(*) FROM discussion_replies dr WHERE dr.student_id = s.id) AS replies,
+                    (SELECT COUNT(*) FROM daily_question_answers dq WHERE dq.student_id = s.id) AS daily_answers,
+                    (SELECT COUNT(DISTINCT DATE(ll.login_time)) FROM login_logs ll WHERE ll.student_id = s.id) AS login_days,
+                    (SELECT COUNT(*) FROM achievements a WHERE a.student_id = s.id) AS achievements,
+                    ((SELECT COUNT(*) FROM study_notes sn WHERE sn.student_id = s.id) + (SELECT COUNT(*) FROM code_snippets cs WHERE cs.student_id = s.id)) AS notes_code,
+                    (SELECT COALESCE(SUM(cp.points), 0) FROM class_performance cp WHERE cp.student_id = s.id) AS class_points
+                FROM students s
+                ${whereClause}
+            `, params);
+
+            const [[{ totalAssignments }]] = await pool.query('SELECT COUNT(*) AS totalAssignments FROM assignments');
+            const ranking = computeClassRanking(rows, totalAssignments);
+
+            res.json({ success: true, ranking });
+        } catch (err) {
+            log.error('获取班级排行榜失败', { error: err.message });
             res.json({ success: false, error: '服务器错误' });
         }
     });

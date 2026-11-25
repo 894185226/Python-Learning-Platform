@@ -814,7 +814,7 @@ async function openStudentDetail(id) {
             <h4 style="margin-top:20px;">成就列表</h4>
             <div class="detail-modules">${data.achievements.length > 0 ? data.achievements.map(a => `<span class="module-chip achievement">${ACHIEVEMENT_NAMES[a.achievement_id] || a.achievement_id} <small>${fmt(a.earned_at)}</small></span>`).join('') : '<span class="empty-state">暂无</span>'}</div>
             <h4 style="margin-top:20px;">测验成绩</h4>
-            <div class="detail-modules">${data.quizScores && data.quizScores.length > 0 ? data.quizScores.map(q => `<span class="module-chip" style="background:rgba(16,185,129,0.1);color:var(--success);">${formatQuizChapterName(q.module_id)}: ${q.score}分</span>`).join('') : '<span class="empty-state">暂无</span>'}</div>
+            <div class="detail-modules">${data.quizScores && data.quizScores.length > 0 ? data.quizScores.map(q => `<span class="module-chip" style="background:rgba(16,185,129,0.1);color:var(--success);">${moduleDisplayName(q.module_id)}: ${q.score}分</span>`).join('') : '<span class="empty-state">暂无</span>'}</div>
             <h4 style="margin-top:20px;">错题本</h4>
             <div>${data.mistakes && data.mistakes.length > 0 ? data.mistakes.map(m => `
                 <div style="padding:8px 0;border-bottom:1px solid var(--border-light);">
@@ -1132,15 +1132,6 @@ function moduleSortKey(moduleId) {
     return 99999;
 }
 
-// 将测验模块ID（如 ch1_quiz / ch2_test）映射为「第X章 章名 · 综合测试」
-function formatQuizChapterName(moduleId) {
-    const m = /^(ch\d+)_/.exec(moduleId || '');
-    if (m && CHAPTER_NAMES[m[1]]) {
-        return CHAPTER_NAMES[m[1]] + ' · 综合测试';
-    }
-    return MODULE_NAMES[moduleId] || moduleId;
-}
-
 // ===== 测验成绩 =====
 async function loadQuizScores() {
     try {
@@ -1153,7 +1144,7 @@ async function loadQuizScores() {
         }
         const sorted = [...data.quizScores].sort((a, b) => (a.avgScore || 0) - (b.avgScore || 0));
         tbody.innerHTML = sorted.map(s => {
-            const name = formatQuizChapterName(s.moduleId);
+            const name = moduleDisplayName(s.moduleId);
             const avg = (s.avgScore || 0).toFixed(1);
             const lowScore = parseFloat(avg) < 60;
             return `<tr>

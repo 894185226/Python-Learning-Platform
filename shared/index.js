@@ -232,6 +232,45 @@ async function dbHealthCheck() {
     }
 }
 
+// 构造评分聚合查询的 WHERE 条件（学生榜 / 班级排行共用）
+// opts.grade：年级筛选；opts.classNum：班级筛选（仅学生榜）；opts.onlyWithClass：仅统计有班级的学生（班级排行）
+function buildScoreConditions(opts = {}) {
+    const conditions = ["s.status = 'active'"];
+    const params = [];
+    if (opts.onlyWithClass) conditions.push('s.class_num > 0');
+    const grade = (opts.grade || '').toString().trim();
+    if (grade) { conditions.push('s.grade = ?'); params.push(grade); }
+    const classNum = parseInt(opts.classNum, 10);
+    if (opts.classNum !== undefined && opts.classNum !== '' && opts.classNum !== null && !isNaN(classNum)) {
+        conditions.push('s.class_num = ?');
+        params.push(classNum);
+    }
+    return { whereClause: conditions.join(' AND '), params };
+}
+
+// 一次性聚合学生各学习维度原始数据（数量类指标后续在 scoring.js 中归一化）
+// 学生端与管理后台的排行榜均复用本函数，避免评分聚合 SQL 重复（口径一致）
+async function queryScoreRows(whereClause, params) {
+    const [rows] = await pool.query(`
+        SELECT
+            s.id, s.username, s.display_name, s.grade, s.class_num,
+            (SELECT COUNT(*) FROM learning_progress lp WHERE lp.student_id = s.id AND lp.completed = 1 AND lp.module_id LIKE 'chapter_%') AS chapter_done,
+            (SELECT COALESCE(AVG(lp.score), 0) FROM learning_progress lp WHERE lp.student_id = s.id AND lp.completed = 1 AND (lp.module_id LIKE 'ch%_quiz' OR lp.module_id LIKE 'ch%_test')) AS assessment_avg,
+            (SELECT COALESCE(SUM(ass.score), 0) FROM assignment_submissions ass WHERE ass.student_id = s.id AND ass.score IS NOT NULL) AS assign_graded_sum,
+            (SELECT COUNT(*) FROM assignment_submissions ass WHERE ass.student_id = s.id AND ass.score IS NULL) AS assign_ungraded,
+            (SELECT COUNT(*) FROM discussion_posts dp WHERE dp.student_id = s.id) AS posts,
+            (SELECT COUNT(*) FROM discussion_replies dr WHERE dr.student_id = s.id) AS replies,
+            (SELECT COUNT(*) FROM daily_question_answers dq WHERE dq.student_id = s.id) AS daily_answers,
+            (SELECT COUNT(DISTINCT DATE(ll.login_time)) FROM login_logs ll WHERE ll.student_id = s.id) AS login_days,
+            (SELECT COUNT(*) FROM achievements a WHERE a.student_id = s.id) AS achievements,
+            ((SELECT COUNT(*) FROM study_notes sn WHERE sn.student_id = s.id) + (SELECT COUNT(*) FROM code_snippets cs WHERE cs.student_id = s.id)) AS notes_code,
+            (SELECT COALESCE(SUM(cp.points), 0) FROM class_performance cp WHERE cp.student_id = s.id) AS class_points
+        FROM students s
+        WHERE ${whereClause}
+    `, params);
+    return rows;
+}
+
 // 初始化会话
 loadSessions();
 loadAdminSessions();
@@ -279,4 +318,6 @@ module.exports = {
     hashPassword, verifyPassword,
     logAdminAction,
     dbHealthCheck,
+    buildScoreConditions,
+    queryScoreRows,
 };
